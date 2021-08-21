@@ -69,6 +69,16 @@ class CustomBot(commands.Bot):
         if not self.fully_ready:
             await self.wait_for('fully_ready')
 
+        if message.content in [f'<@!{self.user.id}>', f'<@{self.user.id}>']:
+            embed = create_embed(
+                message.author,
+                title='Bot has been pinged!',
+                description=f'The current prefixes are {self.user.mention} and '
+                            f'"{self.get_custom_prefix(self, message)[2]}"'
+            )
+
+            await message.channel.send(embed=embed)
+
         await self.process_commands(message)
 
     async def startup(self):
@@ -179,6 +189,19 @@ class CustomBot(commands.Bot):
                 )
 
                 self.logging_configs[config.guild.id] = config
+
+    @staticmethod
+    def get_custom_prefix(_bot: 'CustomBot', message: discord.Message):
+        if not message.guild:
+            return commands.when_mentioned_or('doggie.')(_bot, message)
+
+        config = _bot.basic_configs.get(message.guild.id)
+
+        if not config or not config.prefix:
+            return commands.when_mentioned_or('doggie.')(_bot, message)
+
+        else:
+            return commands.when_mentioned_or(config.prefix)(_bot, message)
 
 
 class CustomMenu(menus.MenuPages):
