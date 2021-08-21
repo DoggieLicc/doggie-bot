@@ -19,17 +19,7 @@ cogs = [
 ]
 
 
-def get_prefix(_bot: CustomBot, message: discord.Message):
-    if not message.guild:
-        return commands.when_mentioned_or('doggie.')(_bot, message)
 
-    config = _bot.basic_configs.get(message.guild.id)
-
-    if not config or not config.prefix:
-        return commands.when_mentioned_or('doggie.')(_bot, message)
-
-    else:
-        return commands.when_mentioned_or(config.prefix)(_bot, message)
 
 
 intents = discord.Intents(
@@ -44,7 +34,7 @@ intents = discord.Intents(
 bot = CustomBot(
     activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie."'),
     allowed_mentions=discord.AllowedMentions(replied_user=False),
-    command_prefix=get_prefix,
+    command_prefix=CustomBot.get_custom_prefix,
     help_command=CustomHelp(),
     strip_after_prefix=True,
     case_insensitive=True,
