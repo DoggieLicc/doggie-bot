@@ -10,7 +10,7 @@ from discord.ext import commands, menus
 
 import asqlite
 
-from utils import guess_user_nitro_status, user_friendly_dt, create_embed
+from utils.funcs import guess_user_nitro_status, user_friendly_dt, create_embed
 
 __all__ = [
     'CustomContext',
