@@ -3,15 +3,15 @@ import traceback
 import discord
 from discord.ext import commands
 
-from utils import CustomBot, CustomContext, create_embed, str_to_file
+import utils
 
 
 class ErrorHandler(commands.Cog):
-    def __init__(self, bot: CustomBot):
-        self.bot: CustomBot = bot
+    def __init__(self, bot: utils.CustomBot):
+        self.bot: utils.CustomBot = bot
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: CustomContext, error):
+    async def on_command_error(self, ctx: utils.CustomContext, error):
         if ctx.command and ctx.command.has_error_handler():
             return
 
@@ -21,7 +21,7 @@ class ErrorHandler(commands.Cog):
         if isinstance(error, (commands.CommandNotFound, commands.NotOwner)):
             return
 
-        embed = create_embed(ctx.author, title='Error while running command!', color=discord.Color.red())
+        embed = utils.create_embed(ctx.author, title='Error while running command!', color=discord.Color.red())
 
         if isinstance(error, commands.MissingRequiredArgument):
             embed.add_field(
@@ -109,14 +109,18 @@ class ErrorHandler(commands.Cog):
         lines = traceback.format_exception(etype, error, trace)
         traceback_t: str = ''.join(lines)
 
-        file = str_to_file(traceback_t, filename='traceback.py')
+        file = utils.str_to_file(traceback_t, filename='traceback.py')
 
         owner: discord.User = await self.bot.get_owner()
 
         embed.add_field(name="Unhandled Error!:", value=f"{error}", inline=False)
         embed.add_field(name="Message content:", value=ctx.message.content, inline=False)
-        embed.add_field(name="Extra Info:", value=f"Guild: {ctx.guild}: {ctx.guild.id if ctx.guild else 'None'}\n"
-                                                  f"Channel: {ctx.channel}:", inline=False)
+
+        embed.add_field(
+            name="Extra Info:",
+            value=f"Guild: {ctx.guild}: {ctx.guild.id if ctx.guild else 'None'}\n"
+                  f"Channel: {ctx.channel}:", inline=False
+        )
 
         await owner.send(file=file, embed=embed)
 

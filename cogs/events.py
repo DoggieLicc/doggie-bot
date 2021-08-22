@@ -5,7 +5,7 @@ from typing import Union, List, Optional
 import asyncio
 from datetime import datetime, timedelta, timezone
 
-from utils import CustomBot, CustomContext, format_deleted_msg, shorten_below_number
+import utils
 
 
 async def ban_embed(guild: discord.Guild, punished: discord.User, action):
@@ -34,7 +34,7 @@ async def ban_embed(guild: discord.Guild, punished: discord.User, action):
     return embed
 
 
-def format_log(ctx: CustomContext, list: List[discord.Member], reason: str, punishment: str):
+def format_log(ctx: utils.CustomContext, list: List[discord.Member], reason: str, punishment: str):
     if not ctx.logging_config.mute_channel:
         return
 
@@ -46,15 +46,15 @@ def format_log(ctx: CustomContext, list: List[discord.Member], reason: str, puni
 
     embed.add_field(
         name=f'{punishment} members:',
-        value='\n'.join(shorten_below_number(map(str, list)))
+        value='\n'.join(utils.shorten_below_number(map(str, list)))
     )
 
     return embed
 
 
 class EventsCog(commands.Cog):
-    def __init__(self, bot: CustomBot):
-        self.bot: CustomBot = bot
+    def __init__(self, bot: utils.CustomBot):
+        self.bot: utils.CustomBot = bot
 
     @commands.Cog.listener()
     async def on_fully_ready(self):
@@ -63,7 +63,7 @@ class EventsCog(commands.Cog):
               f'Successfully logged in and booted...!')
 
     @commands.Cog.listener()
-    async def on_command(self, ctx: CustomContext):
+    async def on_command(self, ctx: utils.CustomContext):
         await ctx.trigger_typing()
 
     @commands.Cog.listener()
@@ -144,7 +144,7 @@ class EventsCog(commands.Cog):
         if not log_config or not log_config.delete_channel:
             return
 
-        embed = format_deleted_msg(message)
+        embed = utils.format_deleted_msg(message)
 
         try:
             await log_config.delete_channel.send(embed=embed)
@@ -152,7 +152,7 @@ class EventsCog(commands.Cog):
             pass
 
     @commands.Cog.listener()
-    async def on_mute(self, ctx: CustomContext, muted: List[discord.Member], reason: str):
+    async def on_mute(self, ctx: utils.CustomContext, muted: List[discord.Member], reason: str):
         if not ctx.logging_config.mute_channel:
             return
 
@@ -164,7 +164,7 @@ class EventsCog(commands.Cog):
             pass
 
     @commands.Cog.listener()
-    async def on_unmute(self, ctx: CustomContext, unmuted: List[discord.Member], reason: str):
+    async def on_unmute(self, ctx: utils.CustomContext, unmuted: List[discord.Member], reason: str):
         if not ctx.logging_config.mute_channel:
             return
 
@@ -176,7 +176,7 @@ class EventsCog(commands.Cog):
             pass
 
     @commands.Cog.listener()
-    async def on_purge(self, ctx: CustomContext, users: Optional[List[discord.User]], amount: int):
+    async def on_purge(self, ctx: utils.CustomContext, users: Optional[List[discord.User]], amount: int):
         if not ctx.logging_config.purge_channel:
             return
 

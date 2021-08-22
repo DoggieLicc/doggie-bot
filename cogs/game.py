@@ -12,10 +12,9 @@ from mojang import MojangAPI as Mojang
 from io import BytesIO
 from osu import OsuApi, OsuApiException
 
-from utils import CustomBot, CustomContext, create_embed, is_uuid4, user_friendly_dt
+import utils
 
 from datetime import timedelta
-
 
 matplotlib.use('Agg')
 plt.style.use('dark_background')
@@ -23,7 +22,6 @@ plt.tight_layout()
 
 
 def render_failtimes(data) -> discord.File:
-
     df = pandas.DataFrame(
         {
             'percent': range(0, 100),
@@ -60,34 +58,52 @@ def render_failtimes(data) -> discord.File:
 
 def sync_minecraft(ctx, account):
     try:
-        if is_uuid4(account):
+        if utils.is_uuid4(account):
             uuid = account
         else:
             uuid = Mojang.get_uuid(account)
 
         profile = Mojang.get_profile(uuid)
         if not profile:
-            return create_embed(ctx.author, title="Error!", description="Account not found!", color=0xeb4034)
+            return utils.create_embed(
+                ctx.author,
+                title="Error!",
+                description="Account not found!",
+                color=discord.Color.red()
+            )
+
         name_history = Mojang.get_name_history(uuid)
     except Exception:
-        return create_embed(ctx.author, title="Error!", description="Can't lookup account! (API down?)", color=0xeb4034)
+        return utils.create_embed(
+            ctx.author,
+            title="Error!",
+            description="Can't lookup account! (API down?)",
+            color=discord.Color.red()
+        )
 
     past_names = [data['name'] for data in name_history if data['name'] != profile.name]
 
-    embed = create_embed(
+    embed = utils.create_embed(
         ctx.author,
         title="Minecraft account info:",
         thumbnail="https://cdn.discordapp.com/attachments/632730054396215299/825080584451391529/grass.png")
 
     embed.add_field(name="Current Username:", value=discord.utils.escape_markdown(profile.name), inline=False)
     embed.add_field(name="Profile UUID:", value=profile.id, inline=False)
-    embed.add_field(name="Past Usernames:",
-                    value=(discord.utils.escape_markdown(", ".join(past_names)) if past_names else "No past usernames"),
-                    inline=False)
-    embed.add_field(name="Skin:",
-                    value=f"[Download Skin ({'Steve Type' if not profile.skin_model == 'slim' else 'Alex Type'})]"
-                          f"({profile.skin_url})" if profile.skin_url else "No skin",
-                    inline=False)
+
+    embed.add_field(
+        name="Past Usernames:",
+        value=(discord.utils.escape_markdown(", ".join(past_names)) if past_names else "No past usernames"),
+        inline=False
+    )
+
+    embed.add_field(
+        name="Skin:",
+        value=f"[Download Skin ({'Steve Type' if not profile.skin_model == 'slim' else 'Alex Type'})]"
+              f"({profile.skin_url})" if profile.skin_url else "No skin",
+        inline=False
+    )
+
     embed.add_field(name="Is legacy account?:", value="Yes" if profile.is_legacy_profile else "No", inline=False)
 
     # Dream's UUID
@@ -98,8 +114,8 @@ def sync_minecraft(ctx, account):
 
 
 class ModeConverter(commands.Converter):
-    def __init__(self, bot: CustomBot):
-        self.bot: CustomBot = bot
+    def __init__(self, bot: utils.CustomBot):
+        self.bot: utils.CustomBot = bot
 
     async def convert(self, ctx: commands.Context, mode: str):
 
@@ -123,7 +139,7 @@ class GameCog(commands.Cog, name="Games"):
     """Commands used to get info for video-game accounts"""
 
     def __init__(self, bot):
-        self.bot: CustomBot = bot
+        self.bot: utils.CustomBot = bot
 
         self.osu_api = OsuApi(
             client_id=bot.config['osu_client_id'],
@@ -132,7 +148,7 @@ class GameCog(commands.Cog, name="Games"):
 
     @commands.cooldown(1, 5, BucketType.user)
     @commands.command(aliases=["mc"])
-    async def minecraft(self, ctx: CustomContext, account):
+    async def minecraft(self, ctx: utils.CustomContext, account):
         """Gets info of minecraft accounts using current username or their UUID"""
 
         async with ctx.channel.typing():
@@ -140,17 +156,17 @@ class GameCog(commands.Cog, name="Games"):
         await ctx.send(embed=embed)
 
     @commands.group(invoke_without_command=True)
-    async def osu(self, ctx: CustomContext):
+    async def osu(self, ctx: utils.CustomContext):
         await ctx.send_help(ctx.command)
 
     @osu.command()
     @commands.cooldown(15, 60, BucketType.user)
-    async def account(self, ctx: CustomContext, account, gamemode: Optional[ModeConverter] = 'osu'):
+    async def account(self, ctx: utils.CustomContext, account, gamemode: Optional[ModeConverter] = 'osu'):
         """Gets info of osu! accounts! You can also specify a gamemode to get stats for that gamemode!"""
 
         user = await self.osu_api.fetch_user(user=account, mode=gamemode)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Showing info for osu! account!',
             url=f'https://osu.ppy.sh/users/{user.id}',
@@ -162,8 +178,8 @@ class GameCog(commands.Cog, name="Games"):
                         f'**Deleted?** {"Yes" if user.is_deleted else "No"}\n'
                         f'**Active?:** {"Yes" if user.is_active else "No"}\n'
                         f'**Country:** {user.country_code}\n'
-                        f'**Joined at:** {user_friendly_dt(user.join_date)}\n'
-                        f'**Last seen:** {user_friendly_dt(user.last_visit)}'
+                        f'**Joined at:** {utils.user_friendly_dt(user.join_date)}\n'
+                        f'**Last seen:** {utils.user_friendly_dt(user.last_visit)}'
         )
 
         stats = user.statistics
@@ -198,7 +214,7 @@ class GameCog(commands.Cog, name="Games"):
 
     @osu.command()
     @commands.cooldown(15, 60, BucketType.user)
-    async def beatmap(self, ctx: CustomContext, beatmap_id: int):
+    async def beatmap(self, ctx: utils.CustomContext, beatmap_id: int):
         """Gets a beatmap from a beatmap ID! (Not a beatmap set, an individual beatmap)"""
 
         beatmap = await self.osu_api.lookup_beatmap(beatmap_id=beatmap_id)
@@ -206,7 +222,7 @@ class GameCog(commands.Cog, name="Games"):
 
         plot_img = await self.bot.loop.run_in_executor(None, render_failtimes, beatmap.failtimes)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             image=beatmap_set.covers['cover'] or discord.Embed.Empty,
             # url=beatmap.url,
@@ -219,7 +235,7 @@ class GameCog(commands.Cog, name="Games"):
                         f'**Creator:** {beatmap_set.creator}\n'
                         f'**# of plays:** {beatmap_set.play_count}\n'
                         f'**# of favorites:** {beatmap_set.favourite_count}\n'
-                        f'**Submitted at:** {user_friendly_dt(beatmap_set.submitted_date)}'
+                        f'**Submitted at:** {utils.user_friendly_dt(beatmap_set.submitted_date)}'
         )
 
         embed.add_field(
@@ -227,7 +243,7 @@ class GameCog(commands.Cog, name="Games"):
             value=f'**ID:** {beatmap.id}\n'
                   f'**Gamemode:** osu!{beatmap.mode.name.lower()}\n'
                   f'**Length:** {timedelta(seconds=beatmap.total_length)}\n'
-                  f'**Last updated:** {user_friendly_dt(beatmap.last_updated)}\n'
+                  f'**Last updated:** {utils.user_friendly_dt(beatmap.last_updated)}\n'
                   f'**Ranked status:** {beatmap.ranked.name.title()}\n'
                   f'**Max combo:** {str(beatmap.max_combo) + "x" or "N/A"}\n'
                   f'**# of plays:** {beatmap.playcount}\n'
@@ -251,12 +267,12 @@ class GameCog(commands.Cog, name="Games"):
     @beatmap.error
     @account.error
     @osu.error
-    async def osu_error(self, ctx: CustomContext, error):
+    async def osu_error(self, ctx: utils.CustomContext, error):
         if isinstance(error, commands.CommandInvokeError):
             error = error.original
 
         if isinstance(error, OsuApiException):
-            embed = create_embed(
+            embed = utils.create_embed(
                 ctx.author,
                 title='Error while getting from osu!api',
                 description='Either the api is down, or you put invalid arguments!\n'

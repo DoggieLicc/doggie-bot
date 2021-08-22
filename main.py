@@ -1,7 +1,6 @@
 import discord
-from discord.ext import commands
 
-from utils import CustomBot, CustomHelp
+import utils
 
 
 cogs = [
@@ -19,9 +18,6 @@ cogs = [
 ]
 
 
-
-
-
 intents = discord.Intents(
     reactions=True,
     messages=True,
@@ -31,11 +27,11 @@ intents = discord.Intents(
 )
 
 
-bot = CustomBot(
+bot = utils.CustomBot(
     activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie."'),
     allowed_mentions=discord.AllowedMentions(replied_user=False),
-    command_prefix=CustomBot.get_custom_prefix,
-    help_command=CustomHelp(),
+    command_prefix=utils.CustomBot.get_custom_prefix,
+    help_command=utils.CustomHelp(),
     strip_after_prefix=True,
     case_insensitive=True,
     max_messages=10000,

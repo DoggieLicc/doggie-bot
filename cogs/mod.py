@@ -5,19 +5,22 @@ from discord.ext.commands import Greedy
 import unicodedata
 from typing import Union, Optional
 
-from utils import CustomBot, CustomMenu, CustomContext, IntentionalMember, IntentionalUser, create_embed, punish_embed,\
-    multi_punish, format_deleted_msg
+import utils
 
-GREEDY_INTENTIONAL = Greedy[Union[IntentionalMember, IntentionalUser]]
+GREEDY_INTENTIONAL = Greedy[Union[utils.IntentionalMember, utils.IntentionalUser]]
 
 
 def maybe_first_snipe_msg(ctx):
-    embed = create_embed(ctx.author, title='⚠ Warning!',
-                         description='That channel seems to be locked, and this channel '
-                                     'isn\'t. You should move to a private channel to avoid leaking sensitive '
-                                     'information. However, you have permissions to snipe from that channel, '
-                                     'so you may proceed with caution.',
-                         color=discord.Color.orange())
+    embed = utils.create_embed(
+        ctx.author,
+        title='⚠ Warning!',
+        description='That channel seems to be locked, and this channel '
+                    'isn\'t. You should move to a private channel to avoid leaking sensitive '
+                    'information. However, you have permissions to snipe from that channel, '
+                    'so you may proceed with caution.',
+        color=discord.Color.orange()
+    )
+
     return embed
 
 
@@ -25,8 +28,8 @@ async def add_mute(member: discord.Member, role: discord.Role, **kwargs):
     await member.add_roles(role, **kwargs)
 
 
-async def remove_mute(meber: discord.Member, role: discord.Role, **kwargs):
-    await meber.add_roles(role, **kwargs)
+async def remove_mute(member: discord.Member, role: discord.Role, **kwargs):
+    await member.add_roles(role, **kwargs)
 
 
 class SnipeMenu(menus.ListPageSource):
@@ -42,7 +45,7 @@ class SnipeMenu(menus.ListPageSource):
         if isinstance(entries, discord.Embed): return entries
         index = menu.current_page + 1 - self.num_offset
 
-        embed = format_deleted_msg(entries, title=f'Sniped message {index}/{self._max_pages - self.num_offset}:')
+        embed = utils.format_deleted_msg(entries, title=f'Sniped message {index}/{self._max_pages - self.num_offset}:')
         embed.set_footer(text=f'Command sent by {menu.ctx.author}', icon_url=menu.ctx.author.avatar)
 
         return embed
@@ -52,10 +55,10 @@ class Moderation(commands.Cog):
     """Commands to make moderation easier and simpler
     Note: To prevent accidental punishments, you must specify users using their mention, id, or name#tag"""
 
-    def __init__(self, bot: CustomBot):
-        self.bot: CustomBot = bot
+    def __init__(self, bot: utils.CustomBot):
+        self.bot: utils.CustomBot = bot
 
-    async def cog_check(self, ctx: CustomContext):
+    async def cog_check(self, ctx: utils.CustomContext):
         if not ctx.guild:
             raise commands.NoPrivateMessage()
 
@@ -66,7 +69,7 @@ class Moderation(commands.Cog):
     @commands.command(usage='<users>... [reason]')
     async def ban(
             self,
-            ctx: CustomContext,
+            ctx: utils.CustomContext,
             users: GREEDY_INTENTIONAL,
             *,
             reason: Optional[str] = "No reason specified"):
@@ -79,12 +82,14 @@ class Moderation(commands.Cog):
 
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
-            lists = await multi_punish(ctx.author,
-                                       users,
-                                       ctx.guild.ban,
-                                       reason=f'{str(ctx.author)}: {reason}')  # type: ignore
+            lists = await utils.multi_punish(
+                ctx.author,
+                users,
+                ctx.guild.ban,
+                reason=f'{str(ctx.author)}: {reason}'
+            )  # type: ignore
 
-        embed = punish_embed(ctx.author, 'banned', reason, lists)
+        embed = utils.punish_embed(ctx.author, 'banned', reason, lists)
 
         await ctx.send(embed=embed)
 
@@ -93,8 +98,8 @@ class Moderation(commands.Cog):
     @commands.command(usage='<users>... [reason]')
     async def unban(
             self,
-            ctx: CustomContext,
-            users: Greedy[IntentionalUser], *,
+            ctx: utils.CustomContext,
+            users: Greedy[utils.IntentionalUser], *,
             reason: Optional[str] = "No reason specified"):
 
         """Unban banned users with their User ID, you can specify multiple people to be unbanned.
@@ -105,12 +110,14 @@ class Moderation(commands.Cog):
 
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
-            lists = await multi_punish(ctx.author,
-                                       users,
-                                       ctx.guild.unban,
-                                       reason=f'{str(ctx.author)}: {reason}')  # type: ignore
+            lists = await utils.multi_punish(
+                ctx.author,
+                users,
+                ctx.guild.unban,
+                reason=f'{str(ctx.author)}: {reason}'
+            )  # type: ignore
 
-        embed = punish_embed(ctx.author, 'unbanned', reason, lists)
+        embed = utils.punish_embed(ctx.author, 'unbanned', reason, lists)
 
         await ctx.send(embed=embed)
 
@@ -119,8 +126,8 @@ class Moderation(commands.Cog):
     @commands.command(usage='<members>... [reason]')
     async def softban(
             self,
-            ctx: CustomContext,
-            members: Greedy[IntentionalMember], *,
+            ctx: utils.CustomContext,
+            members: Greedy[utils.IntentionalMember], *,
             reason: Optional[str] = "No reason specified"):
 
         """Bans then unbans the specified users, which deletes their recent messages and 'kicks' them.
@@ -131,17 +138,21 @@ class Moderation(commands.Cog):
 
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
-            banned, not_banned = await multi_punish(ctx.author,
-                                                    members,
-                                                    ctx.guild.ban,
-                                                    reason=f'(Softban) {str(ctx.author)}: {reason}')  # type: ignore
+            banned, not_banned = await utils.multi_punish(
+                ctx.author,
+                members,
+                ctx.guild.ban,
+                reason=f'(Softban) {str(ctx.author)}: {reason}'
+            )  # type: ignore
 
-            unbanned, _ = await multi_punish(ctx.author,
-                                             banned,
-                                             ctx.guild.unban,
-                                             reason=f'(Softban) {str(ctx.author)}: {reason}')  # type: ignore
+            unbanned, _ = await utils.multi_punish(
+                ctx.author,
+                banned,
+                ctx.guild.unban,
+                reason=f'(Softban) {str(ctx.author)}: {reason}'
+            )  # type: ignore
 
-        embed = punish_embed(ctx.author, 'softbanned', reason, (unbanned, not_banned))
+        embed = utils.punish_embed(ctx.author, 'softbanned', reason, (unbanned, not_banned))
 
         await ctx.send(embed=embed)
 
@@ -150,8 +161,8 @@ class Moderation(commands.Cog):
     @commands.command(usage='<members>... [reason]')
     async def kick(
             self,
-            ctx: CustomContext,
-            members: Greedy[IntentionalMember],
+            ctx: utils.CustomContext,
+            members: Greedy[utils.IntentionalMember],
             *,
             reason: Optional[str] = "No reason specified"):
 
@@ -163,41 +174,47 @@ class Moderation(commands.Cog):
 
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
-            lists = await multi_punish(ctx.author,
-                                       members,
-                                       ctx.guild.kick,
-                                       reason=f'{str(ctx.author)}: {reason}')  # type: ignore
+            lists = await utils.multi_punish(
+                ctx.author,
+                members,
+                ctx.guild.kick,
+                reason=f'{str(ctx.author)}: {reason}'
+            )  # type: ignore
 
-        embed = punish_embed(ctx.author, 'kicked', reason, lists)
+        embed = utils.punish_embed(ctx.author, 'kicked', reason, lists)
 
         await ctx.send(embed=embed)
 
     @commands.bot_has_permissions(manage_nicknames=True)
     @commands.has_permissions(manage_nicknames=True)
     @commands.command(aliases=['nick', 'nickname'])
-    async def rename(self, ctx: CustomContext, members: Greedy[IntentionalMember], *, nickname):
+    async def rename(self, ctx: utils.CustomContext, members: Greedy[utils.IntentionalMember], *, nickname):
         """Renames users to a specified name"""
 
         if not members:
             raise commands.MemberNotFound(nickname)
 
         if len(nickname) > 32:
-            embed = create_embed(ctx.author,
-                                 title='Nickname too long!',
-                                 description=f'The nickname {nickname[:100]} is too long! (32 chars max.)',
-                                 color=discord.Color.red())
+            embed = utils.create_embed(
+                ctx.author,
+                title='Nickname too long!',
+                description=f'The nickname {nickname[:100]} is too long! (32 chars max.)',
+                color=discord.Color.red()
+            )
 
             return await ctx.send(embed=embed)
 
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
-            lists = await multi_punish(ctx.author,
-                                       members,
-                                       discord.Member.edit,
-                                       nick=nickname,
-                                       reason=f'Renamed by {ctx.author}')  # type: ignore
+            lists = await utils.multi_punish(
+                ctx.author,
+                members,
+                discord.Member.edit,
+                nick=nickname,
+                reason=f'Renamed by {ctx.author}'
+            )  # type: ignore
 
-        embed = punish_embed(ctx.author, 'renamed', nickname, lists)
+        embed = utils.punish_embed(ctx.author, 'renamed', nickname, lists)
 
         await ctx.send(embed=embed)
 
@@ -206,15 +223,15 @@ class Moderation(commands.Cog):
     @commands.command()
     async def mute(
             self,
-            ctx: CustomContext,
-            members: Greedy[IntentionalMember],
+            ctx: utils.CustomContext,
+            members: Greedy[utils.IntentionalMember],
             *,
             reason: Optional[str] = "No reason specified"):
 
         """Gives the configured mute role to members!"""
 
         if not ctx.basic_config.mute_role:
-            embed = create_embed(
+            embed = utils.create_embed(
                 ctx.author,
                 title='Mute role not set!',
                 description='You need to set a mute role with the command `config mute_role <role>`',
@@ -228,13 +245,15 @@ class Moderation(commands.Cog):
 
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
-            lists: tuple = await multi_punish(ctx.author,
-                                              members,
-                                              add_mute,
-                                              role=ctx.basic_config.mute_role,
-                                              reason=f'{str(ctx.author)}: {reason}')  # type: ignore
+            lists: tuple = await utils.multi_punish(
+                ctx.author,
+                members,
+                add_mute,
+                role=ctx.basic_config.mute_role,
+                reason=f'{str(ctx.author)}: {reason}'
+            )  # type: ignore
 
-        embed = punish_embed(ctx.author, 'muted', reason, lists)
+        embed = utils.punish_embed(ctx.author, 'muted', reason, lists)
 
         await ctx.send(embed=embed)
 
@@ -245,15 +264,15 @@ class Moderation(commands.Cog):
     @commands.command()
     async def unmute(
             self,
-            ctx: CustomContext,
-            members: Greedy[IntentionalMember],
+            ctx: utils.CustomContext,
+            members: Greedy[utils.IntentionalMember],
             *,
             reason: Optional[str] = "No reason specified"):
 
         """Removes the configured mute role from members!"""
 
         if not ctx.basic_config.mute_role:
-            embed = create_embed(
+            embed = utils.create_embed(
                 ctx.author,
                 title='Mute role not set!',
                 description='You need to set a mute role with the command `config mute_role <role>`',
@@ -267,13 +286,15 @@ class Moderation(commands.Cog):
 
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
-            lists = await multi_punish(ctx.author,
-                                       members,
-                                       remove_mute,
-                                       role=ctx.basic_config.mute_role,
-                                       reason=f'{str(ctx.author)}: {reason}')  # type: ignore
+            lists = await utils.multi_punish(
+                ctx.author,
+                members,
+                remove_mute,
+                role=ctx.basic_config.mute_role,
+                reason=f'{str(ctx.author)}: {reason}'
+            )  # type: ignore
 
-        embed = punish_embed(ctx.author, 'unmuted', reason, lists)
+        embed = utils.punish_embed(ctx.author, 'unmuted', reason, lists)
 
         self.bot.dispatch('unmute', ctx, lists[0], reason)
 
@@ -284,7 +305,7 @@ class Moderation(commands.Cog):
     @commands.max_concurrency(1, per=commands.BucketType.channel, wait=True)
     @commands.cooldown(5, 60, type=commands.BucketType.guild)
     @commands.command(aliases=['clear'])
-    async def purge(self, ctx: CustomContext, users: GREEDY_INTENTIONAL, amount: Optional[int] = 20):
+    async def purge(self, ctx: utils.CustomContext, users: GREEDY_INTENTIONAL, amount: Optional[int] = 20):
         """Deletes multiple messages from the current channel, you can specify users that it will delete messages from.
         You can also specify the amount of messages to check. You and this bot needs the "Manage Messages" permission"""
 
@@ -294,7 +315,7 @@ class Moderation(commands.Cog):
             messages_deleted = await ctx.channel.purge(limit=amount, check=lambda m: not users or (m.author in users))
 
         users = [user.mention for user in users] if users else ['anyone']
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title=f'{len(messages_deleted)} messages deleted!',
             description='Deleted messages from ' + ', '.join(users)
@@ -307,7 +328,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_nicknames=True)
     @commands.bot_has_permissions(manage_nicknames=True)
     @commands.command(aliases=['ascii'])
-    async def asciify(self, ctx: CustomContext, members: Greedy[discord.Member]):
+    async def asciify(self, ctx: utils.CustomContext, members: Greedy[discord.Member]):
         """Replace weird unicode letters in nicknames with normal ASCII text!"""
 
         if not members:
@@ -319,28 +340,33 @@ class Moderation(commands.Cog):
 
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
-            lists = await multi_punish(ctx.author,
-                                       members,
-                                       rename)  # type: ignore
+            lists = await utils.multi_punish(
+                ctx.author,
+                members,
+                rename
+            )  # type: ignore
 
-        embed = punish_embed(ctx.author, 'asciified', 'Asciify strange characters', lists)
+        embed = utils.punish_embed(ctx.author, 'asciified', 'Asciify strange characters', lists)
 
         await ctx.send(embed=embed)
 
     @commands.max_concurrency(1, commands.BucketType.user)
     @commands.guild_only()
     @commands.command(aliases=['snpied', 'deleted'])
-    async def snipe(self, ctx: CustomContext, channel: Optional[discord.TextChannel], *, user: Optional[discord.User]):
+    async def snipe(self, ctx: utils.CustomContext, channel: Optional[discord.TextChannel], *,
+                    user: Optional[discord.User]):
         """Shows recent deleted messages! You can specify an user to get deleted messages from.
         If no channel is specified it will get messages from the current channel.
         You can only snipe messages from channels in which you have `Manage Messages` and `View Channel` in."""
 
         if not ctx.basic_config.snipe:
-            embed = create_embed(ctx.author,
-                                 title='Snipe is disabled in this guild!',
-                                 description='The snipe command is opt-in only, use `config snipe on` '
-                                             'to enable sniping in this guild!',
-                                 color=discord.Color.red())
+            embed = utils.create_embed(
+                ctx.author,
+                title='Snipe is disabled in this guild!',
+                description='The snipe command is opt-in only, use `config snipe on` '
+                            'to enable sniping in this guild!',
+                color=discord.Color.red()
+            )
 
             return await ctx.send(embed=embed)
 
@@ -348,9 +374,14 @@ class Moderation(commands.Cog):
 
         if not (channel.permissions_for(ctx.author).manage_messages and
                 channel.permissions_for(ctx.author).view_channel):
-            embed = create_embed(ctx.author, title='Can\'t snipe from that channel!',
-                                 description='You need permissions to view and manage messages of that channel '
-                                             'before you can snipe messages from it!', color=discord.Color.red())
+            embed = utils.create_embed(
+                ctx.author,
+                title='Can\'t snipe from that channel!',
+                description='You need permissions to view and manage messages of that channel '
+                            'before you can snipe messages from it!',
+                color=discord.Color.red()
+            )
+
             return await ctx.send(embed=embed)
 
         async with ctx.channel.typing():
@@ -358,15 +389,20 @@ class Moderation(commands.Cog):
                         and (user is None or user == message.author) and (channel == message.channel)][:100]
 
         if not filtered:
-            embed = create_embed(ctx.author, title='No messages found!',
-                                 description=f'No sniped messages were found for {user or "this guild"}'
-                                             f'{f" in {channel.mention}" or ""}', color=discord.Color.red())
+            embed = utils.create_embed(
+                ctx.author,
+                title='No messages found!',
+                description=f'No sniped messages were found for {user or "this guild"}'
+                            f'{f" in {channel.mention}" or ""}',
+                color=discord.Color.red()
+            )
+
             return await ctx.send(embed=embed)
 
-        pages = CustomMenu(source=SnipeMenu(filtered), clear_reactions_after=True)
+        pages = utils.CustomMenu(source=SnipeMenu(filtered), clear_reactions_after=True)
         if (channel.overwrites_for(ctx.guild.default_role).view_channel == False and
                 ctx.channel.overwrites_for(ctx.guild.default_role).view_channel != False):
-            pages = CustomMenu(source=SnipeMenu(filtered, maybe_first_snipe_msg(ctx)), clear_reactions_after=True)
+            pages = utils.CustomMenu(source=SnipeMenu(filtered, maybe_first_snipe_msg(ctx)), clear_reactions_after=True)
 
         await pages.start(ctx)
 

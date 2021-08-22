@@ -4,7 +4,7 @@ from discord.ext import commands
 
 from typing import Optional, Union
 
-from utils import CustomBot, CustomContext, create_embed
+import utils
 
 T = Optional[Union[discord.TextChannel, bool]]
 
@@ -20,10 +20,10 @@ class LoggingConverter(commands.FlagConverter):
 class Configuration(commands.Cog):
     """Set the configuration for this server, you need the "Manage Server" permission to edit the configuration!"""
 
-    def __init__(self, bot: CustomBot):
-        self.bot: CustomBot = bot
+    def __init__(self, bot: utils.CustomBot):
+        self.bot: utils.CustomBot = bot
 
-    async def cog_check(self, ctx: CustomContext):
+    async def cog_check(self, ctx: utils.CustomContext):
         if not ctx.guild:
             raise commands.NoPrivateMessage()
 
@@ -34,7 +34,7 @@ class Configuration(commands.Cog):
             raise commands.MissingPermissions(['manage_guild'])
 
     @commands.group(invoke_without_command=True)
-    async def config(self, ctx: CustomContext):
+    async def config(self, ctx: utils.CustomContext):
         """Shows the current configuration for this server!"""
 
         basic_config = ctx.basic_config
@@ -42,7 +42,7 @@ class Configuration(commands.Cog):
 
         def maybe_mention(channel): return channel.mention if channel else "Not set"
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Showing current guild configuration:',
             description=f'**Guild:** {basic_config.guild} ({basic_config.guild.id})\n'
@@ -62,20 +62,20 @@ class Configuration(commands.Cog):
         await ctx.send(embed=embed)
 
     @config.command()
-    async def prefix(self, ctx: CustomContext, *, prefix: str):
+    async def prefix(self, ctx: utils.CustomContext, *, prefix: str):
         """Sets a custom prefix for the current guild!"""
 
         if len(prefix) > 100:
-            embed = create_embed(ctx.author,
-                                 title='Prefix too long!',
-                                 description='The prefix can\'t be longer than 100 characters!',
-                                 color=discord.Color.red())
+            embed = utils.create_embed(ctx.author,
+                                       title='Prefix too long!',
+                                       description='The prefix can\'t be longer than 100 characters!',
+                                       color=discord.Color.red())
 
             return await ctx.send(embed=embed)
 
         await ctx.basic_config.set_config(self.bot, prefix=prefix)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Prefix has been set!',
             description=f'The prefix has been set to "{prefix}" (You can still use the bot\'s mention as the prefix!)'
@@ -84,11 +84,11 @@ class Configuration(commands.Cog):
         await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     @config.command(aliases=['mute', 'muterole'])
-    async def mute_role(self, ctx: CustomContext, role: discord.Role):
+    async def mute_role(self, ctx: utils.CustomContext, role: discord.Role):
         """Sets a role that will be given to members when the `mute` command is used!"""
 
         if not role.is_assignable():
-            embed = create_embed(
+            embed = utils.create_embed(
                 ctx.author,
                 title='Invalid role!',
                 description=f'The bot won\'t be able to manage that role, either it\'s higher than this bot\'s highest '
@@ -101,7 +101,7 @@ class Configuration(commands.Cog):
 
         await ctx.basic_config.set_config(self.bot, mute_role=role)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Mute role has been set!',
             description=f'The mute role has been set to {role.mention}, this will be the role given to members when '
@@ -111,12 +111,12 @@ class Configuration(commands.Cog):
         await ctx.send(embed=embed)
 
     @config.command()
-    async def snipe(self, ctx: CustomContext, option: bool):
+    async def snipe(self, ctx: utils.CustomContext, option: bool):
         """Enables or disables the `snipe` command!"""
 
         await ctx.basic_config.set_config(self.bot, snipe=option)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title="Snipe command " + ("enabled!" if option else "disabled!"),
             description=f"The snipe feature has been " + ("enabled!" if option else "disabled!") +
@@ -129,7 +129,7 @@ class Configuration(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(usage='<flags>...')
-    async def logging(self, ctx: CustomContext, *, config: LoggingConverter):
+    async def logging(self, ctx: utils.CustomContext, *, config: LoggingConverter):
         """Sets the log channels for this server! `help logging` for help with flags format
 
         Available flags:
@@ -166,7 +166,7 @@ class Configuration(commands.Cog):
 
         await ctx.logging_config.set_config(self.bot, **options)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Logging configuration set!',
             description='\n'.join(msgs)
