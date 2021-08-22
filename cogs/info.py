@@ -7,8 +7,7 @@ import datetime
 from typing import Optional, Union
 
 import whois as whois
-import wikipedia as wikipedia
-
+import aiowiki
 import discord
 from discord import Color, Member, Role, User
 from discord.ext import commands
@@ -25,43 +24,13 @@ def solid_color_image(color: tuple):
     return buffer
 
 
-def sync_wikipedia(ctx: utils.CustomContext, search: str):
-    try:
-        page = wikipedia.page(search)
-        summary = (page.summary[:1900] + '...') if len(page.summary) > 1900 else page.summary
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f"Wikipedia result for {search}",
-            description=f"[**{page.title}**]({page.url})\n\n{summary}",
-            thumbnail=page.images[0] if page.images else discord.Embed.Empty
-        )
-
-        return embed
-    except wikipedia.exceptions.DisambiguationError as e:
-        return utils.create_embed(
-            ctx.author,
-            title=f"Wikipedia results for {search}",
-            description="\n".join(e.options)
-        )
-
-    except wikipedia.exceptions.PageError:
-        results = wikipedia.search(search)
-        return utils.create_embed(
-            ctx.author,
-            title=f"**No wikipedia page found for {search}! Did you mean...**",
-            description="\n".join(results),
-            color=discord.Color.red()
-        )
-
-
 def sync_whois(ctx: utils.CustomContext, domain: str):
     if not isinstance(domain, str):
         return utils.create_embed(
             ctx.author,
-            title="Error!",
-            description="It seems that you confused this command with ``user``, "
-                        "this command is for [WHOIS](https://www.whois.net) lookup only.",
+            title='Error!',
+            description='It seems that you confused this command with ``user``, '
+                        'this command is for [WHOIS](https://www.whois.net) lookup only.',
             color=discord.Color.red()
         )
 
@@ -71,34 +40,63 @@ def sync_whois(ctx: utils.CustomContext, domain: str):
     except whois.exceptions.FailedParsingWhoisOutput:
         return utils.create_embed(
             ctx.author,
-            title="Error!",
-            description="Can't get WHOIS lookup! (Server down?)",
+            title='Error!',
+            description='Can\'t get WHOIS lookup! (Server down?)',
             color=discord.Color.red()
         )
 
     except whois.exceptions.UnknownTld:
         return utils.create_embed(
             ctx.author,
-            title="Error!",
-            description="Sorry, can't get domains from that TLD!",
+            title='Error!',
+            description='Sorry, can\'t get domains from that TLD!',
             color=discord.Color.red()
         )
 
     if not query:
         return utils.create_embed(
             ctx.author,
-            title="Error!",
-            description="Domain not found! (This command is for website domains, not discord users)",
+            title='Error!',
+            description='Domain not found! (This command is for website domains, not discord users)',
             color=discord.Color.red()
         )
 
-    embed = utils.create_embed(ctx.author, title=f"WHOIS Lookup for {domain}")
+    embed = utils.create_embed(ctx.author, title=f'WHOIS Lookup for {domain}')
 
-    embed.add_field(name="Name:", value=query.name, inline=False)
-    embed.add_field(name="Registrar:", value=(query.registrar or "Unknown"), inline=False)
-    embed.add_field(name="Name Servers:", value=(("\n".join(query.name_servers)) or "Unknown"), inline=False)
-    embed.add_field(name="Expiration Date:", value=(query.expiration_date or "Unknown"), inline=False)
-    embed.add_field(name="Creation Date:", value=(query.creation_date or "Unknown"), inline=False)
+    expiration_date = utils.user_friendly_dt(query.expiration_date) if query.expiration_date else 'Unknown'
+    creation_date = utils.user_friendly_dt(query.creation_date) if query.creation_date else 'Unknown'
+
+    embed.add_field(name='Name:', value=query.name, inline=False)
+    embed.add_field(name='Registrar:', value=(query.registrar or 'Unknown'), inline=False)
+    embed.add_field(name='Name Servers:', value=(('\n'.join(query.name_servers)) or 'Unknown'), inline=False)
+    embed.add_field(name='Expiration Date:', value=expiration_date, inline=False)
+    embed.add_field(name='Creation Date:', value=creation_date, inline=False)
+    
+    if hasattr(query, 'owner'):
+        embed.add_field(name='Owner', value=query.owner, inline=False)
+
+    if hasattr(query, 'abuse_contact'):
+        embed.add_field(name='Abuse Contact', value=query.abuse_contact)
+
+    if hasattr(query, 'admin'):
+        embed.add_field(name='Admin', value=query.admin)
+
+    if hasattr(query, 'registrant'):
+        embed.add_field(name='Registrant', value=query.registrant)
+
+    return embed
+
+
+async def format_page(ctx: utils.CustomContext, page: aiowiki.Page, summary: str, search: str) -> discord.Embed:
+    summary = (summary[:3900] + '...') if len(summary) > 3900 else summary
+    urls = await page.urls()
+
+    embed = utils.create_embed(
+        ctx.author,
+        title=f'Wikipedia page for "{search}"',
+        description=summary,
+        url=urls[0],
+    )
 
     return embed
 
@@ -107,6 +105,7 @@ class Info(commands.Cog, name='Information'):
     """Get info for Discord objects, domains, and more"""
 
     def __init__(self, bot: utils.CustomBot):
+        self.wiki = aiowiki.Wiki.wikipedia()
         self.bot: utils.CustomBot = bot
 
     @commands.command(aliases=['guild'])
@@ -461,8 +460,47 @@ class Info(commands.Cog, name='Information'):
     async def wikipedia(self, ctx: utils.CustomContext, *, search):
         """Looks up Wikipedia articles by their title!"""
 
-        async with ctx.channel.typing():
-            embed = await self.bot.loop.run_in_executor(None, sync_wikipedia, ctx, search)
+        page = self.wiki.get_page(search)
+
+        try:
+            summary = await page.summary()
+        except aiowiki.PageNotFound:
+            summary = None
+
+        if summary:
+            embed = await format_page(ctx, page, summary, search)
+        else:
+            pages = await self.wiki.opensearch(search)
+
+            if pages:
+
+                best_search = [page.title for page in pages if page.title.lower() == search.lower()]
+
+                if best_search:
+                    page = self.wiki.get_page(best_search[0])
+                    summary = await page.summary()
+
+                    embed = await format_page(ctx, page, summary, search)
+
+                else:
+
+                    titles = [page.title for page in pages]
+
+                    embed = utils.create_embed(
+                        ctx.author,
+                        title=f'No page found for "{search}"! Did you mean...',
+                        description='**The wiki search is case sensitive!**\n\n' + '\n'.join(titles),
+                        color=discord.Color.red()
+                    )
+
+            else:
+                embed = utils.create_embed(
+                    ctx.author,
+                    title=f'No results found for "{search}"!',
+                    description='Try to search something else!',
+                    color=discord.Color.red()
+                )
+
         await ctx.send(embed=embed)
 
 

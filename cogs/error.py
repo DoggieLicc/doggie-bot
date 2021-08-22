@@ -97,7 +97,7 @@ class ErrorHandler(commands.Cog):
 
         if isinstance(error, commands.CommandOnCooldown):
             embed.add_field(
-                name='YOu\'re on cooldown!',
+                name='You\'re on cooldown!',
                 value=str(error)
             )
 
