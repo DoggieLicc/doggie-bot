@@ -63,6 +63,10 @@ class EventsCog(commands.Cog):
               f'Successfully logged in and booted...!')
 
     @commands.Cog.listener()
+    async def on_command(self, ctx: CustomContext):
+        await ctx.trigger_typing()
+
+    @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, banned: Union[discord.Member, discord.User]):
 
         config = self.bot.logging_configs.get(guild.id)
