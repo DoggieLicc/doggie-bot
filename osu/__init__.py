@@ -24,7 +24,7 @@ class OsuApi:
     def __init__(self, client_id: int, client_secret: str):
         self._client_id = client_id
         self._client_secret = client_secret
-        self._access_token: AccessToken = None
+        self._access_token: Optional[AccessToken] = None
 
         self.headers = {
             'Accept': 'application/json',
@@ -55,8 +55,31 @@ class OsuApi:
             self,
             user: Union[int, str],
             mode: Optional[Literal['fruits', 'mania', 'osu', 'taiko']] = None,
-            key: Optional[Literal['id', 'user-name']] = None
+            key: Optional[Literal['id', 'username']] = None
     ) -> 'User':
+        """Fetches an osu! account with statistics for a gamemode.
+
+        Arguments
+        --------
+        user: Union[int, str]
+            The username or user id of the user
+
+        mode: Optional[Literal['fruits', 'mania', 'osu', 'taiko']]
+            The gamemode to get statistics for
+
+        key: Optional[Literal['id', 'user-name']]
+            Can be either id or username to limit lookup by their respective type. Passing empty or invalid value will
+            result in id lookup followed by username lookup if not found
+
+        Raises
+        -----
+        OsuApiException
+            A problem happened while fetching from osu!api
+
+        Returns
+        ------
+        User
+        """
 
         data = await self._request(
             BASE_URL + f'users/{user}/{mode or ""}',
@@ -73,6 +96,28 @@ class OsuApi:
             filename: Optional[str] = None,
             beatmap_id: Optional[int] = None
     ) -> 'Beatmap':
+        """Looks up an osu! beatmap using it's id, filename, or checksum
+
+        Arguments
+        --------
+        checksum: Optional[str]
+            A beatmap checksum
+
+        filename: Optional[str]
+            A beatmap filename
+
+        beatmap_id: Optional[int]
+            A beatmap id
+
+        Raises
+        -----
+        OsuApiException
+            A problem happened while fetching from osu!api
+
+        Returns
+        ------
+        Beatmap
+        """
 
         data = await self._request(
             url=BASE_URL + 'beatmaps/lookup',
