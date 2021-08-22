@@ -41,8 +41,13 @@ class Misc(commands.Cog):
 
         embed.add_field(
             name='Bot Creator:',
-            value='[Doggie 2#8512](https://github.com/DoggieLicc/DoggieBot)',
+            value='[Doggie 2#8512](https://github.com/DoggieLicc/)',
             inline=True
+        )
+
+        embed.add_field(
+            name='Source Code:',
+            value='[Github Repo](https://github.com/DoggieLicc/doggie-bot)'
         )
 
         embed.add_field(
@@ -87,7 +92,7 @@ class Misc(commands.Cog):
             embed = create_embed(
                 ctx.author,
                 title='Source Code:',
-                description='[Github for **Doggie Bot**](https://github.com/DoggieLicc/DoggieBot)'
+                description='[Github for **Doggie Bot**](https://github.com/DoggieLicc/doggie-bot)'
             )
 
             return await ctx.send(embed=embed)
