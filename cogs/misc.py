@@ -8,24 +8,26 @@ from discord.ext import commands
 from discord.ext.commands import BucketType
 from discord.utils import oauth_url
 
-from utils import CustomBot, CustomContext, create_embed, user_friendly_dt
+import utils
 
 
 class Misc(commands.Cog):
     """Commands that show info about the bot"""
 
-    def __init__(self, bot: CustomBot):
-        self.bot: CustomBot = bot
+    def __init__(self, bot: utils.CustomBot):
+        self.bot: utils.CustomBot = bot
 
-    @commands.command(aliases=["i", "ping"])
-    async def info(self, ctx: CustomContext):
+    @commands.command(aliases=['i', 'ping'])
+    async def info(self, ctx: utils.CustomContext):
         """Shows information for the bot!"""
 
         invite_url = oauth_url(ctx.me.id, permissions=discord.Permissions(2550164614))
 
-        embed = create_embed(ctx.author,
-                             title="Info for Doggie Bot!",
-                             description="This bot is a multi-purpose bot!")
+        embed = utils.create_embed(
+            ctx.author,
+            title='Info for Doggie Bot!',
+            description='This bot is a multi-purpose bot!'
+        )
 
         embed.add_field(
             name="Invite this bot!",
@@ -52,7 +54,7 @@ class Misc(commands.Cog):
 
         embed.add_field(
             name='Bot Online Since:',
-            value=user_friendly_dt(self.bot.start_time),
+            value=utils.user_friendly_dt(self.bot.start_time),
             inline=False
         )
 
@@ -65,22 +67,24 @@ class Misc(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.cooldown(3, 86_400, BucketType.user)
-    @commands.command(aliases=["report"])
-    async def suggest(self, ctx: CustomContext, *, suggestion):
+    @commands.command(aliases=['report'])
+    async def suggest(self, ctx: utils.CustomContext, *, suggestion):
         """Send a suggestion or bug report to the bot owner!"""
 
         owner: discord.User = await self.bot.get_owner()
 
-        owner_embed = create_embed(
+        owner_embed = utils.create_embed(
             ctx.author,
-            title="New suggestion!:",
+            title='New suggestion!:',
             description=suggestion
         )
 
         await owner.send(embed=owner_embed)
 
-        user_embed = create_embed(ctx.author,
-                                  title=f"👍 Suggestion has been sent to {owner}! 💖")
+        user_embed = utils.create_embed(
+            ctx.author,
+            title=f'👍 Suggestion has been sent to {owner}! 💖'
+        )
 
         await ctx.send(embed=user_embed)
 
@@ -89,7 +93,7 @@ class Misc(commands.Cog):
         """Look at the code of this bot!"""
 
         if command is None:
-            embed = create_embed(
+            embed = utils.create_embed(
                 ctx.author,
                 title='Source Code:',
                 description='[Github for **Doggie Bot**](https://github.com/DoggieLicc/doggie-bot)'
@@ -102,9 +106,13 @@ class Misc(commands.Cog):
         else:
             obj = self.bot.get_command(command.replace('.', ' ').lower())
             if obj is None:
-                embed = create_embed(ctx.author, title='Command not found!',
-                                     description='This command wasn\'t found in this bot.',
-                                     color=discord.Color.red())
+                embed = utils.create_embed(
+                    ctx.author,
+                    title='Command not found!',
+                    description='This command wasn\'t found in this bot.',
+                    color=discord.Color.red()
+                )
+
                 return await ctx.send(embed=embed)
 
             src = obj.callback.__code__
@@ -116,7 +124,7 @@ class Misc(commands.Cog):
 
         file = discord.File(fp=buffer, filename=f'{command.replace(" ", "_").lower()}.py')
 
-        await ctx.send(f"Here you go, {ctx.author.mention}. (You should view this on a PC)", file=file)
+        await ctx.send(f'Here you go, {ctx.author.mention}. (You should view this on a PC)', file=file)
 
 
 def setup(bot):

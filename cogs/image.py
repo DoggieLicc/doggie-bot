@@ -5,7 +5,7 @@ import aiohttp
 from typing import List
 from unsplash import Unsplash, Photo
 
-from utils import CustomContext, CustomBot, create_embed
+import utils
 
 utm_params = '?utm_source=discord_bot_doggie_bot&utm_medium=referral '
 
@@ -14,14 +14,14 @@ class Images(commands.Cog):
     """Commands that have to do with images!"""
 
     def __init__(self, bot):
-        self.bot: CustomBot = bot
+        self.bot: utils.CustomBot = bot
 
         self.unsplash = Unsplash(bot.config['unsplash_api_key'])
 
         self.cached_random_photos: List[Photo] = []
 
     @commands.group(invoke_without_command=True)
-    async def unsplash(self, ctx: CustomContext):
+    async def unsplash(self, ctx: utils.CustomContext):
         await ctx.send_help(ctx.command)
 
     @unsplash.command()
@@ -40,7 +40,7 @@ class Images(commands.Cog):
                       f'*Photo by [{image.user.name}](https://unsplash.com/@{image.user.username}{utm_params}) on ' \
                       f'[Unsplash](https://unsplash.com/{utm_params})*'
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Unsplash Image',
             description=description,
@@ -62,7 +62,7 @@ class Images(commands.Cog):
 
         fox_url = data['image']
 
-        embed = create_embed(ctx.author, title='Random fox pic', image=fox_url, color=discord.Color.orange())
+        embed = utils.create_embed(ctx.author, title='Random fox pic', image=fox_url, color=discord.Color.orange())
 
         await ctx.send(embed=embed)
 

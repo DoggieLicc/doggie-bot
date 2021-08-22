@@ -1,12 +1,11 @@
 import discord
 from discord.ext import commands, menus
 
-from utils.classes import CustomMenu
-from utils.funcs import create_embed
+import utils
 
 
 def format_first_message(ctx):
-    embed = create_embed(
+    embed = utils.create_embed(
         ctx.author,
         title='Help for this bot:',
         description='Thank you for using this bot! This is a multipurpose bot with moderation, logging, utility and '
@@ -74,7 +73,7 @@ class CustomHelp(commands.HelpCommand):
             self.cog = ctx.bot.get_cog('Misc')
 
     async def send_command_help(self, command):
-        embed = create_embed(
+        embed = utils.create_embed(
             self.context.author,
             title=f'Showing help for "{command}":',
             description=command.help or 'No help set'
@@ -86,7 +85,7 @@ class CustomHelp(commands.HelpCommand):
         await self.context.send(embed=embed)
 
     async def send_group_help(self, group):
-        embed = create_embed(
+        embed = utils.create_embed(
             self.context.author,
             title=f'Showing help for {group} commands:',
             description='**Subcommands:**'
@@ -106,7 +105,7 @@ class CustomHelp(commands.HelpCommand):
         source = [c for c in source if not any([command.hidden for command in c.get_commands()]) if c.get_commands()]
         source[:0] = [format_first_message(self.context)]
 
-        pages = CustomMenu(source=HelpPageSource(source, self), clear_reactions_after=True)
+        pages = utils.CustomMenu(source=HelpPageSource(source, self), clear_reactions_after=True)
         await pages.start(self.context)
 
     async def send_cog_help(self, cog):
@@ -114,7 +113,7 @@ class CustomHelp(commands.HelpCommand):
         await self.context.send(embed=embed)
 
     async def get_cog_embed(self, cog: commands.Cog, title=None) -> discord.Embed:
-        embed = create_embed(
+        embed = utils.create_embed(
             self.context.author,
             title=title or f'Showing {cog.qualified_name.lower()} commands:',
             description=cog.description

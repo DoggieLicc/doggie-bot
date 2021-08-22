@@ -8,7 +8,7 @@ from typing import Union
 import discord
 from discord.ext import commands
 
-from utils import CustomBot, CustomContext, str_to_file, create_embed
+import utils
 
 
 def cleanup_code(content):
@@ -19,7 +19,7 @@ def cleanup_code(content):
 
 def format_error(author: discord.User, error: Exception) -> discord.Embed:
     error_lines = traceback.format_exception(type(error), error, error.__traceback__)
-    embed = create_embed(
+    embed = utils.create_embed(
         author,
         title="Error!",
         description=f'```py\n{"".join(error_lines)}\n```',
@@ -30,14 +30,14 @@ def format_error(author: discord.User, error: Exception) -> discord.Embed:
 
 
 class Dev(commands.Cog):
-    def __init__(self, bot: CustomBot):
-        self.bot: CustomBot = bot
+    def __init__(self, bot: utils.CustomBot):
+        self.bot: utils.CustomBot = bot
 
-    async def cog_check(self, ctx: CustomContext):
+    async def cog_check(self, ctx: utils.CustomContext):
         return await self.bot.is_owner(ctx.author)
 
     @commands.command(hidden=True)
-    async def load(self, ctx: CustomContext, *cogs: str):
+    async def load(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
                 self.bot.load_extension(f'cogs.{cog}')
@@ -45,7 +45,7 @@ class Dev(commands.Cog):
                 embed = format_error(ctx.author, e)
                 return await ctx.send(embed=embed)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Success!',
             description=f'Cogs ``{", ".join(cogs)}`` has been loaded!',
@@ -55,7 +55,7 @@ class Dev(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
-    async def unload(self, ctx: CustomContext, *cogs: str):
+    async def unload(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
                 self.bot.unload_extension(f'cogs.{cog}')
@@ -63,7 +63,7 @@ class Dev(commands.Cog):
                 embed = format_error(ctx.author, e)
                 return await ctx.send(embed=embed)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Success!',
             description=f'Cogs ``{", ".join(cogs)}`` has been unloaded!',
@@ -73,7 +73,7 @@ class Dev(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
-    async def reload(self, ctx: CustomContext, *cogs: str):
+    async def reload(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
                 self.bot.reload_extension(f'cogs.{cog}')
@@ -81,7 +81,7 @@ class Dev(commands.Cog):
                 embed = format_error(ctx.author, e)
                 return await ctx.send(embed=embed)
 
-        embed = create_embed(
+        embed = utils.create_embed(
             ctx.author,
             title='Success!',
             description=f'Cogs ``{", ".join(cogs)}`` has been reloaded!',
@@ -91,8 +91,8 @@ class Dev(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
-    async def list_cogs(self, ctx: CustomContext):
-        embed = create_embed(
+    async def list_cogs(self, ctx: utils.CustomContext):
+        embed = utils.create_embed(
             ctx.author,
             title='Showing all loaded cogs...',
             description='\n'.join(self.bot.cogs),
@@ -103,7 +103,7 @@ class Dev(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
-    async def eval(self, ctx: CustomContext, *, code):
+    async def eval(self, ctx: utils.CustomContext, *, code):
         await ctx.channel.trigger_typing()
 
         env = {
@@ -141,16 +141,23 @@ class Dev(commands.Cog):
             if ret is None:
                 if value:
                     if len(value) < 4000:
-                        embed = create_embed(ctx.author, title="Exec result:",
-                                             description=f'```py\n{value}\n```')
+                        embed = utils.create_embed(
+                            ctx.author,
+                            title="Exec result:",
+                            description=f'```py\n{value}\n```'
+                        )
+
                         await ctx.send(embed=embed)
                     else:
-                        await ctx.send(f"Exec result too long ({len(value)} chars.):",
-                                       file=str_to_file(value))
+                        await ctx.send(
+                            f"Exec result too long ({len(value)} chars.):",
+                            file=utils.str_to_file(value)
+                        )
+
                     return
 
                 else:
-                    embed = create_embed(ctx.author, title="Eval code executed!")
+                    embed = utils.create_embed(ctx.author, title="Eval code executed!")
                     return await ctx.send(embed=embed)
 
             else:
@@ -164,16 +171,20 @@ class Dev(commands.Cog):
                     ret = repr(ret)
 
                     if len(ret) < 4000:
-                        embed = create_embed(ctx.author, title="Exec result:",
-                                             description=f'```py\n{ret}\n```')
+                        embed = utils.create_embed(
+                            ctx.author,
+                            title="Exec result:",
+                            description=f'```py\n{ret}\n```'
+                        )
+
                     else:
                         return await ctx.send(f"Exec result too long ({len(ret)} chars.):",
-                                              file=str_to_file(ret))
+                                              file=utils.str_to_file(ret))
 
                     return await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
-    async def sudo(self, ctx: CustomContext, who: Union[discord.Member, discord.User], *, command: str):
+    async def sudo(self, ctx: utils.CustomContext, who: Union[discord.Member, discord.User], *, command: str):
 
         msg = copy.copy(ctx.message)
         msg.channel = ctx.channel
