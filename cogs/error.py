@@ -95,6 +95,12 @@ class ErrorHandler(commands.Cog):
                 value='The bot couldn\'t find that user or member! You should use ID or mention!'
             )
 
+        if isinstance(error, commands.CommandOnCooldown):
+            embed.add_field(
+                name='YOu\'re on cooldown!',
+                value=str(error)
+            )
+
         if embed.fields:
             return await ctx.send(embed=embed)
 
