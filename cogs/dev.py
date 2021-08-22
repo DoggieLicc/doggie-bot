@@ -19,10 +19,12 @@ def cleanup_code(content):
 
 def format_error(author: discord.User, error: Exception) -> discord.Embed:
     error_lines = traceback.format_exception(type(error), error, error.__traceback__)
-    embed = create_embed(author,
-                         title="Error!",
-                         description=f'```py\n{"".join(error_lines)}\n```',
-                         color=discord.Color.red())
+    embed = create_embed(
+        author,
+        title="Error!",
+        description=f'```py\n{"".join(error_lines)}\n```',
+        color=discord.Color.red()
+    )
 
     return embed
 

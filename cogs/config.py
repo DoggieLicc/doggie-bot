@@ -39,7 +39,7 @@ class Configuration(commands.Cog):
 
         basic_config = ctx.basic_config
         logging_config = ctx.logging_config
-        
+
         def maybe_mention(channel): return channel.mention if channel else "Not set"
 
         embed = create_embed(
@@ -116,9 +116,12 @@ class Configuration(commands.Cog):
 
         await ctx.basic_config.set_config(self.bot, snipe=option)
 
-        embed = create_embed(ctx.author, title="Snipe command " + ("enabled!" if option else "disabled!"),
-                             description=f"The snipe feature has been " + ("enabled!" if option else "disabled!") +
-                                         f" This will " + ("enable" if option else "disable") + " the `snipe` command!")
+        embed = create_embed(
+            ctx.author,
+            title="Snipe command " + ("enabled!" if option else "disabled!"),
+            description=f"The snipe feature has been " + ("enabled!" if option else "disabled!") +
+                        f" This will " + ("enable" if option else "disable") + " the `snipe` command!"
+        )
 
         if not option:
             self.bot.sniped = [msg for msg in self.bot.sniped if not msg.guild == ctx.guild]
