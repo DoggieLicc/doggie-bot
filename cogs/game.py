@@ -1,19 +1,67 @@
 from typing import Literal
-from datetime import timedelta
 
-from discord import app_commands, Embed
-from discord.utils import escape_markdown
+from datetime import timedelta
+from io import BytesIO
+
+import pandas
+import matplotlib
+import matplotlib.pyplot as plt
+
+import discord
 from discord.ext import commands
+from discord import app_commands, Embed
 from mojang import API as Mojang
 from loguru import logger
 
-from osu import OsuApi
+from osu import OsuApi, OsuApiException
+
 import utils
 from utils import CustomBot, CustomContext
 
 mojang_api = Mojang()
 
-def sync_minecraft(ctx: CustomContext, account: str) -> Embed:
+
+matplotlib.use('Agg')
+plt.style.use('dark_background')
+plt.tight_layout()
+
+
+def render_failtimes(data) -> discord.File:
+    df = pandas.DataFrame(
+        {
+            'percent': range(0, 100),
+            'Fail': data['fail'],
+            'Retry': data['exit']
+        },
+        columns=['percent', 'Fail', 'Retry'],
+    )
+
+    df.set_index('percent', inplace=True)
+
+    plot_bar = df.plot.bar(
+        rot=0,
+        color={
+            'Retry': '#f2c323',
+            'Fail': '#c1681c'
+        },
+        title='Where players failed on this beatmap:',
+        xlabel='% of beatmap played',
+        ylabel='Failure rate %',
+        legend=True,
+        xticks=range(0, 101, 10),
+        width=1,
+        stacked=True,
+    )
+
+    plot_bar.get_figure()
+    plot_bar_img = BytesIO()
+    plt.savefig(plot_bar_img)
+    plot_bar_img.seek(0)
+
+    return discord.File(plot_bar_img, filename='beatmapfails.png')
+
+
+def sync_minecraft(ctx, account):
     try:
         if utils.is_uuid4(account):
             uuid = account
@@ -159,11 +207,14 @@ class Games(commands.GroupCog, group_name='game', name='Games'):
         if not beatmap_set:
             raise utils.DoggieBotException('Beatmap has no set!', 'This beatmap doesn\'t seem to belong to a beatmap set')
 
+        plot_img = await self.bot.loop.run_in_executor(None, render_failtimes, beatmap.failtimes)
+
         embed = utils.create_embed(
             ctx.author,
             image=beatmap_set.covers['cover'] or None,
             url=beatmap.url,
-            title='Showing info for osu! beatmap set!:',
+            thumbnail='attachment://' + plot_img.filename,
+            title=f'Showing info for osu! beatmap set!:',
             description=f'**Title:** {beatmap_set.title}\n'
                         f'**Description:** {beatmap_set.description or 'No description'}\n'
                         f'**Beatmap set ID:** {beatmap_set.id}\n'
@@ -198,7 +249,27 @@ class Games(commands.GroupCog, group_name='game', name='Games'):
                 f'**# of spinners:** {beatmap.count_spinners}'
         )
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, file=plot_img)
+
+    @beatmap.error
+    @account.error
+    @osu.error
+    async def osu_error(self, ctx: utils.CustomContext, error):
+        if isinstance(error, commands.CommandInvokeError):
+            error = error.original
+
+        if isinstance(error, OsuApiException):
+            embed = utils.create_embed(
+                ctx.author,
+                title='Error while getting from osu!api',
+                description='Either the api is down, or you put invalid arguments!\n'
+                            '[**osu!status**](https://status.ppy.sh/)',
+                color=discord.Color.red()
+            )
+
+            return await ctx.send(embed=embed)
+
+        raise error
 
 
 async def setup(bot):

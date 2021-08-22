@@ -193,22 +193,30 @@ class Info(commands.Cog, name='Information'):
                 separator=' ',
                 number=500
             )
-            top_role = user.top_role.mention if user.top_role != ctx.guild.default_role else 'No roles!'
+            if ctx.guild.owner_id:
+                top_role = user.top_role.mention if user.top_role != ctx.guild.default_role else 'No roles!'
 
-            embed.add_field(
-                name='Member Info:',
-                value=f'**Nickname:** {user.nick or 'No nickname'}\n'
-                      f'**Joined Server At:** {utils.user_friendly_dt(user.joined_at)}\n'
-                      f'**Highest Role:** {top_role}\n'
-                      f'**Roles:** {role_mentions or 'No roles!'}',
-                inline=False
-            )
+                embed.add_field(
+                    name='Member Info:',
+                    value=f'**Nickname:** {user.nick or 'No nickname'}\n'
+                        f'**Joined Server At:** {utils.user_friendly_dt(user.joined_at)}\n'
+                        f'**Highest Role:** {top_role}\n'
+                        f'**Roles:** {role_mentions or 'No roles!'}',
+                    inline=False
+                )
 
-            embed.add_field(
-                name=f'Permissions: {utils.Emotes.stafftools}',
-                value=utils.format_perms(user.guild_permissions),
-                inline=False
-            )
+                embed.add_field(
+                    name=f'Permissions: {utils.Emotes.stafftools}',
+                    value=utils.format_perms(user.guild_permissions),
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name='Partial Member Info:',
+                    value=f'**Nickname:** {user.nick or 'No nickname'}\n'
+                          f'**Joined Server At:** {utils.user_friendly_dt(user.joined_at)}',
+                    inline=False
+                )
 
         await ctx.send(embed=embed)
 
