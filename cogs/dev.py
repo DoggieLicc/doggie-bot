@@ -3,7 +3,7 @@ import io
 import textwrap
 import traceback
 from contextlib import redirect_stdout
-from typing import Union
+from typing import Union, Optional, List
 
 import discord
 from discord.ext import commands
@@ -29,12 +29,20 @@ def format_error(author: discord.User, error: Exception) -> discord.Embed:
     return embed
 
 
+class SayFlags(commands.FlagConverter):
+    content: Optional[str]
+    embeds: List[utils.EmbedConverter] = commands.flag(name='embeds', aliases=['embed'], default=lambda ctx: [])
+
+
 class Dev(commands.Cog):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
     async def cog_check(self, ctx: utils.CustomContext):
-        return await self.bot.is_owner(ctx.author)
+        if not await self.bot.is_owner(ctx.author):
+            raise commands.NotOwner()
+
+        return True
 
     @commands.command(hidden=True)
     async def load(self, ctx: utils.CustomContext, *cogs: str):
@@ -185,13 +193,22 @@ class Dev(commands.Cog):
 
     @commands.command(hidden=True)
     async def sudo(self, ctx: utils.CustomContext, who: Union[discord.Member, discord.User], *, command: str):
-
         msg = copy.copy(ctx.message)
         msg.channel = ctx.channel
         msg.author = who
         msg.content = ctx.prefix + command
         new_ctx = await self.bot.get_context(msg, cls=type(ctx))
         await self.bot.invoke(new_ctx)
+
+    @commands.command(hidden=True)
+    async def say(self, ctx: utils.CustomContext, *, flags: SayFlags):
+        await ctx.send(
+            **dict(flags),
+            reference=ctx.message.reference,
+            mention_author=False,
+            allowed_mentions=discord.AllowedMentions.none(),
+            files=[await file.to_file() for file in ctx.message.attachments]
+        )
 
 
 def setup(bot):

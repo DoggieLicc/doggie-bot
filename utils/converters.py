@@ -1,6 +1,10 @@
 import re
 
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional, List
+
+import discord
 from discord.ext import commands
 from discord import Member, User, TextChannel
 
@@ -8,7 +12,8 @@ __all__ = [
     'IntentionalMember',
     'IntentionalUser',
     'TimeConverter',
-    'MentionedTextChannel'
+    'MentionedTextChannel',
+    'EmbedConverter'
 ]
 
 
@@ -108,3 +113,80 @@ class MentionedTextChannel(commands.Converter):
             raise commands.ChannelNotFound(argument)
 
         return result
+
+
+class ImageURLConverter(commands.Converter):
+    async def convert(self, ctx, argument: str):
+        return {'url': argument.strip('<>\n ')}
+
+
+class URLConverter(commands.Converter):
+    async def convert(self, ctx, argument: str):
+        return argument.strip('<>\n ')
+
+
+class ColorIntConverter(commands.Converter):
+    async def convert(self, ctx, argument: str):
+        argument = argument.strip('\n ')
+
+        if argument.isnumeric(): return int(argument)
+        color = await commands.ColorConverter().convert(ctx, argument)
+        return color.value
+
+
+class EmbedTimestampConverter(commands.Converter):
+    async def convert(self, ctx, argument: str):
+        argument = argument.strip('\n ')
+        if argument.isnumeric(): return datetime.fromtimestamp(int(argument)).isoformat()
+        return argument
+
+
+class EmbedFieldConverter(commands.FlagConverter, delimiter=':', prefix='='):
+    name: str
+    value: str
+    inline: Optional[bool] = True
+
+    async def convert(self, *args, **kwargs):
+        flag_map = await super().convert(*args, **kwargs)
+        return dict(flag_map)
+
+
+class EmbedAuthorConverter(commands.FlagConverter, delimiter=':', prefix='='):
+    name: Optional[str]
+    url: Optional[URLConverter]
+    icon_url: Optional[URLConverter]
+
+    async def convert(self, *args, **kwargs):
+        flag_map = await super().convert(*args, **kwargs)
+        return dict(flag_map)
+
+
+class EmbedFooterConverter(commands.FlagConverter, delimiter=':', prefix='='):
+    text: Optional[str]
+    icon_url: Optional[URLConverter]
+
+    async def convert(self, *args, **kwargs):
+        flag_map = await super().convert(*args, **kwargs)
+        return dict(flag_map)
+
+
+class EmbedConverter(commands.FlagConverter, delimiter=':', prefix='-'):
+    color: ColorIntConverter = commands.flag(name='color', aliases=['colour'], default=lambda ctx: 0)
+    description: str = ''
+    title: str = ''
+    url: URLConverter = ''
+    thumbnail: Optional[ImageURLConverter]
+    image: Optional[ImageURLConverter]
+    author: Optional[EmbedAuthorConverter]
+    footer: Optional[EmbedFooterConverter]
+    timestamp: Optional[EmbedTimestampConverter]
+    fields: List[EmbedFieldConverter] = commands.flag(
+        name='fields',
+        aliases=['field'],
+        default=lambda ctx: [],
+        max_args=10
+    )
+
+    async def convert(self, *args, **kwargs):
+        flag_map = await super().convert(*args, **kwargs)
+        return discord.Embed.from_dict(dict(flag_map))
