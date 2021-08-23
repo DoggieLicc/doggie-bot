@@ -10,7 +10,7 @@ from discord.ext import commands, menus
 
 import asqlite
 
-from utils.funcs import guess_user_nitro_status, user_friendly_dt, create_embed
+from utils.funcs import guess_user_nitro_status, user_friendly_dt, create_embed, fix_url
 
 __all__ = [
     'CustomContext',
@@ -370,10 +370,10 @@ class Reminder:
                               color=discord.Color.green())
 
         if isinstance(self.destination, TextChannel):
-            embed.set_footer(icon_url=self.user.avatar.url,
+            embed.set_footer(icon_url=fix_url(self.user.avatar.url),
                              text=f'Reminder sent by {self.user}')
         else:
-            embed.set_footer(icon_url=self.user.avatar.url,
+            embed.set_footer(icon_url=fix_url(self.user.avatar.url),
                              text=f'This reminder is sent by you!')
 
         try:
