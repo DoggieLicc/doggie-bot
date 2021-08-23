@@ -71,7 +71,7 @@ def sync_whois(ctx: utils.CustomContext, domain: str):
     embed.add_field(name='Name Servers:', value=(('\n'.join(query.name_servers)) or 'Unknown'), inline=False)
     embed.add_field(name='Expiration Date:', value=expiration_date, inline=False)
     embed.add_field(name='Creation Date:', value=creation_date, inline=False)
-    
+
     if hasattr(query, 'owner'):
         embed.add_field(name='Owner', value=query.owner, inline=False)
 
@@ -351,8 +351,11 @@ class Info(commands.Cog, name='Information'):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['emoji'])
-    async def emote(self, ctx: utils.CustomContext, emoji: Union[discord.Emoji, discord.PartialEmoji]):
-        """Shows info of emote using the emote ID"""
+    async def emote(
+            self,
+            ctx: utils.CustomContext,
+            emoji: Union[discord.Emoji, discord.PartialEmoji, utils.NitrolessEmoteConverter]):
+        """Shows info of emote using the emote ID or emote itself"""
 
         embed = utils.create_embed(
             ctx.author,
