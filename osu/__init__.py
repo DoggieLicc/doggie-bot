@@ -10,6 +10,10 @@ import aiohttp
 BASE_URL = 'https://osu.ppy.sh/api/v2/'
 
 
+def maybe_dt(string: Optional[str]):
+    return datetime.fromisoformat(string) if string else None
+
+
 def check_access_key(func):
     @functools.wraps(func)
     async def wrapped(self, *args, **kwargs):
@@ -273,8 +277,8 @@ class BeatmapSet:
     @classmethod
     def from_dict(cls, env):
         return cls(
-            submitted_date=datetime.fromisoformat(env.pop('submitted_date')),
-            ranked_date=datetime.fromisoformat(env.pop('ranked_date')) if env.get('ranked_date') else None,
+            submitted_date=maybe_dt(env.pop('submitted_date')),
+            ranked_date=maybe_dt(env.pop('ranked_date')),
             beatmaps=[Beatmap.from_dict(beatmap) for beatmap in env.pop('beatmaps')] if env.get('beatmaps') else None,
             **{k: v for k, v in env.items() if k in inspect.signature(cls).parameters}
         )
@@ -313,7 +317,7 @@ class Beatmap:
     @classmethod
     def from_dict(cls, env):
         return cls(
-            last_updated=datetime.fromisoformat(env.pop('last_updated')),
+            last_updated=maybe_dt(env.pop('last_updated')),
             ranked=BeatmapRankedStatus(env.pop('ranked')),
             mode=BeatmapGamemode(env.pop('mode')),
             beatmapset=BeatmapSet.from_dict(env.pop('beatmapset')) if env.get('beatmapset') else None,
