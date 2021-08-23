@@ -9,6 +9,10 @@ ORIENTATION_LITERAL = Literal['landscape', 'portrait', 'squarish']
 CONTENT_FILTER_LITERAL = Literal['low', 'high']
 
 
+def maybe_dt(string: Optional[str]):
+    return datetime.fromisoformat(string) if string else None
+
+
 @dataclasses.dataclass(frozen=True)
 class PhotoURLS:
     raw: str
@@ -107,7 +111,7 @@ class User:
     @classmethod
     def from_dict(cls, env):
         return cls(
-            updated_at=datetime.fromisoformat(env.pop('updated_at')),
+            updated_at=maybe_dt(env.pop('updated_at')),
             links=UserLinks(**env.pop('links')),
             profile_image=UserProfileImage(**env.pop('profile_image')),
             social=UserSocials(**env.pop('social')),
@@ -146,9 +150,9 @@ class Photo:
     @classmethod
     def from_dict(cls, env):
         return cls(
-            created_at=datetime.fromisoformat(env.pop('created_at')),
-            updated_at=datetime.fromisoformat(env.pop('updated_at')),
-            promoted_at=datetime.fromisoformat(env.pop('promoted_at')) if env.get('promoted_at') else None,
+            created_at=maybe_dt(env.pop('created_at')),
+            updated_at=maybe_dt(env.pop('updated_at')),
+            promoted_at=maybe_dt(env.pop('promoted_at')) if env.get('promoted_at') else None,
             color=int(env.pop('color').strip('#'), 16),
             urls=PhotoURLS(**env.pop('urls')),
             links=PhotoLinks(**env.pop('links')),
