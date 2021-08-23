@@ -118,7 +118,17 @@ class ErrorHandler(commands.Cog):
             )
 
         if embed.fields:
-            return await ctx.send(embed=embed)
+            embed.add_field(
+                name='Help:',
+                value='If you need help, you can use the `help` command, or join the '
+                      '[**support server**](https://discord.gg/Uk6fg39cWn).',
+                inline=False
+            )
+
+            try:
+                return await ctx.send(embed=embed)
+            except (discord.Forbidden, discord.HTTPException):
+                return
 
         etype = type(error)
         trace = error.__traceback__
