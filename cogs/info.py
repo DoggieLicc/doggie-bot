@@ -4,7 +4,7 @@ from PIL import Image
 import base64
 import datetime
 
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 import whois as whois
 import aiowiki
@@ -238,7 +238,8 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Invite Info: {utils.Emotes.invite}',
-            thumbnail=invite.guild.icon.url
+            thumbnail=invite.guild.icon.url,
+            image=invite.guild.banner
         )
 
         embed.add_field(
@@ -420,6 +421,61 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(name='Token Creation Date:', value=utils.user_friendly_dt(time), inline=False)
 
         await ctx.send(embed=embed)
+
+    @commands.command()
+    async def message(self, ctx: utils.CustomContext, message: commands.MessageConverter):
+        """Gets information for a Discord Message!
+        You can specify the message using the message's link"""
+
+        message: discord.Message = cast(discord.Message, message)
+
+        if message.guild != ctx.guild:
+            raise commands.MessageNotFound(message)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title='Info for message:',
+            description=f'"{message.content}"' if message.content else '*Message has no content*',
+            url=message.jump_url,
+        )
+
+        images = [a.url for a in message.attachments if a.content_type.startswith('image')]
+
+        embed.set_author(name=message.author, icon_url=message.author.avatar)
+
+        attachments = '\n'.join([f'[{a.filename}]({a.url})' for a in message.attachments]) or 'No attachments'
+
+        embed.add_field(name='Attachments:', value=attachments, inline=False)
+
+        if message.reference:
+            try:
+                replied = await message.channel.fetch_message(message.reference.message_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                replied = None
+
+            if replied:
+                embed.add_field(
+                    name='Replied Message:',
+                    value=f'ID: {replied.id}\n'
+                          f'Author: {replied.author.mention}\n'
+                          f'Content: {replied.content[100] or "*No content*"}\n'
+                          f'[Jump to Message]({replied.jump_url})'
+                )
+
+        embed.add_field(
+            name='Info:',
+            value=f'ID: {message.id}\n'
+                  f'Channel: {message.channel.mention} ({message.channel.id})\n'
+                  f'Created at: {utils.user_friendly_dt(message.created_at)}\n'
+                  f'{len(message.mentions)} members mentioned\n'
+                  f'Stickers: {(", ".join([f"[{s}]({s.url})" for s in message.stickers]) or "No stickers")}\n'
+                  f'Embeds: {len(message.embeds)} embeds',
+            inline=False
+        )
+
+        image_embeds = [discord.Embed(url=message.jump_url).set_image(url=image) for image in images[:4]]
+
+        await ctx.send(embeds=[embed] + image_embeds)
 
     @commands.command(aliases=['colour'])
     async def color(self, ctx: utils.CustomContext, *, color: Union[Color, Role, Member]):
