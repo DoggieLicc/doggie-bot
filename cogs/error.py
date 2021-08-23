@@ -66,15 +66,18 @@ class ErrorHandler(commands.Cog):
             )
 
         if isinstance(error, commands.MissingPermissions):
+            perms = [str(p).replace('_', ' ').title() for p in error.missing_permissions]
+
             embed.add_field(
                 name='You don\'t have enough permissions to run that command!',
-                value='You are missing: ' + ', '.join(error.missing_permissions)
+                value='You are missing: ' + ', '.join(perms)
             )
 
         if isinstance(error, commands.BotMissingPermissions):
+            perms = [str(p).replace('_', ' ').title() for p in error.missing_permissions]
             embed.add_field(
                 name='The bot doesn\'t have enough permissions!',
-                value='The bot is missing: ' + ', '.join(error.missing_permissions)
+                value='The bot is missing: ' + ', '.join(perms)
             )
 
         if isinstance(error, commands.TooManyFlags):
