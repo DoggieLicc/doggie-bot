@@ -441,7 +441,7 @@ class Info(commands.Cog, name='Information'):
 
         images = [a.url for a in message.attachments if a.content_type.startswith('image')]
 
-        embed.set_author(name=message.author, icon_url=message.author.avatar)
+        embed.set_author(name=message.author, icon_url=utils.fix_url(message.author.avatar))
 
         attachments = '\n'.join([f'[{a.filename}]({a.url})' for a in message.attachments]) or 'No attachments'
 
@@ -473,7 +473,7 @@ class Info(commands.Cog, name='Information'):
             inline=False
         )
 
-        image_embeds = [discord.Embed(url=message.jump_url).set_image(url=image) for image in images[:4]]
+        image_embeds = [discord.Embed(url=message.jump_url).set_image(url=utils.fix_url(image)) for image in images[:4]]
 
         await ctx.send(embeds=[embed] + image_embeds)
 

@@ -46,7 +46,7 @@ class SnipeMenu(menus.ListPageSource):
         index = menu.current_page + 1 - self.num_offset
 
         embed = utils.format_deleted_msg(entries, title=f'Sniped message {index}/{self._max_pages - self.num_offset}:')
-        embed.set_footer(text=f'Command sent by {menu.ctx.author}', icon_url=menu.ctx.author.avatar)
+        embed.set_footer(text=f'Command sent by {menu.ctx.author}', icon_url=utils.fix_url(menu.ctx.author.avatar))
 
         return embed
 

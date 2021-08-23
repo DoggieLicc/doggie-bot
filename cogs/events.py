@@ -29,7 +29,7 @@ async def ban_embed(guild: discord.Guild, punished: discord.User, action):
         color=discord.Color.red()
     )
 
-    embed.set_thumbnail(url=punished.avatar.url)
+    embed.set_thumbnail(url=utils.fix_url(punished.avatar.url))
 
     return embed
 
@@ -122,7 +122,7 @@ class EventsCog(commands.Cog):
         \n\nReason: {reason or "No reason specified"}',
                               color=discord.Color.red())
 
-        embed.set_thumbnail(url=kicked.avatar_url)
+        embed.set_thumbnail(url=utils.fix_url(kicked.avatar_url))
 
         try:
             await config.kick_channel.send(embed=embed)

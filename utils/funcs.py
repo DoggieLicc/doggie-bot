@@ -1,6 +1,6 @@
 import io
 from datetime import datetime
-from typing import Union, Any, Callable, Tuple, List, Coroutine, Optional
+from typing import Union, Any, Callable, Tuple, List, Coroutine, Optional, Type
 from uuid import UUID
 
 import discord
@@ -18,7 +18,8 @@ __all__ = [
     'punish_embed',
     'is_uuid4',
     'format_deleted_msg',
-    'str_to_file'
+    'str_to_file',
+    'fix_url'
 ]
 
 
@@ -28,9 +29,9 @@ def create_embed(user: Union[Member, User], *, image=Embed.Empty, thumbnail=Embe
     kwargs['color'] = kwargs.get('color', discord.Color.green())
 
     embed = discord.Embed(**kwargs)
-    embed.set_image(url=image)
-    embed.set_thumbnail(url=thumbnail)
-    embed.set_footer(text=f'Command sent by {user}', icon_url=user.avatar)
+    embed.set_image(url=fix_url(image))
+    embed.set_thumbnail(url=fix_url(thumbnail))
+    embed.set_footer(text=f'Command sent by {user}', icon_url=fix_url(user.avatar))
 
     return embed
 
@@ -158,11 +159,11 @@ def format_deleted_msg(message: discord.Message, title: Optional[str] = None) ->
         color=discord.Color.red()
     )
 
-    embed.set_author(name=f'{message.author}: {message.author.id}', icon_url=message.author.avatar.url)
+    embed.set_author(name=f'{message.author}: {message.author.id}', icon_url=fix_url(message.author.avatar.url))
 
     if message.attachments:
         if message.attachments[0].filename.endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
-            embed.set_image(url=message.attachments[0].proxy_url)
+            embed.set_image(url=fix_url(message.attachments[0].proxy_url))
 
         file_urls = [f'[{file.filename}]({file.proxy_url})' for file in message.attachments]
         embed.add_field(name='Deleted files:', value=f'\n'.join(file_urls))
@@ -182,3 +183,12 @@ def format_deleted_msg(message: discord.Message, title: Optional[str] = None) ->
     embed.add_field(name='Message channel:', value=message.channel.mention, inline=False)
 
     return embed
+
+
+def fix_url(url: Any):
+    """Makes sure image urls use `images.discordapp.net`"""
+
+    if not url or url == discord.Embed.Empty:
+        return discord.Embed.Empty
+
+    return str(url).replace('cdn.discordapp.com', 'images.discordapp.net')
