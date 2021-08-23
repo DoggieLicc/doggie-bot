@@ -1,3 +1,5 @@
+from typing import Union
+
 import discord
 from discord.ext import commands, menus
 from discord.ext.commands import Greedy
@@ -188,6 +190,79 @@ class UtilityCog(commands.Cog, name="Utility"):
 
         pages = utils.CustomMenu(source=HoistersIDMenu(hoisters, per_page=100), clear_reactions_after=True)
         await pages.start(ctx)
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_emojis=True)
+    @commands.bot_has_permissions(manage_emojis=True)
+    @commands.command(aliases=['steal_emote', 'steal_emoji', 'steal_emotes', 'add_emotes', 'add_emote'])
+    async def steal(
+            self,
+            ctx: utils.CustomContext,
+            emotes: Greedy[Union[discord.Emoji, discord.PartialEmoji, utils.NitrolessEmoteConverter]]):
+        """Adds the specified emotes to your server!
+        If you don\'t have nitro, you can replace the : in the emotes with ;
+
+        Example:
+        `doggie.steal <;botTag;230105988211015680>`
+        """
+
+        if not emotes:
+            raise commands.MissingRequiredArgument(ctx.channel)
+
+        added, not_added = [], []
+        embed = discord.Embed()
+
+        for emote in emotes:
+            if isinstance(emote, discord.Emoji) and emote.guild == ctx.guild:
+                not_added.append(emote)
+                continue
+
+            try:
+                added.append(await ctx.guild.create_custom_emoji(
+                    name=emote.name,
+                    image=await emote.read(),
+                    reason=f'Added by {ctx.author} ({ctx.author.id})')
+                )
+            except (discord.DiscordException, discord.HTTPException, discord.NotFound, discord.Forbidden):
+                not_added.append(emote)
+
+        if not added:
+            embed = utils.create_embed(
+                ctx.author,
+                title='Couldn\'t add any emotes!',
+                description='Make sure they aren\'t already in this server, and that the bot has permissions!',
+                color=discord.Color.red()
+            )
+
+        if added and not_added:
+            embed = utils.create_embed(
+                ctx.author,
+                title='Some emotes couldn\'t be added!',
+                description='Make sure they aren\'t already in this server, and that the bot has permissions!',
+                color=discord.Color.orange()
+            )
+
+        if added and not not_added:
+            embed = utils.create_embed(
+                ctx.author,
+                title='Emotes successfully added!'
+            )
+
+        if added:
+            embed.add_field(
+                name='Emotes added:',
+                value=' '.join(map(str, added)),
+                inline=False
+            )
+
+        if not_added:
+            embed.add_field(
+                name='Emotes not added:',
+                value=' '.join(map(str, not_added)),
+                inline=False
+            )
+
+        await ctx.send(embed=embed)
 
     @selfbot.error
     async def on_command_error(self, ctx, error):
