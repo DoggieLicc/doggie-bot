@@ -101,6 +101,19 @@ class ErrorHandler(commands.Cog):
                 value=str(error)
             )
 
+        if isinstance(error, commands.ChannelNotFound):
+            embed.add_field(
+                name='The channel wasn\'t found!',
+                value='You can specify a channel using it\'s name, mention, or ID'
+            )
+
+        if isinstance(error, (commands.MessageNotFound, commands.ChannelNotReadable)):
+            embed.add_field(
+                name='The message wasn\'t found!',
+                value='You can specify a message using the message link or ID, make sure the bot has permissions to '
+                      'read the message channel too'
+            )
+
         if embed.fields:
             return await ctx.send(embed=embed)
 
