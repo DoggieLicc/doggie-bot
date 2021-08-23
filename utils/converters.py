@@ -13,7 +13,8 @@ __all__ = [
     'IntentionalUser',
     'TimeConverter',
     'MentionedTextChannel',
-    'EmbedConverter'
+    'EmbedConverter',
+    'NitrolessEmoteConverter'
 ]
 
 
@@ -190,3 +191,15 @@ class EmbedConverter(commands.FlagConverter, delimiter=':', prefix='-'):
     async def convert(self, *args, **kwargs):
         flag_map = await super().convert(*args, **kwargs)
         return discord.Embed.from_dict(dict(flag_map))
+
+
+class NitrolessEmoteConverter(commands.Converter):
+    async def convert(self, ctx, argument: str):
+        argument = argument.strip('<>`\n ').replace(';', ':')
+
+        try:
+            return await commands.EmojiConverter().convert(ctx, f'<{argument}>')
+        except (commands.CommandError, commands.BadArgument):
+            pass
+
+        return await commands.PartialEmojiConverter().convert(ctx, f'<{argument}>')
