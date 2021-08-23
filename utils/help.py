@@ -82,7 +82,7 @@ class CustomHelp(commands.HelpCommand):
         if command.aliases:
             embed.add_field(name='Aliases:', value=', '.join(command.aliases))
 
-        await self.context.send(embed=embed)
+        await self.get_destination().send(embed=embed)
 
     async def send_group_help(self, group):
         embed = utils.create_embed(
@@ -98,7 +98,7 @@ class CustomHelp(commands.HelpCommand):
                 inline=False
             )
 
-        await self.context.send(embed=embed)
+        await self.get_destination().send(embed=embed)
 
     async def send_bot_help(self, mapping):
         source = list(self.context.bot.cogs.values())
@@ -110,7 +110,31 @@ class CustomHelp(commands.HelpCommand):
 
     async def send_cog_help(self, cog):
         embed = await self.get_cog_embed(cog)
-        await self.context.send(embed=embed)
+        await self.get_destination().send(embed=embed)
+
+    async def command_not_found(self, string):
+        embed = utils.create_embed(
+            self.context.author,
+            title='Command not found!',
+            description=f'No command called "{string}" was found, use the `help` command to see all commands!',
+            color=discord.Color.red()
+        )
+
+        await self.get_destination().send(embed=embed)
+
+    async def subcommand_not_found(self, command, string):
+        embed = utils.create_embed(
+            self.context.author,
+            title='Subcommand not found!',
+            description=f'{command.name} doesn\'t have a subcommand named "{string}", '
+                        f'you can do `help {command.name}` to see all of its subcommands!',
+            color=discord.Color.red()
+        )
+
+        await self.get_destination().send(embed=embed)
+
+    async def send_error_message(self, error):
+        pass
 
     async def get_cog_embed(self, cog: commands.Cog, title=None) -> discord.Embed:
         embed = utils.create_embed(
