@@ -26,7 +26,7 @@ class Images(commands.Cog):
 
     @unsplash.command()
     @commands.cooldown(10, 60, commands.BucketType.user)
-    async def random(self, ctx: commands.Context):
+    async def random(self, ctx: utils.CustomContext):
         """Gets a random photo from the Unsplash API!"""
 
         if not self.cached_random_photos:
@@ -53,7 +53,7 @@ class Images(commands.Cog):
 
     @commands.command()
     @commands.cooldown(10, 60, commands.BucketType.user)
-    async def fox(self, ctx: commands.Context):
+    async def fox(self, ctx: utils.CustomContext):
         """Gets a random fox from randomfox.ca"""
 
         async with aiohttp.ClientSession() as session:
@@ -62,7 +62,22 @@ class Images(commands.Cog):
 
         fox_url = data['image']
 
-        embed = utils.create_embed(ctx.author, title='Random fox pic', image=fox_url, color=discord.Color.orange())
+        embed = utils.create_embed(ctx.author, title='Random fox pic:', image=fox_url, color=discord.Color.orange())
+
+        await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def duck(self, ctx: utils.CustomContext):
+        """Gets a random duck from random-d.uk"""
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://random-d.uk/api/v2/quack') as resp:
+                data = await resp.json()
+
+        duck_url = data['url']
+
+        embed = utils.create_embed(ctx.author, title='Random duck pic:', image=duck_url)
 
         await ctx.send(embed=embed)
 
