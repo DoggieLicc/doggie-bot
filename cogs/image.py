@@ -1,13 +1,21 @@
 import discord
 from discord.ext import commands
 
-import aiohttp
 from typing import List
 from unsplash import Unsplash, Photo
 
 import utils
 
-utm_params = '?utm_source=discord_bot_doggie_bot&utm_medium=referral '
+utm_params = '?utm_source=discord_bot_doggie_bot&utm_medium=referral'
+
+
+async def get_pic(url: str, ctx: utils.CustomContext, key: str, name: str) -> discord.Embed:
+    async with ctx.bot.session.get(url) as resp:
+        data = await resp.json()
+
+    image_url = data[key]
+
+    return utils.create_embed(ctx.author, title=f'Random {name} pic:', image=image_url)
 
 
 class Images(commands.Cog):
@@ -56,13 +64,7 @@ class Images(commands.Cog):
     async def fox(self, ctx: utils.CustomContext):
         """Gets a random fox from randomfox.ca"""
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get('https://randomfox.ca/floof/') as resp:
-                data = await resp.json()
-
-        fox_url = data['image']
-
-        embed = utils.create_embed(ctx.author, title='Random fox pic:', image=fox_url, color=discord.Color.orange())
+        embed = await get_pic('https://randomfox.ca/floof/', ctx, key='image', name='fox')
 
         await ctx.send(embed=embed)
 
@@ -71,13 +73,7 @@ class Images(commands.Cog):
     async def duck(self, ctx: utils.CustomContext):
         """Gets a random duck from random-d.uk"""
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get('https://random-d.uk/api/v2/quack') as resp:
-                data = await resp.json()
-
-        duck_url = data['url']
-
-        embed = utils.create_embed(ctx.author, title='Random duck pic:', image=duck_url)
+        embed = await get_pic('https://random-d.uk/api/v2/quack', ctx, key='url', name='duck')
 
         await ctx.send(embed=embed)
 
@@ -86,13 +82,7 @@ class Images(commands.Cog):
     async def dog(self, ctx: utils.CustomContext):
         """Gets a random dog from random.dog"""
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get('https://random.dog/woof.json?filter=mp4') as resp:
-                data = await resp.json()
-
-        dog_url = data['url']
-
-        embed = utils.create_embed(ctx.author, title='Random dog pic:', image=dog_url)
+        embed = await get_pic('https://random.dog/woof.json?filter=mp4', ctx, key='url', name='dog')
 
         await ctx.send(embed=embed)
 
@@ -101,7 +91,7 @@ class Images(commands.Cog):
     @fox.error
     @random.error
     @unsplash.error
-    async def api_error(self, ctx: utils.CustomContext, error):
+    async def api_error(self, ctx: utils.CustomContext, _):
         embed = utils.create_embed(
             ctx.author,
             title='Error while using api!',

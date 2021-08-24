@@ -59,6 +59,7 @@ class CustomBot(commands.Bot):
         self.fully_ready = False
         self.start_time: datetime = None  # type: ignore
         self.db: asqlite.Connection = None  # type: ignore
+        self.session = None
 
         self.loop.create_task(self.startup())
 
