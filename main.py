@@ -1,5 +1,6 @@
 import discord
-
+import asyncio
+import aiohttp
 import utils
 
 
@@ -27,19 +28,24 @@ intents = discord.Intents(
 )
 
 
-bot = utils.CustomBot(
-    activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie."'),
-    allowed_mentions=discord.AllowedMentions(replied_user=False),
-    command_prefix=utils.CustomBot.get_custom_prefix,
-    help_command=utils.CustomHelp(),
-    strip_after_prefix=True,
-    case_insensitive=True,
-    max_messages=10000,
-    intents=intents,
-)
+async def startup():
+    bot = utils.CustomBot(
+        activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie."'),
+        allowed_mentions=discord.AllowedMentions(replied_user=False),
+        command_prefix=utils.CustomBot.get_custom_prefix,
+        help_command=utils.CustomHelp(),
+        strip_after_prefix=True,
+        case_insensitive=True,
+        max_messages=10000,
+        intents=intents,
+    )
 
-if __name__ == '__main__':
     for cog in cogs:
         bot.load_extension(cog)
 
-    bot.run(bot.config['bot_token'])
+    async with aiohttp.ClientSession() as session:
+        bot.session = session
+        await bot.start(bot.config['bot_token'])
+
+if __name__ == '__main__':
+    asyncio.run(startup())
