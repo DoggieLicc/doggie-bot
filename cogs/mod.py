@@ -309,7 +309,7 @@ class Moderation(commands.Cog):
         """Deletes multiple messages from the current channel, you can specify users that it will delete messages from.
         You can also specify the amount of messages to check. You and this bot needs the "Manage Messages" permission"""
 
-        amount = 200 if abs(amount) >= 200 else abs(amount)
+        amount = 200 if abs(amount) >= 200 else abs(amount) + 1
 
         async with ctx.channel.typing():
             messages_deleted = await ctx.channel.purge(limit=amount, check=lambda m: not users or (m.author in users))
