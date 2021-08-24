@@ -32,6 +32,27 @@ class RecentJoinsMenu(menus.ListPageSource):
         return embed
 
 
+class RecentAccounts(menus.ListPageSource):
+    async def format_page(self, menu, entries):
+        index = menu.current_page + 1
+        embed = utils.create_embed(
+            menu.ctx.author,
+            title=f'Showing newest accounts in {menu.ctx.guild} '
+                  f'({index}/{self._max_pages}):'
+        )
+        for member in entries:
+            joined_at = utils.user_friendly_dt(member.joined_at)
+            created_at = utils.user_friendly_dt(member.created_at)
+            embed.add_field(
+                name=f'{member}',
+                value=f'ID: {member.id}\n'
+                      f'Joined at: {joined_at}\n'
+                      f'Created at: {created_at}', inline=False
+            )
+
+        return embed
+
+
 class HoistersMenu(menus.ListPageSource):
     async def format_page(self, menu, entries):
         index = menu.current_page + 1
@@ -263,6 +284,17 @@ class UtilityCog(commands.Cog, name="Utility"):
             )
 
         await ctx.send(embed=embed)
+
+    @commands.guild_only()
+    @commands.command(aliases=['newaccount', 'new', 'newaccs', 'new_account', 'new_accounts'])
+    async def newacc(self, ctx: utils.CustomContext):
+        """Shows the newest accounts in this server!"""
+
+        members = sorted(ctx.guild.members, key=lambda m: m.created_at, reverse=True)[:200]
+
+        pages = utils.CustomMenu(source=RecentAccounts(members, per_page=10), clear_reactions_after=True)
+
+        await pages.start(ctx)
 
     @selfbot.error
     async def on_command_error(self, ctx, error):
