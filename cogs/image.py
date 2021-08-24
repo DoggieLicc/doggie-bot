@@ -81,6 +81,20 @@ class Images(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @duck.error
+    @fox.error
+    @random.error
+    @unsplash.error
+    async def api_error(self, ctx: utils.CustomContext, error):
+        embed = utils.create_embed(
+            ctx.author,
+            title='Error while using api!',
+            description='For some reason an error happened, maybe the API is down?',
+            color=discord.Color.red()
+        )
+
+        await ctx.send(embed=embed)
+
 
 def setup(bot):
     bot.add_cog(Images(bot))
