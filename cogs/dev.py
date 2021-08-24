@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import io
 import textwrap
@@ -209,6 +210,29 @@ class Dev(commands.Cog):
             allowed_mentions=discord.AllowedMentions.none(),
             files=[await file.to_file() for file in ctx.message.attachments]
         )
+
+    @commands.command(hidden=True)
+    async def pull(self, ctx: utils.CustomContext):
+        cmd = f'git pull'
+
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, _ = await proc.communicate()
+
+        embed = utils.create_embed(
+            ctx.author,
+            title='Pulled from GitHub successfully:',
+            description=f'```diff\n'
+                        f'{stdout.decode()}\n\n'
+                        f'Return code {proc.returncode}'
+                        f'```'
+        )
+
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
