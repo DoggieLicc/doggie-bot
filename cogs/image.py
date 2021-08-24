@@ -81,6 +81,22 @@ class Images(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def dog(self, ctx: utils.CustomContext):
+        """Gets a random dog from random.dog"""
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://random.dog/woof.json?filter=mp4') as resp:
+                data = await resp.json()
+
+        dog_url = data['url']
+
+        embed = utils.create_embed(ctx.author, title='Random dog pic:', image=dog_url)
+
+        await ctx.send(embed=embed)
+
+    @dog.error
     @duck.error
     @fox.error
     @random.error
