@@ -226,7 +226,7 @@ class Dev(commands.Cog):
         embed = utils.create_embed(
             ctx.author,
             title='Pulled from GitHub successfully:',
-            description=f'```diff\n'
+            description=f'```wl\n'
                         f'{stdout.decode()}\n\n'
                         f'Return code {proc.returncode}'
                         f'```'
