@@ -425,7 +425,7 @@ class Info(commands.Cog, name='Information'):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
+    @commands.command(aliases=['msg'])
     async def message(self, ctx: utils.CustomContext, message: commands.MessageConverter):
         """Gets information for a Discord Message!
         You can specify the message using the message's link"""
@@ -476,7 +476,7 @@ class Info(commands.Cog, name='Information'):
             inline=False
         )
 
-        image_embeds = [discord.Embed(url=message.jump_url).set_image(url=utils.fix_url(image)) for image in images[:4]]
+        image_embeds = [utils.create_embed(None, url=message.jump_url, image=image) for image in images[:4]]
 
         await ctx.send(embeds=[embed] + image_embeds)
 
