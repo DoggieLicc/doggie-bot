@@ -66,10 +66,12 @@ class Configuration(commands.Cog):
         """Sets a custom prefix for the current guild!"""
 
         if len(prefix) > 100:
-            embed = utils.create_embed(ctx.author,
-                                       title='Prefix too long!',
-                                       description='The prefix can\'t be longer than 100 characters!',
-                                       color=discord.Color.red())
+            embed = utils.create_embed(
+                ctx.author,
+                title='Prefix too long!',
+                description='The prefix can\'t be longer than 100 characters!',
+                color=discord.Color.red()
+            )
 
             return await ctx.send(embed=embed)
 
@@ -84,29 +86,41 @@ class Configuration(commands.Cog):
         await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     @config.command(aliases=['mute', 'muterole'])
-    async def mute_role(self, ctx: utils.CustomContext, role: discord.Role):
-        """Sets a role that will be given to members when the `mute` command is used!"""
+    async def mute_role(self, ctx: utils.CustomContext, role: Union[discord.Role, bool]):
+        """Sets a role that will be given to members when the `mute` command is used!
+        You can also remove the mute role by passing "off" or "disbaled"!"""
 
-        if not role.is_assignable():
+        if role is True:
+            raise commands.BadArgument()
+
+        await ctx.basic_config.set_config(self.bot, mute_role=role if role else None)
+
+        if role:
+            if not role.is_assignable():
+                embed = utils.create_embed(
+                    ctx.author,
+                    title='Invalid role!',
+                    description=f'The bot won\'t be able to manage that role, either it\'s higher than this bot\'s '
+                                f'highest role, is the {ctx.guild.default_role} role, is a bot or integration specific '
+                                f'role, or is the Nitro Booster role, or the bot is missing the '
+                                f'"Manage Roles" permission.',
+                    color=discord.Color.red()
+                )
+
+            else:
+                embed = utils.create_embed(
+                    ctx.author,
+                    title='Mute role has been set!',
+                    description=f'The mute role has been set to {role.mention}, this will be the role given to members '
+                                f'when the `mute` command is used on them!'
+                )
+
+        else:
             embed = utils.create_embed(
                 ctx.author,
-                title='Invalid role!',
-                description=f'The bot won\'t be able to manage that role, either it\'s higher than this bot\'s highest '
-                            f'role, is the {ctx.guild.default_role} role, is a bot or integration specific role, '
-                            f'or is the Nitro Booster role, or the bot is missing the "Manage Roles" permission.',
-                color=discord.Color.red()
+                title='Mute role has been disabled!',
+                description='The mute command will now stop working.'
             )
-
-            return await ctx.send(embed=embed)
-
-        await ctx.basic_config.set_config(self.bot, mute_role=role)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title='Mute role has been set!',
-            description=f'The mute role has been set to {role.mention}, this will be the role given to members when '
-                        f'the `mute` command is used on them!'
-        )
 
         await ctx.send(embed=embed)
 
