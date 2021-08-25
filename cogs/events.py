@@ -22,31 +22,31 @@ async def ban_embed(guild: discord.Guild, punished: discord.User, action):
     except discord.Forbidden:
         reason = '*Bot is missing Audit Log Permissions!*'
 
-    embed = discord.Embed(
+    embed = utils.create_embed(
+        None,
         title=f'{punished} has been {action.name}ed! ({punished.id})',
         description=f'{action.name}ed by: {mod.mention if mod else "Unknown"}'
                     f'\n\nReason: {reason or "No reason specified"}',
+        thumbnail=punished.avatar,
         color=discord.Color.red()
     )
-
-    embed.set_thumbnail(url=utils.fix_url(punished.avatar.url))
 
     return embed
 
 
-def format_log(ctx: utils.CustomContext, list: List[discord.Member], reason: str, punishment: str):
+def format_log(ctx: utils.CustomContext, _list: List[discord.Member], reason: str, punishment: str):
     if not ctx.logging_config.mute_channel:
         return
 
     embed = discord.Embed(
-        title=f'{len(list)} members {punishment}!',
+        title=f'{len(_list)} members {punishment}!',
         description=f'They were {punishment} by {ctx.author.mention} for "{reason}"',
         color=discord.Color.red()
     )
 
     embed.add_field(
         name=f'{punishment} members:',
-        value='\n'.join(utils.shorten_below_number(map(str, list)))
+        value='\n'.join(utils.shorten_below_number(map(str, _list)))
     )
 
     return embed
@@ -117,12 +117,12 @@ class EventsCog(commands.Cog):
         if not mod:
             return
 
-        embed = discord.Embed(title=f'{kicked} has been kicked! ({kicked.id})',
-                              description=f'Kicked by: {mod.mention if mod else "Unknown"}\
-        \n\nReason: {reason or "No reason specified"}',
-                              color=discord.Color.red())
-
-        embed.set_thumbnail(url=utils.fix_url(kicked.avatar_url))
+        embed = utils.create_embed(
+            None,
+            title=f'{kicked} has been kicked! ({kicked.id})',
+            description=f'Kicked by: {mod.mention if mod else "Unknown"}\n\nReason: {reason or "No reason specified"}',
+            thumbnail=kicked.avatar,
+            color=discord.Color.red())
 
         try:
             await config.kick_channel.send(embed=embed)
