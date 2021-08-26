@@ -115,6 +115,8 @@ class Info(commands.Cog, name='Information'):
 
         guild: discord.Guild = ctx.guild
 
+        bot_count = sum(member.bot for member in guild.members)
+
         embed = utils.create_embed(
             ctx.author,
             title=f'Info for {guild.name}:',
@@ -157,7 +159,8 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='Counts:',
-            value=f'Members: {guild.member_count} members\n'
+            value=f'Members: {guild.member_count} total members\n'
+                  f'{guild.member_count - bot_count} humans; {bot_count} bots\n'
                   f'Roles: {len(guild.roles)} roles\n'
                   f'Text channels: {len(guild.text_channels)} channels\n'
                   f'Voice Channels: '
@@ -204,12 +207,12 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(name='Badges:', value='\n'.join(flags) or 'None')
 
         if isinstance(user, discord.Member) and user.guild == ctx.guild:
-            role_mentions = [role.mention for role in reversed(user.roles)]
+            role_mentions = [role.mention for role in reversed(user.roles)][:-1]
 
             embed.add_field(name='Server Nickname:', value=user.nick or 'No nickname')
             embed.add_field(name='Joined Server At:', value=utils.user_friendly_dt(user.joined_at), inline=False)
             embed.add_field(name='Highest Role:', value=user.top_role.mention, inline=False)
-            embed.add_field(name='Roles:', value='\n'.join(role_mentions))
+            embed.add_field(name='Roles:', value='\n'.join(role_mentions) or 'No roles!')
 
             embed.add_field(
                 name=f'Permissions: {utils.Emotes.stafftools}',
@@ -281,8 +284,6 @@ class Info(commands.Cog, name='Information'):
             title=f'Info for {channel.name}: {utils.Emotes.channel(channel)}',
             thumbnail=ctx.guild.icon.url
         )
-
-        print(str(channel.type), repr(channel.type))
 
         if isinstance(channel, (discord.TextChannel, discord.Thread)):
             slowmode = 'Disabled' if not channel.slowmode_delay else f'{channel.slowmode_delay} seconds'
