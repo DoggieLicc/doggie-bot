@@ -370,10 +370,10 @@ class Reminder:
                               color=discord.Color.green())
 
         if isinstance(self.destination, TextChannel):
-            embed.set_footer(icon_url=fix_url(self.user.avatar.url),
+            embed.set_footer(icon_url=fix_url(self.user.display_avatar),
                              text=f'Reminder sent by {self.user}')
         else:
-            embed.set_footer(icon_url=fix_url(self.user.avatar.url),
+            embed.set_footer(icon_url=fix_url(self.user.display_avatar),
                              text=f'This reminder is sent by you!')
 
         try:

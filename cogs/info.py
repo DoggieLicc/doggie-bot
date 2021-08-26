@@ -190,7 +190,7 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Info for {user} {utils.Emotes.badges(user)}:',
-            thumbnail=user.avatar.url
+            thumbnail=user.display_avatar
         )
 
         embed.add_field(
@@ -226,7 +226,7 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Avatar of {user}:',
-            image=user.avatar.url
+            image=user.display_avatar
         )
 
         await ctx.send(embed=embed)
@@ -238,7 +238,7 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Invite Info: {utils.Emotes.invite}',
-            thumbnail=invite.guild.icon.url,
+            thumbnail=invite.guild.icon,
             image=invite.guild.banner
         )
 
@@ -431,7 +431,7 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Info for {user.name}\'s token!',
-            thumbnail=user.avatar.url
+            thumbnail=user.display_avatar
         )
 
         embed.add_field(name='Token:', value=f'{token[0]}.{token[1]}.X', inline=False)
@@ -462,7 +462,7 @@ class Info(commands.Cog, name='Information'):
 
         images = [a.url for a in message.attachments if a.content_type.startswith('image')]
 
-        embed.set_author(name=message.author, icon_url=utils.fix_url(message.author.avatar))
+        embed.set_author(name=message.author, icon_url=utils.fix_url(message.author.display_avatar))
 
         attachments = '\n'.join([f'[{a.filename}]({a.url})' for a in message.attachments]) or 'No attachments'
 
