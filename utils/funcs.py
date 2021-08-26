@@ -1,6 +1,6 @@
 import io
 from datetime import datetime
-from typing import Union, Any, Callable, Tuple, List, Coroutine, Optional, Type
+from typing import Union, Any, Callable, Tuple, List, Coroutine, Optional
 from uuid import UUID
 
 import discord
@@ -33,7 +33,7 @@ def create_embed(user: Optional[Union[Member, User]], *, image=Embed.Empty, thum
     embed.set_thumbnail(url=fix_url(thumbnail))
 
     if user:
-        embed.set_footer(text=f'Command sent by {user}', icon_url=fix_url(user.avatar))
+        embed.set_footer(text=f'Command sent by {user}', icon_url=fix_url(user.display_avatar))
 
     return embed
 
@@ -44,9 +44,9 @@ def guess_user_nitro_status(user: Union[User, Member]) -> bool:
     if isinstance(user, Member):
         has_emote_status = any([a.emoji.is_custom_emoji() for a in user.activities if hasattr(a, 'emoji') and a.emoji])
 
-        return any([user.avatar.is_animated(), has_emote_status, user.premium_since])
+        return any([user.display_avatar.is_animated(), has_emote_status, user.premium_since])
 
-    return any([user.avatar.is_animated(), user.banner])
+    return any([user.display_avatar.is_animated(), user.banner])
 
 
 def user_friendly_dt(dt: datetime):
@@ -161,7 +161,7 @@ def format_deleted_msg(message: discord.Message, title: Optional[str] = None) ->
         color=discord.Color.red()
     )
 
-    embed.set_author(name=f'{message.author}: {message.author.id}', icon_url=fix_url(message.author.avatar.url))
+    embed.set_author(name=f'{message.author}: {message.author.id}', icon_url=fix_url(message.author.display_avatar))
 
     if message.attachments:
         if message.attachments[0].filename.endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):

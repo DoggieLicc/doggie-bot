@@ -27,7 +27,7 @@ async def ban_embed(guild: discord.Guild, punished: discord.User, action):
         title=f'{punished} has been {action.name}ed! ({punished.id})',
         description=f'{action.name}ed by: {mod.mention if mod else "Unknown"}'
                     f'\n\nReason: {reason or "No reason specified"}',
-        thumbnail=punished.avatar,
+        thumbnail=punished.display_avatar,
         color=discord.Color.red()
     )
 
@@ -121,7 +121,7 @@ class EventsCog(commands.Cog):
             None,
             title=f'{kicked} has been kicked! ({kicked.id})',
             description=f'Kicked by: {mod.mention if mod else "Unknown"}\n\nReason: {reason or "No reason specified"}',
-            thumbnail=kicked.avatar,
+            thumbnail=kicked.display_avatar,
             color=discord.Color.red())
 
         try:
