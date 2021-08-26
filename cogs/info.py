@@ -128,7 +128,7 @@ class Info(commands.Cog, name='Information'):
         if 'VERIFIED' in guild.features:
             features.append(f'{utils.Emotes.verified} Verified')
         if 'PARTNERED' in guild.features:
-            features.append(f'{utils.Emotes.partnered} Partnered')
+            features.append(f'{utils.Emotes.partner} Partnered')
         if 'DISCOVERABLE' in guild.features:
             features.append(f'{utils.Emotes.stage} Discoverable')
         if not features:
@@ -147,7 +147,7 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(name='Special features:', value=', '.join(features))
 
         embed.add_field(
-            name=f'{utils.Emotes.level4} Boost Info:',
+            name=f'{utils.Emotes.booster4} Boost Info:',
             value=f'Boost level: {guild.premium_tier} \n'
                   f'Amount of boosters: {guild.premium_subscription_count}\n'
                   f'Booster Role: '

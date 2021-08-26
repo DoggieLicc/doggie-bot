@@ -223,46 +223,45 @@ class CustomMenu(menus.MenuPages):
 
 
 class Emotes:
-    bot_tag = "<:botTag:230105988211015680>"
-    discord = "<:discord:314003252830011395>"
-    owner = "<:owner:585789630800986114>"
-    slowmode = "<:slowmode:585790802979061760>"
-    check = "<:check:314349398811475968>"
-    xmark = "<:xmark:314349398824058880>"
-    role = "<:role:808826577785716756>"
-    text = "<:channel:585783907841212418>"
-    nsfw = "<:channel_nsfw:585783907660857354>"
-    voice = "<:voice:585783907673440266>"
-    emoji = "<:emoji_ghost:658538492321595393>"
-    store = "<:store_tag:658538492409806849>"
-    invite = "<:invite:658538493949116428>"
+    # Emotes available in https://discord.gg/Uk6fg39cWn
 
-    # Badges
-    partner = "<:partner:314068430556758017>"
-    hypesquad = "<:hypesquad:314068430854684672>"
-    nitro = "<:nitro:314068430611415041>"
-    staff = "<:staff:314068430787706880>"
-    balance = "<:balance:585763004574859273>"
-    bravery = "<:bravery:585763004218343426>"
-    brilliance = "<:brilliance:585763004495298575>"
-    bughunter = "<:bughunter:585765206769139723>"
-    supporter = "<:supporter:585763690868113455>"
+    bot_tag = '<:botTag:880246947531853835>'
+    discord = '<:discord:880246949243129876>'
+    owner = '<:owner:880246949968744509>'
+    slowmode = '<:slowmode:880246951583576146>'
+    check = '<:check:880246953110278144>'
+    xmark = '<:xmark:880246954343419964>'
+    role = '<:role:880246955371012097>'
+    text = '<:channel:880246957010984990>'
+    nsfw = '<:channel_nsfw:880246958374158346>'
+    voice = '<:voice:880246959988957224>'
+    emoji = '<:emoji_ghost:880246961553428530>'
+    store = '<:store_tag:880246962295824386>'
+    invite = '<:invite:880246964527185950>'
+    partner = '<:partner:880246965970010173>'
+    hypesquad = '<:hypesquad:880246968012669009>'
+    nitro = '<:nitro:880246969816219730>'
+    staff = '<:staff:880246971451969567>'
+    balance = '<:balance:880246972722851910>'
+    bravery = '<:bravery:880246974178267226>'
+    brilliance = '<:brilliance:880246975465922610>'
+    bughunter = '<:bughunter:880246976980082769>'
+    supporter = '<:supporter:880246978154471496>'
 
-    # Boost levels
-    level1 = "<:booster:585764032162562058>"
-    level2 = "<:booster2:585764446253744128>"
-    level3 = "<:booster3:585764446220189716>"
-    level4 = "<:booster4:585764446178246657>"
+    booster = '<:booster:880246979672817744>'
+    booster2 = '<:booster2:880246980931121203>'
+    booster3 = '<:booster3:880246982491394048>'
+    booster4 = '<:booster4:880246983321874505>'
+    verified = '<:verified:880246985024757850>'
 
-    verified = "<:verified:585790522677919749>"
-    partnered = "<:partnernew:754032603081998336>"
-    members = "<:members:658538493470965787>"
-    stage = "<:stagechannel:824240882793447444>"
-    stafftools = "<:stafftools:314348604095594498>"
-    thread = "<:threadchannel:824240882697633812>"
-    mention = "<:mention:658538492019867683>"
-    rules = "<:rules:781581022059692043>"
-    news = "<:news:658522693058166804>"
+    partnernew = '<:partnernew:880246986635378728>'
+    members = '<:members:880246988178849793>'
+    stage = '<:stagechannel:880246989487472711>'
+    stafftools = '<:stafftools:880246991597236234>'
+    thread = '<:threadchannel:880246993014902824>'
+    mention = '<:mention:880246994310930432>'
+    rules = '<:rules:880246996013834331>'
+    news = '<:news:880246997678968842>'
 
     @staticmethod
     def channel(chann):
