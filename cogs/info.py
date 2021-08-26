@@ -273,7 +273,7 @@ class Info(commands.Cog, name='Information'):
 
     @commands.command(aliases=['chann', 'chan'])
     @commands.guild_only()
-    async def channel(self, ctx: utils.CustomContext, *, channel: discord.abc.GuildChannel):
+    async def channel(self, ctx: utils.CustomContext, *, channel: Union[discord.abc.GuildChannel, discord.Thread]):
         """Shows info for the channel specified using channel mention or ID"""
 
         embed = utils.create_embed(
@@ -282,11 +282,27 @@ class Info(commands.Cog, name='Information'):
             thumbnail=ctx.guild.icon.url
         )
 
-        if isinstance(channel, discord.TextChannel):
+        print(str(channel.type), repr(channel.type))
+
+        if isinstance(channel, (discord.TextChannel, discord.Thread)):
             slowmode = 'Disabled' if not channel.slowmode_delay else f'{channel.slowmode_delay} seconds'
             embed.add_field(name=f'Slowmode: {utils.Emotes.slowmode}', value=slowmode, inline=False)
             embed.add_field(name='NSFW?:', value=('Yes' if channel.is_nsfw() else 'No'), inline=False)
-            embed.add_field(name='Topic:', value=(channel.topic or 'No topic set'), inline=False)
+
+            if not isinstance(channel, discord.Thread):
+                embed.add_field(name='Topic:', value=(channel.topic or 'No topic set'), inline=False)
+
+            else:
+                embed.add_field(
+                    name='Thread Info',
+                    value=f'{len(await channel.fetch_members())} members\n'
+                          f'Archived?: {"Yes" if channel.archived else "No"}\n'
+                          f'Locked?: {"Yes" if channel.locked else "No"}\n'
+                          f'Archive timestamp: {utils.user_friendly_dt(channel.archive_timestamp)}\n'
+                          f'Archive time: {channel.auto_archive_duration} seconds\n'
+                          f'Creator: {channel.owner.mention}',
+                    inline=False
+                )
 
         if isinstance(channel, discord.VoiceChannel):
             embed.add_field(name='Bitrate:', value=f'{round(channel.bitrate / 1000)}kbps')
@@ -301,13 +317,15 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='Channel type:',
-            value=f'{str(channel.type).replace("_", " ").title()} channel',
+            value=f'{str(channel.type).replace("_", " ").title()} Channel',
             inline=False
         )
 
         embed.add_field(name='Channel category:', value=channel.category)
         embed.add_field(name='Channel ID:', value=channel.id, inline=False)
-        embed.add_field(name='Creation date:', value=utils.user_friendly_dt(channel.created_at), inline=False)
+
+        if not isinstance(channel, discord.Thread):
+            embed.add_field(name='Creation date:', value=utils.user_friendly_dt(channel.created_at), inline=False)
 
         await ctx.send(embed=embed)
 

@@ -278,7 +278,7 @@ class Emotes:
             return Emotes.store
         if chann.type == ChannelType.category:
             return ""
-        if chann.type == ChannelType.private:
+        if str(chann.type).endswith('thread'):
             return Emotes.thread
         if chann.type == ChannelType.stage_voice:
             return Emotes.stage
