@@ -176,6 +176,10 @@ class Dev(commands.Cog):
                 if isinstance(ret, discord.File):
                     return await ctx.send(file=ret)
 
+                if isinstance(ret, discord.Asset):
+                    embed = utils.create_embed(ctx.author, image=ret)
+                    return await ctx.send(embed=embed)
+
                 else:
                     ret = repr(ret)
 
