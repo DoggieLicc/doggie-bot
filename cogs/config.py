@@ -33,7 +33,7 @@ class Configuration(commands.Cog):
         else:
             raise commands.MissingPermissions(['manage_guild'])
 
-    @commands.group(invoke_without_command=True)
+    @commands.group(invoke_without_command=True, aliases=['configs', 'configuration', 'configurations'])
     async def config(self, ctx: utils.CustomContext):
         """Shows the current configuration for this server!"""
 
@@ -142,7 +142,7 @@ class Configuration(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command(usage='<flags>...')
+    @commands.command(usage='<flags>...', aliases=['log'])
     async def logging(self, ctx: utils.CustomContext, *, config: LoggingConverter):
         """Sets the log channels for this server! `help logging` for help with flags format
 

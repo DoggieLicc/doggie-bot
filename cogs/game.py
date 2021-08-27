@@ -168,7 +168,7 @@ class GameCog(commands.Cog, name="Games"):
 
         await ctx.send(embed=embed)
 
-    @osu.command()
+    @osu.command(aliases=['bm'])
     @commands.cooldown(15, 60, BucketType.user)
     async def beatmap(self, ctx: utils.CustomContext, beatmap_id: int):
         """Gets a beatmap from a beatmap ID! (Not a beatmap set, an individual beatmap)"""

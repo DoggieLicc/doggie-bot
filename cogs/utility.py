@@ -100,7 +100,7 @@ class UtilityCog(commands.Cog, name="Utility"):
 
     @commands.max_concurrency(3, commands.BucketType.channel)
     @commands.guild_only()
-    @commands.command(aliases=['bottest', 'selfbottest', 'bt', 'sbt'])
+    @commands.command(aliases=['bottest', 'selfbottest', 'bt', 'sbt', 'self'])
     async def selfbot(self, ctx, users: Greedy[discord.Member]):
         """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)
         When someone reacts with to the message, The user and the time will be sent.

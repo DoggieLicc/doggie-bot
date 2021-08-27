@@ -67,7 +67,7 @@ class Misc(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.cooldown(3, 86_400, BucketType.user)
-    @commands.command(aliases=['report'])
+    @commands.command(aliases=['report', 'bug'])
     async def suggest(self, ctx: utils.CustomContext, *, suggestion):
         """Send a suggestion or bug report to the bot owner!"""
 
@@ -88,7 +88,7 @@ class Misc(commands.Cog):
 
         await ctx.send(embed=user_embed)
 
-    @commands.command()
+    @commands.command(aliases=['code'])
     async def source(self, ctx, *, command: str = None):
         """Look at the code of this bot!"""
 

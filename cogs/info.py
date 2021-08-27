@@ -534,7 +534,7 @@ class Info(commands.Cog, name='Information'):
         await ctx.send(embed=embed)
 
     @commands.cooldown(1, 10, commands.BucketType.user)
-    @commands.command(aliases=["wiki"])
+    @commands.command(aliases=['wiki'])
     async def wikipedia(self, ctx: utils.CustomContext, *, search):
         """Looks up Wikipedia articles by their title!"""
 
