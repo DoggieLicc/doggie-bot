@@ -118,8 +118,8 @@ class ReminderCog(commands.Cog, name="Reminder"):
         menu = utils.CustomMenu(source=utils.ReminderList(filtered_reminders, per_page=5), clear_reactions_after=True)
         await menu.start(ctx)
 
-    @commands.command(aliases=['deletereminder', 'cancel', 'cancelreminder', 'del'])
-    async def delete(self, ctx, reminder_id: int):
+    @commands.command(aliases=['deletereminder', 'cancelreminder', 'del'])
+    async def cancel(self, ctx, reminder_id: int):
         """Cancels and deletes a reminder using its ID!
         You can get the IDs for your reminders by using the `reminders` command"""
 
@@ -150,7 +150,7 @@ class ReminderCog(commands.Cog, name="Reminder"):
 
         await ctx.send(embed=embed)
 
-    @delete.error
+    @cancel.error
     async def delete_error(self, ctx, error):
 
         embed = utils.create_embed(
