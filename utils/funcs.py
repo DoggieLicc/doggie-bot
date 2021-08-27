@@ -193,4 +193,4 @@ def fix_url(url: Any):
     if not url or url == discord.Embed.Empty:
         return discord.Embed.Empty
 
-    return str(url).replace('cdn.discordapp.com', 'images.discordapp.net')
+    return str(url)
