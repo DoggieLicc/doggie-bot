@@ -224,7 +224,7 @@ class Moderation(commands.Cog):
 
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
-    @commands.command()
+    @commands.command(aliases=['silence'])
     async def mute(
             self,
             ctx: utils.CustomContext,
@@ -265,7 +265,7 @@ class Moderation(commands.Cog):
 
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
-    @commands.command()
+    @commands.command(aliases=['unsilence'])
     async def unmute(
             self,
             ctx: utils.CustomContext,
@@ -308,7 +308,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     @commands.max_concurrency(1, per=commands.BucketType.channel, wait=True)
     @commands.cooldown(5, 60, type=commands.BucketType.guild)
-    @commands.command(aliases=['clear'])
+    @commands.command(aliases=['clear', 'delete'])
     async def purge(self, ctx: utils.CustomContext, users: GREEDY_INTENTIONAL, amount: Optional[int] = 20):
         """Deletes multiple messages from the current channel, you can specify users that it will delete messages from.
         You can also specify the amount of messages to check. You and this bot needs the "Manage Messages" permission"""

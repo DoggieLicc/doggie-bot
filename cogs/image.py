@@ -32,7 +32,7 @@ class Images(commands.Cog):
     async def unsplash(self, ctx: utils.CustomContext):
         await ctx.send_help(ctx.command)
 
-    @unsplash.command()
+    @unsplash.command(aliases=['rdm'])
     @commands.cooldown(10, 60, commands.BucketType.user)
     async def random(self, ctx: utils.CustomContext):
         """Gets a random photo from the Unsplash API!"""

@@ -215,7 +215,7 @@ class Dev(commands.Cog):
             files=[await file.to_file() for file in ctx.message.attachments]
         )
 
-    @commands.command(hidden=True)
+    @commands.command(hidden=True, aliases=['gitpull'])
     async def pull(self, ctx: utils.CustomContext):
         cmd = f'git pull'
 

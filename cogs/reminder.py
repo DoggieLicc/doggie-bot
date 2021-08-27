@@ -14,7 +14,7 @@ class ReminderCog(commands.Cog, name="Reminder"):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    @commands.command(aliases=['r', 'remindme', 'reminder'],
+    @commands.command(aliases=['r', 'rm', 'remindme', 'reminder'],
                       usage='<duration> [channel] <reminder>')
     async def remind(
             self,
