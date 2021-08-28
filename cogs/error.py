@@ -117,6 +117,12 @@ class ErrorHandler(commands.Cog):
                       'read the message channel too'
             )
 
+        if isinstance(error, commands.MaxConcurrencyReached):
+            embed.add_field(
+                name='Too many people using this command!',
+                value=str(error)
+            )
+
         if embed.fields:
             embed.add_field(
                 name='Help:',
