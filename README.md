@@ -28,6 +28,20 @@ This bot runs on the master branch of [discord.py](https://github.com/Rapptz/dis
 
 # Bot commands!
 
+## How to use this bot:
+Use `doggie.command` to use a command.
+
+Most commands also need you to put an argument after the command, such as `doggie.user @Doggie`
+You will know which arguments to put in a command by looking at its command signature!
+
+```properties
+<user> - User is a required argument
+[user] - User is an optional argument
+<users...> - You can specify more than one user
+[amount=100] - Amount is optional, and 100 is the default
+̶c̶o̶m̶m̶a̶n̶d - You can't run this command
+```
+
 **help - [command]**: Shows this bot's commands, if a command is specified then info for that command is shown! 
 
 ## Information commands:
@@ -98,7 +112,7 @@ This bot runs on the master branch of [discord.py](https://github.com/Rapptz/dis
 
 **minecraft - \<account>**: Gets info of minecraft accounts using current username or their UUID
 
-**osu - \<subcommand>**: 
+**osu - \<subcommand>**: Get info for osu accounts and beatmaps
 
 ## Utility commands:
 
