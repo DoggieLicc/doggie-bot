@@ -40,6 +40,8 @@ async def startup():
         intents=intents,
     )
 
+    bot.cogs_list = cogs
+
     for cog in cogs:
         bot.load_extension(cog)
 
