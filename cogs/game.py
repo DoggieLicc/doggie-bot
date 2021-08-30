@@ -91,16 +91,32 @@ class ModeConverter(commands.Converter):
             return "osu"
 
 
+def check_osu():
+    def predicate(ctx):
+        if ctx.bot.config['osu_client_id'] and ctx.bot.config['osu_client_secret']:
+            return True
+
+        raise utils.MissingAPIKey(
+            'The osu!api key is missing!'
+            'The owner of this bot can add an API key in `config.yaml`'
+        )
+
+    return commands.check(predicate)
+
+
 class GameCog(commands.Cog, name="Games"):
     """Commands used to get info for video-game accounts"""
 
     def __init__(self, bot):
         self.bot: utils.CustomBot = bot
 
-        self.osu_api = OsuApi(
-            client_id=bot.config['osu_client_id'],
-            client_secret=bot.config['osu_client_secret']
-        )
+        if bot.config['osu_client_id'] and bot.config['osu_client_secret']:
+            self.osu_api = OsuApi(
+                client_id=bot.config['osu_client_id'],
+                client_secret=bot.config['osu_client_secret']
+            )
+        else:
+            self.osu_api = None
 
     @commands.cooldown(1, 5, BucketType.user)
     @commands.command(aliases=["mc"])
@@ -115,7 +131,8 @@ class GameCog(commands.Cog, name="Games"):
     async def osu(self, ctx: utils.CustomContext):
         await ctx.send_help(ctx.command)
 
-    @osu.command()
+    @osu.command(aliases=['user'])
+    @check_osu()
     @commands.cooldown(15, 60, BucketType.user)
     async def account(self, ctx: utils.CustomContext, account, gamemode: Optional[ModeConverter] = 'osu'):
         """Gets info of osu! accounts! You can also specify a gamemode to get stats for that gamemode!"""
@@ -169,6 +186,7 @@ class GameCog(commands.Cog, name="Games"):
         await ctx.send(embed=embed)
 
     @osu.command(aliases=['bm'])
+    @check_osu()
     @commands.cooldown(15, 60, BucketType.user)
     async def beatmap(self, ctx: utils.CustomContext, beatmap_id: int):
         """Gets a beatmap from a beatmap ID! (Not a beatmap set, an individual beatmap)"""
@@ -235,7 +253,17 @@ class GameCog(commands.Cog, name="Games"):
 
             return await ctx.send(embed=embed)
 
-        raise error
+        if isinstance(error, utils.MissingAPIKey):
+            embed = utils.create_embed(
+                ctx.author,
+                title='Bot missing API key!',
+                description=str(error),
+                color=discord.Color.red()
+            )
+
+            return await ctx.send(embed=embed)
+
+        ctx.uncaught_error = True
 
 
 def setup(bot):
