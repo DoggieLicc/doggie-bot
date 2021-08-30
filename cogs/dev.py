@@ -86,7 +86,13 @@ class Dev(commands.Cog):
         for cog in cogs:
             try:
                 self.bot.reload_extension(f'cogs.{cog}')
-            except Exception as e:
+            except commands.ExtensionNotLoaded:
+                try:
+                    self.bot.load_extension(f'cogs.{cog}')
+                except (commands.NoEntryPointError, commands.ExtensionFailed) as e:
+                    embed = format_error(ctx.author, e)
+                    return await ctx.send(embed=embed)
+            except (commands.NoEntryPointError, commands.ExtensionFailed) as e:
                 embed = format_error(ctx.author, e)
                 return await ctx.send(embed=embed)
 
@@ -94,6 +100,31 @@ class Dev(commands.Cog):
             ctx.author,
             title='Success!',
             description=f'Cogs ``{", ".join(cogs)}`` has been reloaded!',
+            color=discord.Color.green()
+        )
+
+        await ctx.send(embed=embed)
+
+    @commands.command(hidden=True, aliases=['ra'])
+    async def reloadall(self, ctx):
+        for cog in self.bot.cogs_list:
+            try:
+                self.bot.reload_extension(cog)
+            except commands.ExtensionNotLoaded:
+                print('l')
+                try:
+                    self.bot.load_extension(cog)
+                except (commands.NoEntryPointError, commands.ExtensionFailed) as e:
+                    embed = format_error(ctx.author, e)
+                    return await ctx.send(embed=embed)
+            except (commands.NoEntryPointError, commands.ExtensionFailed) as e:
+                embed = format_error(ctx.author, e)
+                return await ctx.send(embed=embed)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title='Success!',
+            description=f'Cogs ``{", ".join(self.bot.cogs_list)}`` has been reloaded!',
             color=discord.Color.green()
         )
 
