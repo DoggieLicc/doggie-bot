@@ -18,13 +18,29 @@ async def get_pic(url: str, ctx: utils.CustomContext, key: str, name: str) -> di
     return utils.create_embed(ctx.author, title=f'Random {name} pic:', image=image_url)
 
 
+def check_unsplash():
+    def predicate(ctx):
+        if ctx.bot.config['unsplash_api_key']:
+            return True
+
+        raise utils.MissingAPIKey(
+            'The Unsplash API key is missing!'
+            'The owner of this bot can add an API key in `config.yaml`'
+        )
+
+    return commands.check(predicate)
+
+
 class Images(commands.Cog):
     """Commands that have to do with images!"""
 
     def __init__(self, bot):
         self.bot: utils.CustomBot = bot
 
-        self.unsplash = Unsplash(bot.config['unsplash_api_key'])
+        if bot.config['unsplash_api_key']:
+            self.unsplash = Unsplash(bot.config['unsplash_api_key'])
+        else:
+            self.unsplash = None
 
         self.cached_random_photos: List[Photo] = []
 
@@ -32,6 +48,7 @@ class Images(commands.Cog):
     async def unsplash(self, ctx: utils.CustomContext):
         await ctx.send_help(ctx.command)
 
+    @check_unsplash()
     @unsplash.command(aliases=['rdm'])
     @commands.cooldown(10, 60, commands.BucketType.user)
     async def random(self, ctx: utils.CustomContext):
@@ -91,7 +108,17 @@ class Images(commands.Cog):
     @fox.error
     @random.error
     @unsplash.error
-    async def api_error(self, ctx: utils.CustomContext, _):
+    async def api_error(self, ctx: utils.CustomContext, error):
+        if isinstance(error, utils.MissingAPIKey):
+            embed = utils.create_embed(
+                ctx.author,
+                title='Bot missing API key!',
+                description=str(error),
+                color=discord.Color.red()
+            )
+
+            return await ctx.send(embed=embed)
+
         embed = utils.create_embed(
             ctx.author,
             title='Error while using api!',

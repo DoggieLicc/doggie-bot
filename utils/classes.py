@@ -20,7 +20,8 @@ __all__ = [
     'ReminderList',
     'Reminder',
     'BasicConfig',
-    'LoggingConfig'
+    'LoggingConfig',
+    'MissingAPIKey'
 ]
 
 
@@ -28,6 +29,7 @@ class CustomContext(commands.Context):
     def __init__(self, **attrs):
         super().__init__(**attrs)
         self.bot: CustomBot = self.bot
+        self.uncaught_error = False
 
     async def send(self, *args, **kwargs) -> Message:
         kwargs['reference'] = kwargs.get('reference', self.message.reference)
@@ -406,7 +408,6 @@ class BasicConfig:
     mute_role: Optional[discord.Role] = None
 
     async def set_config(self, bot: CustomBot, **kwargs) -> 'BasicConfig':
-
         config = replace(self, **kwargs)
 
         async with bot.db.cursor() as cursor:
@@ -435,7 +436,6 @@ class LoggingConfig:
     mute_channel: Optional[TextChannel] = None
 
     async def set_config(self, bot: CustomBot, **kwargs) -> 'LoggingConfig':
-
         config = replace(self, **kwargs)
 
         async with bot.db.cursor() as cursor:
@@ -454,3 +454,7 @@ class LoggingConfig:
         bot.logging_configs[config.guild.id] = config
 
         return config
+
+
+class MissingAPIKey(commands.CommandError):
+    pass
