@@ -55,6 +55,7 @@ class CustomBot(commands.Bot):
         self.basic_configs: Dict[int, BasicConfig] = {}
         self.logging_configs: Dict[int, LoggingConfig] = {}
         self.sniped: List[Message] = []
+        self.cogs_list: List[str] = []
 
         self.fully_ready = False
         self.start_time: datetime = None  # type: ignore
