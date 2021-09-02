@@ -338,7 +338,7 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(ctx.author, title=f'Info for {role.name} {utils.Emotes.role}:')
 
         if role.is_bot_managed():
-            bot = ctx.guild.get_user(role.tags.bot_id)
+            bot = ctx.guild.get_member(role.tags.bot_id)
             embed.add_field(name='Bot manager name:', value=str(bot), inline=False)
             embed.add_field(name='Bot manager ID:', value=role.tags.bot_id, inline=False)
 
