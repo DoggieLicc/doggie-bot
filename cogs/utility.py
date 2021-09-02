@@ -111,7 +111,7 @@ class UtilityCog(commands.Cog, name="Utility"):
         message = await ctx.send(
             ':tada: GIVEAWAY :tada:\n'
             'Prize: Discord Nitro\n'
-            'Time left: Infinity\n'
+            'Timeleft: Infinity\n'
             'React with :tada: to participate!'
         )
 
