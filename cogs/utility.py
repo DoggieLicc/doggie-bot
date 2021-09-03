@@ -96,7 +96,7 @@ class UtilityCog(commands.Cog, name="Utility"):
             pages = utils.CustomMenu(source=RecentJoinsMenu(members, per_page=5), clear_reactions_after=True)
 
         await pages.start(ctx)
-        await self.bot.wait_for('finalize_menu', check=lambda c: c == ctx)
+        await self.bot.wait_for('finalize_menu', check=lambda c: c == ctx, timeout=360)
 
     @commands.max_concurrency(3, commands.BucketType.channel)
     @commands.guild_only()

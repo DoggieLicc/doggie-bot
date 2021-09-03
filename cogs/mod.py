@@ -411,7 +411,7 @@ class Moderation(commands.Cog):
         await pages.start(ctx)
 
         if len(filtered) > 1:
-            await self.bot.wait_for('finalize_menu', check=lambda c: c == ctx)
+            await self.bot.wait_for('finalize_menu', check=lambda c: c == ctx, timeout=360)
 
 
 def setup(bot):
