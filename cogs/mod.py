@@ -354,7 +354,7 @@ class Moderation(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.max_concurrency(1, commands.BucketType.user)
+    @commands.max_concurrency(5, commands.BucketType.user)
     @commands.guild_only()
     @commands.command(aliases=['snpied', 'deleted'])
     async def snipe(self, ctx: utils.CustomContext, channel: Optional[discord.TextChannel], *,
