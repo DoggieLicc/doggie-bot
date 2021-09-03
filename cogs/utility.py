@@ -84,7 +84,7 @@ class UtilityCog(commands.Cog, name="Utility"):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    @commands.max_concurrency(1, commands.BucketType.user)
+    @commands.max_concurrency(5, commands.BucketType.user)
     @commands.guild_only()
     @commands.command(aliases=['recentusers', 'recent', 'newjoins', 'newusers', 'rj', 'joins'])
     async def recentjoins(self, ctx):
