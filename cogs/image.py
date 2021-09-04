@@ -1,12 +1,32 @@
+import io
+
 import discord
+from PIL import Image, ImageOps
 from discord.ext import commands
 
-from typing import List
+from typing import List, Optional
 from unsplash import Unsplash, Photo
 
 import utils
 
 utm_params = '?utm_source=discord_bot_doggie_bot&utm_medium=referral'
+
+
+def invert_image(b: bytes) -> discord.File:
+    image = Image.open(io.BytesIO(b)).convert('RGBA')
+
+    img_bytes = io.BytesIO()
+
+    r, g, b, a = image.split()
+    rgb_image = Image.merge('RGB', (r, g, b))
+    inverted_image = ImageOps.invert(rgb_image)
+    r2, g2, b2 = inverted_image.split()
+    final_transparent_image = Image.merge('RGBA', (r2, g2, b2, a))
+    final_transparent_image.save(img_bytes, 'png')
+
+    img_bytes.seek(0)
+
+    return discord.File(img_bytes, 'inverted.png')
 
 
 async def get_pic(url: str, ctx: utils.CustomContext, key: str, name: str) -> discord.Embed:
@@ -102,6 +122,32 @@ class Images(commands.Cog):
         embed = await get_pic('https://random.dog/woof.json?filter=mp4', ctx, key='url', name='dog')
 
         await ctx.send(embed=embed)
+
+    @commands.command()
+    async def invert(self, ctx, image: Optional[str]):
+        """Inverts the colors of a specified image!
+
+        The bot checks for images in this order:
+
+        1. Attached image
+        2. Attached image in replied message
+        3. Specified user's avatar
+        4. Specified emote's image
+        5. Invoker's avatar
+        """
+
+        # Use converter here so that it triggers even without given argument
+        image_bytes = await utils.ImageConverter().convert(ctx, image)
+
+        file = await self.bot.loop.run_in_executor(None, invert_image, image_bytes)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title='Here\'s your inverted image:',
+            image='attachment://inverted.png'
+        )
+
+        await ctx.send(embed=embed, file=file)
 
     @dog.error
     @duck.error

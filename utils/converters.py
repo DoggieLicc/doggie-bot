@@ -2,7 +2,7 @@ import re
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 
 import discord
 from discord.ext import commands
@@ -14,7 +14,8 @@ __all__ = [
     'TimeConverter',
     'MentionedTextChannel',
     'EmbedConverter',
-    'NitrolessEmoteConverter'
+    'NitrolessEmoteConverter',
+    'ImageConverter'
 ]
 
 
@@ -194,7 +195,7 @@ class EmbedConverter(commands.FlagConverter, delimiter=':', prefix='-'):
 
 
 class NitrolessEmoteConverter(commands.Converter):
-    async def convert(self, ctx, argument: str):
+    async def convert(self, ctx, argument: str) -> Union[discord.Emoji, discord.PartialEmoji]:
         argument = argument.strip('<>`\n ').replace(';', ':')
 
         try:
@@ -203,3 +204,42 @@ class NitrolessEmoteConverter(commands.Converter):
             pass
 
         return await commands.PartialEmojiConverter().convert(ctx, f'<{argument}>')
+
+
+class ImageConverter(commands.Converter):
+    async def convert(self, ctx, argument: Optional[str]) -> bytes:
+        if ctx.message.attachments:
+            if ctx.message.attachments[0].content_type.startswith('image'):
+                return await ctx.message.attachments[0].read()
+
+        if ctx.message.reference:
+            try:
+                message = ctx.message.reference.cached_message or \
+                          await ctx.channel.fetch_message(ctx.message.reference.message_id)
+            except (discord.Forbidden, discord.HTTPException):
+                message = None
+
+            if message and message.attachments:
+                if message.attachments[0].content_type.startswith('image'):
+                    return await message.attachments[0].read()
+
+        if argument:
+            try:
+                user = await commands.UserConverter().convert(ctx, argument)
+            except (commands.BadArgument, commands.CommandError):
+                user = None
+
+            if user:
+                return await user.display_avatar.read()
+
+            try:
+                emoji = await NitrolessEmoteConverter().convert(ctx, argument)
+            except (commands.BadArgument, commands.CommandError):
+                emoji = None
+
+            if emoji:
+                return await emoji.read()
+
+            raise commands.BadArgument('Couldn\'t get an user or emoji from argument')
+
+        return await ctx.author.display_avatar.read()

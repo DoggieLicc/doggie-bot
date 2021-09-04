@@ -123,6 +123,13 @@ class ErrorHandler(commands.Cog):
                 value=str(error)
             )
 
+        if isinstance(error, commands.BadArgument):
+            if not embed.fields:
+                embed.add_field(
+                    name='Bad argument!',
+                    value=str(error)
+                )
+
         if embed.fields:
             embed.add_field(
                 name='Help:',
