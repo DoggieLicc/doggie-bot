@@ -1,6 +1,3 @@
-from io import BytesIO
-from PIL import Image
-
 import base64
 import datetime
 
@@ -13,15 +10,6 @@ from discord import Color, Member, Role, User
 from discord.ext import commands
 
 import utils
-
-
-def solid_color_image(color: tuple):
-    buffer = BytesIO()
-    image = Image.new('RGB', (80, 80), color)
-    image.save(buffer, 'png')
-    buffer.seek(0)
-
-    return buffer
 
 
 def sync_whois(ctx: utils.CustomContext, domain: str):
@@ -508,7 +496,7 @@ class Info(commands.Cog, name='Information'):
 
         color = color if isinstance(color, Color) else color.color
 
-        buffer = await self.bot.loop.run_in_executor(None, solid_color_image, color.to_rgb())
+        buffer = await self.bot.loop.run_in_executor(None, utils.solid_color_image, color.to_rgb())
         file = discord.File(filename="color.png", fp=buffer)
 
         embed = utils.create_embed(

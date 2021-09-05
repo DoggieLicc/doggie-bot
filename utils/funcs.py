@@ -4,6 +4,7 @@ from typing import Union, Any, Callable, Tuple, List, Coroutine, Optional
 from uuid import UUID
 
 import discord
+from PIL import Image
 from discord import Embed, User, Member, Permissions
 from discord.utils import format_dt
 
@@ -19,7 +20,8 @@ __all__ = [
     'is_uuid4',
     'format_deleted_msg',
     'str_to_file',
-    'fix_url'
+    'fix_url',
+    'solid_color_image'
 ]
 
 
@@ -194,3 +196,13 @@ def fix_url(url: Any):
         return discord.Embed.Empty
 
     return str(url)
+
+
+def solid_color_image(color: tuple):
+    buffer = io.BytesIO()
+    image = Image.new('RGB', (80, 80), color)
+    image.save(buffer, 'png')
+    buffer.seek(0)
+
+    return buffer
+
