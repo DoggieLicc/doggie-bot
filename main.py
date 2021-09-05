@@ -15,7 +15,8 @@ cogs = [
     'cogs.image',
     'cogs.config',
     'cogs.events',
-    'cogs.error'
+    'cogs.error',
+    'cogs.randomc'
 ]
 
 
