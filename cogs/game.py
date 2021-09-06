@@ -104,7 +104,7 @@ def check_osu():
     return commands.check(predicate)
 
 
-class GameCog(commands.Cog, name="Games"):
+class Games(commands.Cog, name="Games"):
     """Commands used to get info for video-game accounts"""
 
     def __init__(self, bot):
@@ -267,4 +267,4 @@ class GameCog(commands.Cog, name="Games"):
 
 
 def setup(bot):
-    bot.add_cog(GameCog(bot))
+    bot.add_cog(Games(bot))
