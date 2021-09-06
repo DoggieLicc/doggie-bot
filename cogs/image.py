@@ -124,7 +124,7 @@ class Images(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def invert(self, ctx, image: Optional[str]):
+    async def invert(self, ctx, *, image: Optional[str]):
         """Inverts the colors of a specified image!
 
         The bot checks for images in this order:
