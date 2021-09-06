@@ -555,7 +555,7 @@ class Info(commands.Cog, name='Information'):
                     embed = utils.create_embed(
                         ctx.author,
                         title=f'No page found for "{search}"! Did you mean...',
-                        description='**The wiki search is case sensitive!**\n\n' + '\n'.join(titles),
+                        description='\n'.join(titles),
                         color=discord.Color.red()
                     )
 
