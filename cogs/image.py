@@ -29,13 +29,23 @@ def invert_image(b: bytes) -> discord.File:
     return discord.File(img_bytes, 'inverted.png')
 
 
-async def get_pic(url: str, ctx: utils.CustomContext, key: str, name: str) -> discord.Embed:
+async def get_pic(url: str, ctx: utils.CustomContext, key: str) -> str:
     async with ctx.bot.session.get(url) as resp:
         data = await resp.json()
 
-    image_url = data[key]
+    return data[key]
 
-    return utils.create_embed(ctx.author, title=f'Random {name} pic:', image=image_url)
+
+async def furry_image(ctx, user: Optional[discord.User], endpoint: str, action: str, a2: str = None):
+    if not user or user == ctx.author:
+        msg = f'{ctx.author.mention} has no one to {action} :('
+    elif user.bot:
+        msg = f'{ctx.author.mention} tries to {action} a bot... sad :('
+    else:
+        msg = f'{ctx.author.mention} {action + "s" if not a2 else a2} {user.mention}!'
+
+    url = await get_pic(f'https://v2.yiff.rest/furry/{endpoint}', ctx, key='images')
+    return utils.create_embed(ctx.author, title=f'Furry {action}!', description=msg, image=url[0]['url'])
 
 
 def check_unsplash():
@@ -101,7 +111,8 @@ class Images(commands.Cog):
     async def fox(self, ctx: utils.CustomContext):
         """Gets a random fox from randomfox.ca"""
 
-        embed = await get_pic('https://randomfox.ca/floof/', ctx, key='image', name='fox')
+        url = await get_pic('https://randomfox.ca/floof/', ctx, key='image')
+        embed = utils.create_embed(ctx.author, title=f'Random fox picture!:', image=url)
 
         await ctx.send(embed=embed)
 
@@ -110,7 +121,8 @@ class Images(commands.Cog):
     async def duck(self, ctx: utils.CustomContext):
         """Gets a random duck from random-d.uk"""
 
-        embed = await get_pic('https://random-d.uk/api/v2/quack', ctx, key='url', name='duck')
+        url = await get_pic('https://random-d.uk/api/v2/quack', ctx, key='url')
+        embed = utils.create_embed(ctx.author, title=f'Random duck picture!:', image=url)
 
         await ctx.send(embed=embed)
 
@@ -119,7 +131,53 @@ class Images(commands.Cog):
     async def dog(self, ctx: utils.CustomContext):
         """Gets a random dog from random.dog"""
 
-        embed = await get_pic('https://random.dog/woof.json?filter=mp4', ctx, key='url', name='dog')
+        url = await get_pic('https://random.dog/woof.json?filter=mp4', ctx, key='url')
+        embed = utils.create_embed(ctx.author, title=f'Random dog picture!:', image=url)
+
+        await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def hug(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
+        """Get picture of furries hugging, because why not?"""
+
+        embed = await furry_image(ctx, user, 'hug', 'hug')
+
+        await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def boop(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
+        """Get picture of furries booping eachother, because why not?"""
+
+        embed = await furry_image(ctx, user, 'boop', 'boop')
+
+        await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def hold(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
+        """Get picture of furries holding eachother, because why not?"""
+
+        embed = await furry_image(ctx, user, 'hold', 'hold')
+
+        await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def kiss(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
+        """Get picture of furries kissing, because why not?"""
+
+        embed = await furry_image(ctx, user, 'kiss', 'kiss', 'kisses')
+
+        await ctx.send(embed=embed)
+
+    @commands.command(aliases=['licc'])
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def lick(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
+        """Get picture of furries licking eachother, because why not?"""
+
+        embed = await furry_image(ctx, user, 'lick', 'lick')
 
         await ctx.send(embed=embed)
 
@@ -153,6 +211,7 @@ class Images(commands.Cog):
     @duck.error
     @fox.error
     @random.error
+    @hug.error
     @unsplash.error
     async def api_error(self, ctx: utils.CustomContext, error):
         if isinstance(error, utils.MissingAPIKey):
