@@ -87,12 +87,10 @@ async def multi_punish(
         func: Callable[[Union[Member, User], Any], Coroutine[Any, Any, Any]],
         **kwargs
         ) -> Tuple[USER_LIST, USER_LIST]:
-
     punished = []
     not_punished = [user for user in users if not hierarchy_check(mod, user)]
 
     users = [user for user in users if user not in not_punished]
-
     for user in users:
         try:
             await func(user, **kwargs)
@@ -105,6 +103,7 @@ async def multi_punish(
 
 def punish_embed(mod: Member, punishment: str, reason: str, punish_lists: Tuple[USER_LIST, USER_LIST]) -> Embed:
     punished, not_punished = punish_lists
+    punished, not_punished = punished.copy(), not_punished.copy()
 
     if not punished:
         return create_embed(mod,
@@ -205,4 +204,3 @@ def solid_color_image(color: tuple):
     buffer.seek(0)
 
     return buffer
-
