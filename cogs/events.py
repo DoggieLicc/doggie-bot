@@ -24,7 +24,7 @@ async def ban_embed(guild: discord.Guild, punished: discord.User, action):
 
     embed = utils.create_embed(
         None,
-        title=f'{punished} has been {action.name}ed! ({punished.id})',
+        title=f'{punished} has been {action.name}ned! ({punished.id})',
         description=f'{action.name}ed by: {mod.mention if mod else "Unknown"}'
                     f'\n\nReason: {reason or "No reason specified"}',
         thumbnail=punished.display_avatar,
@@ -45,8 +45,8 @@ def format_log(ctx: utils.CustomContext, _list: List[discord.Member], reason: st
     )
 
     embed.add_field(
-        name=f'{punishment} members:',
-        value='\n'.join(utils.shorten_below_number(map(str, _list)))
+        name=f'{punishment.title()} members:',
+        value=utils.shorten_below_number(list(map(str, _list))) or 'None'
     )
 
     return embed
