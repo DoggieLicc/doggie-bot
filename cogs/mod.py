@@ -29,7 +29,7 @@ async def add_mute(member: discord.Member, role: discord.Role, **kwargs):
 
 
 async def remove_mute(member: discord.Member, role: discord.Role, **kwargs):
-    await member.add_roles(role, **kwargs)
+    await member.remove_roles(role, **kwargs)
 
 
 class SnipeMenu(menus.ListPageSource):
