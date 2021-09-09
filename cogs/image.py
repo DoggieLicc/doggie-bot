@@ -1,7 +1,7 @@
 import io
 
 import discord
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 from discord.ext import commands
 
 from typing import List, Optional
@@ -43,18 +43,56 @@ def greyscale_image(b: bytes) -> discord.File:
     return discord.File(img_bytes, 'greyscale.png')
 
 
+def deepfry_image(b: bytes) -> discord.File:
+    original = Image.open(io.BytesIO(b)).convert('P').convert('RGB')
+    noise = Image.effect_noise(original.size, 20).convert('RGB')
+
+    image = Image.blend(original, noise, 0.5).convert('P').convert('RGB')
+
+    c = ImageEnhance.Contrast(image)
+    image = c.enhance(2)
+    b = ImageEnhance.Brightness(image)
+    image = b.enhance(1.25)
+
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, 'jpeg', quality=10, optimize=True)
+
+    img_bytes.seek(0)
+    return discord.File(img_bytes, 'deepfry.jpg')
+
+
+def noise_image(b: bytes, alpha: float) -> discord.File:
+    original = Image.open(io.BytesIO(b)).convert('RGBA')
+    noise = Image.effect_noise(original.size, 20).convert('RGBA')
+
+    image = Image.blend(original, noise, alpha)
+
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, 'png', optimize=True)
+
+    img_bytes.seek(0)
+    return discord.File(img_bytes, 'noise.png')
+
+
+def blur_image(b: bytes, radius: int) -> discord.File:
+    image = Image.open(io.BytesIO(b)).convert('RGBA')
+    image = image.filter(ImageFilter.GaussianBlur(radius))
+
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, 'png', optimize=True)
+
+    img_bytes.seek(0)
+    return discord.File(img_bytes, 'blur.png')
+
+
 def maybe_resize_image(image: Image, max_size: int) -> Image:
     b = io.BytesIO()
     image.save(b, 'png')
 
-    print(b.tell() // 1000 // 1000)
-
     while b.tell() > max_size:
-        print(b.tell() // 1000 // 1000)
         b.close()
         new_size = image.size[0] // 2, image.size[1] // 2
-        print(new_size)
-        image = image.resize(new_size, resample=3)
+        image = image.resize(new_size, resample=Image.BILINEAR)
         b = io.BytesIO()
         image.save(b, 'png')
 
@@ -268,7 +306,97 @@ class Images(commands.Cog):
             image='attachment://greyscale.png'
         )
 
-        e = await ctx.send(embed=embed, file=file)
+        await ctx.send(embed=embed, file=file)
+
+    @commands.command(aliases=['deep', 'fry'])
+    async def deepfry(self, ctx: utils.CustomContext, *, image: Optional[str]):
+        """Greyscale the specified image!
+
+        The bot checks for images in this order:
+
+        1. Attached image
+        2. Attached image in replied message
+        3. Emote in replied message (only if emote is by itself)
+        4. Specified user's avatar
+        5. Specified emote's image
+        6. Invoker's avatar
+        """
+
+        # Use converter here so that it triggers even without given argument
+        image_bytes = await utils.ImageConverter().convert(ctx, image)
+
+        file = await self.bot.loop.run_in_executor(None, deepfry_image, image_bytes)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Here\'s your deepfried image:',
+            image='attachment://deepfry.jpg'
+        )
+
+        await ctx.send(embed=embed, file=file)
+
+    @commands.command()
+    async def blur(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=5):
+        """Blurs the specified image!
+
+        The bot checks for images in this order:
+
+        1. Attached image
+        2. Attached image in replied message
+        3. Emote in replied message (only if emote is by itself)
+        4. Specified user's avatar
+        5. Specified emote's image
+        6. Invoker's avatar
+        """
+
+        if not image:
+            image_bytes = await utils.ImageConverter().convert(ctx, image)
+        else:
+            image_bytes = image
+
+        file = await self.bot.loop.run_in_executor(None, blur_image, image_bytes, abs(strength))
+
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Here\'s your blurred image:',
+            image='attachment://blur.png'
+        )
+
+        await ctx.send(embed=embed, file=file)
+
+    @commands.command()
+    async def noise(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=50):
+        """Blurs the specified image! Strength should be in between 0 and 100
+
+        The bot checks for images in this order:
+
+        1. Attached image
+        2. Attached image in replied message
+        3. Emote in replied message (only if emote is by itself)
+        4. Specified user's avatar
+        5. Specified emote's image
+        6. Invoker's avatar
+        """
+
+        if not 0 < strength <= 100:
+            raise commands.BadArgument('Strength should be in between 0 and 100')
+
+        strength /= 100
+
+        if not image:
+            image_bytes = await utils.ImageConverter().convert(ctx, image)
+        else:
+            image_bytes = image
+
+        file = await self.bot.loop.run_in_executor(None, noise_image, image_bytes, strength)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Here\'s your noisy image:',
+            image='attachment://noise.png'
+        )
+
+        await ctx.send(embed=embed, file=file)
 
     @dog.error
     @duck.error
