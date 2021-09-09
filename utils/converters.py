@@ -196,17 +196,51 @@ class EmbedConverter(commands.FlagConverter, delimiter=':', prefix='-'):
 
 class NitrolessEmoteConverter(commands.Converter):
     async def convert(self, ctx, argument: str) -> Union[discord.Emoji, discord.PartialEmoji]:
-        argument = argument.strip('<>`\n ').replace(';', ':')
+        argument = argument.strip('`\n ').replace(';', ':')
 
         try:
-            return await commands.EmojiConverter().convert(ctx, f'<{argument}>')
+            return await commands.EmojiConverter().convert(ctx, argument)
         except (commands.CommandError, commands.BadArgument):
             pass
 
-        return await commands.PartialEmojiConverter().convert(ctx, f'<{argument}>')
+        return await commands.PartialEmojiConverter().convert(ctx, argument)
 
 
 class ImageConverter(commands.Converter):
+    @staticmethod
+    async def message_convert(ctx, message, arg=None) -> bytes:
+
+        if message.attachments:
+            if message.attachments[0].content_type.startswith('image'):
+                return await message.attachments[0].read()
+
+        if message.content:
+            try:
+                emoji = await NitrolessEmoteConverter().convert(ctx, arg or message.content)
+            except (commands.BadArgument, commands.CommandError):
+                emoji = None
+
+            if emoji:
+                return await emoji.read()
+
+        if (arg or message.content).startswith('http'):
+            asset = discord.Asset(ctx.bot._connection, url=arg or message.content, key='')
+
+            try:
+                return await asset.read()
+            except Exception:
+                pass
+
+        if message.embeds:
+            asset = discord.Asset(ctx.bot._connection, url=message.embeds[0].image.url, key='')
+
+            try:
+                return await asset.read()
+            except Exception:
+                pass
+
+        raise commands.BadArgument()
+
     async def convert(self, ctx, argument: Optional[str]) -> bytes:
         if ctx.message.attachments:
             if ctx.message.attachments[0].content_type.startswith('image'):
@@ -214,31 +248,28 @@ class ImageConverter(commands.Converter):
 
         if ctx.message.reference:
             try:
-                message = ctx.message.reference.cached_message or \
-                          await ctx.channel.fetch_message(ctx.message.reference.message_id)
-            except (discord.Forbidden, discord.HTTPException):
-                message = None
-
-            if message and message.attachments:
-                if message.attachments[0].content_type.startswith('image'):
-                    return await message.attachments[0].read()
+                message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+                return await self.message_convert(ctx, message)
+            except (discord.Forbidden, discord.HTTPException, commands.BadArgument):
+                pass
 
         if argument:
             try:
                 user = await commands.UserConverter().convert(ctx, argument)
-            except (commands.BadArgument, commands.CommandError):
-                user = None
-
-            if user:
                 return await user.display_avatar.read()
+            except (commands.BadArgument, commands.CommandError):
+                pass
 
             try:
-                emoji = await NitrolessEmoteConverter().convert(ctx, argument)
-            except (commands.BadArgument, commands.CommandError):
-                emoji = None
+                message = await commands.MessageConverter().convert(ctx, argument)
+                return await self.message_convert(ctx, ctx.message, argument)
+            except commands.BadArgument:
+                pass
 
-            if emoji:
-                return await emoji.read()
+            try:
+                return await self.message_convert(ctx, ctx.message, argument)
+            except commands.BadArgument:
+                pass
 
             raise commands.BadArgument('Couldn\'t get an user or emoji from argument')
 
