@@ -25,7 +25,7 @@ async def ban_embed(guild: discord.Guild, punished: discord.User, action):
     embed = utils.create_embed(
         None,
         title=f'{punished} has been {action.name}ned! ({punished.id})',
-        description=f'{action.name}ed by: {mod.mention if mod else "Unknown"}'
+        description=f'{action.name}ned by: {mod.mention if mod else "Unknown"}'
                     f'\n\nReason: {reason or "No reason specified"}',
         thumbnail=punished.display_avatar,
         color=discord.Color.red()
