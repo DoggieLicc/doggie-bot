@@ -12,21 +12,53 @@ import utils
 utm_params = '?utm_source=discord_bot_doggie_bot&utm_medium=referral'
 
 
-def invert_image(b: bytes) -> discord.File:
+def invert_image(b: bytes, max_size) -> discord.File:
     image = Image.open(io.BytesIO(b)).convert('RGBA')
-
-    img_bytes = io.BytesIO()
 
     r, g, b, a = image.split()
     rgb_image = Image.merge('RGB', (r, g, b))
     inverted_image = ImageOps.invert(rgb_image)
     r2, g2, b2 = inverted_image.split()
-    final_transparent_image = Image.merge('RGBA', (r2, g2, b2, a))
-    final_transparent_image.save(img_bytes, 'png')
+
+    image = Image.merge('RGBA', (r2, g2, b2, a))
+
+    img_bytes = io.BytesIO()
+    image = maybe_resize_image(image, max_size)
+    image.save(img_bytes, 'png', optimize=True)
 
     img_bytes.seek(0)
 
     return discord.File(img_bytes, 'inverted.png')
+
+
+def greyscale_image(b: bytes) -> discord.File:
+    # Double convert for transparent gifs
+    image = Image.open(io.BytesIO(b)).convert('RGBA').convert('LA')
+
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, 'png')
+
+    img_bytes.seek(0)
+
+    return discord.File(img_bytes, 'greyscale.png')
+
+
+def maybe_resize_image(image: Image, max_size: int) -> Image:
+    b = io.BytesIO()
+    image.save(b, 'png')
+
+    print(b.tell() // 1000 // 1000)
+
+    while b.tell() > max_size:
+        print(b.tell() // 1000 // 1000)
+        b.close()
+        new_size = image.size[0] // 2, image.size[1] // 2
+        print(new_size)
+        image = image.resize(new_size, resample=3)
+        b = io.BytesIO()
+        image.save(b, 'png')
+
+    return image
 
 
 async def get_pic(url: str, ctx: utils.CustomContext, key: str) -> str:
@@ -182,22 +214,24 @@ class Images(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def invert(self, ctx, *, image: Optional[str]):
+    async def invert(self, ctx: utils.CustomContext, *, image: Optional[str]):
         """Inverts the colors of a specified image!
 
         The bot checks for images in this order:
 
         1. Attached image
         2. Attached image in replied message
-        3. Specified user's avatar
-        4. Specified emote's image
-        5. Invoker's avatar
+        3. Emote in replied message (only if emote is by itself)
+        4. Specified user's avatar
+        5. Specified emote's image
+        6. Invoker's avatar
         """
 
         # Use converter here so that it triggers even without given argument
         image_bytes = await utils.ImageConverter().convert(ctx, image)
 
-        file = await self.bot.loop.run_in_executor(None, invert_image, image_bytes)
+        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
+        file = await self.bot.loop.run_in_executor(None, invert_image, image_bytes, limit)
 
         embed = utils.create_embed(
             ctx.author,
@@ -206,6 +240,35 @@ class Images(commands.Cog):
         )
 
         await ctx.send(embed=embed, file=file)
+
+    @commands.command(aliases=['grayscale', 'grey', 'gray'])
+    async def greyscale(self, ctx: utils.CustomContext, *, image: Optional[str]):
+        """Greyscale the specified image!
+
+        The bot checks for images in this order:
+
+        1. Attached image
+        2. Attached image in replied message
+        3. Emote in replied message (only if emote is by itself)
+        4. Specified user's avatar
+        5. Specified emote's image
+        6. Invoker's avatar
+        """
+
+        alias = ctx.invoked_with.lower()
+
+        # Use converter here so that it triggers even without given argument
+        image_bytes = await utils.ImageConverter().convert(ctx, image)
+
+        file = await self.bot.loop.run_in_executor(None, greyscale_image, image_bytes)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Here\'s your {alias[:4]}scale image:',
+            image='attachment://greyscale.png'
+        )
+
+        e = await ctx.send(embed=embed, file=file)
 
     @dog.error
     @duck.error
