@@ -47,12 +47,12 @@ def deepfry_image(b: bytes) -> discord.File:
     original = Image.open(io.BytesIO(b)).convert('P').convert('RGB')
     noise = Image.effect_noise(original.size, 20).convert('RGB')
 
-    image = Image.blend(original, noise, 0.5).convert('P').convert('RGB')
-
+    b = ImageEnhance.Brightness(original)
+    image = b.enhance(1.1)
     c = ImageEnhance.Contrast(image)
-    image = c.enhance(2)
-    b = ImageEnhance.Brightness(image)
-    image = b.enhance(1.25)
+    image = c.enhance(10)
+
+    image = Image.blend(image, noise, 0.25).convert('P').convert('RGB')
 
     img_bytes = io.BytesIO()
     image.save(img_bytes, 'jpeg', quality=10, optimize=True)
