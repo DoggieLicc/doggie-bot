@@ -393,7 +393,7 @@ class Reminder:
             await cursor.execute('DELETE FROM reminders WHERE id = (?)', (self.message_id,))
         await self.bot.db.commit()
 
-        del self.bot.reminders[self.id]
+        self.bot.reminders[self.id] = None
         self.task.cancel()
 
     def __str__(self):
