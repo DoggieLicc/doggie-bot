@@ -108,8 +108,8 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Info for {guild.name}:',
-            thumbnail=guild.icon.url if guild.icon else discord.Embed.Empty,
-            image=guild.banner.url if guild.banner else discord.Embed.Empty
+            thumbnail=guild.icon,
+            image=guild.banner
         )
 
         features = []
@@ -127,7 +127,7 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(
             name='General Info:',
             value=f'Description: {guild.description or "No description"}\n'
-                  f'Owner: {await self.bot.fetch_user(guild.owner_id)} ({guild.owner_id})\n'
+                  f'Owner: {guild.owner} ({guild.owner_id})\n'
                   f'Region: {str(guild.region).replace("-", " ").title()}\n'
                   f'ID: {guild.id}\n'
                   f'Creation date: {utils.user_friendly_dt(guild.created_at)}',
@@ -151,8 +151,7 @@ class Info(commands.Cog, name='Information'):
                   f'{guild.member_count - bot_count} humans; {bot_count} bots\n'
                   f'Roles: {len(guild.roles)} roles\n'
                   f'Text channels: {len(guild.text_channels)} channels\n'
-                  f'Voice Channels: '
-                  f'{len(guild.voice_channels)} channels\n'
+                  f'Voice Channels: {len(guild.voice_channels)} channels\n'
                   f'Emotes: {len(ctx.guild.emojis)} emotes',
             inline=False
         )
@@ -160,8 +159,7 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(
             name='Security Info:',
             value=f'2FA required?: {"Yes" if guild.mfa_level else "No"}\n'
-                  f'Verification Level: '
-                  f'{str(guild.verification_level).replace("_", " ").title()}\n'
+                  f'Verification Level: {str(guild.verification_level).replace("_", " ").title()}\n'
                   f'NSFW Filter: {str(guild.explicit_content_filter).replace("_", " ").title()}'
         )
 
@@ -214,6 +212,7 @@ class Info(commands.Cog, name='Information'):
         """Shows user's avatar using their ID or name"""
 
         user: discord.User = user or ctx.author
+
         embed = utils.create_embed(
             ctx.author,
             title=f'Avatar of {user}:',
@@ -372,7 +371,7 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(name='Emote name:', value=emoji.name, inline=False)
         embed.add_field(name='Emote ID:', value=emoji.id, inline=False)
-        embed.add_field(name='Animated?:', value=('Yes' if emoji.animated else 'No'))
+        embed.add_field(name='Animated?:', value='Yes' if emoji.animated else 'No')
 
         if isinstance(emoji, discord.PartialEmoji):
             return await ctx.send(embed=embed)
@@ -433,11 +432,9 @@ class Info(commands.Cog, name='Information'):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['msg'])
-    async def message(self, ctx: utils.CustomContext, message: commands.MessageConverter):
+    async def message(self, ctx: utils.CustomContext, message: discord.Message):
         """Gets information for a Discord Message!
         You can specify the message using the message's link"""
-
-        message: discord.Message = cast(discord.Message, message)
 
         if message.guild != ctx.guild:
             raise commands.MessageNotFound(message)
