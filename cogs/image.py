@@ -85,6 +85,32 @@ def blur_image(b: bytes, radius: int) -> discord.File:
     return discord.File(img_bytes, 'blur.png')
 
 
+def brighten_image(b: bytes, intensity: float) -> discord.File:
+    image = Image.open(io.BytesIO(b)).convert('RGBA')
+
+    b = ImageEnhance.Brightness(image)
+    image = b.enhance(intensity)
+
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, 'png', optimize=True)
+
+    img_bytes.seek(0)
+    return discord.File(img_bytes, 'brighten.png')
+
+
+def contrast_image(b: bytes, intensity: float) -> discord.File:
+    image = Image.open(io.BytesIO(b)).convert('RGBA')
+
+    c = ImageEnhance.Contrast(image)
+    image = c.enhance(intensity)
+
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, 'png', optimize=True)
+
+    img_bytes.seek(0)
+    return discord.File(img_bytes, 'contrast.png')
+
+
 def maybe_resize_image(image: Image, max_size: int) -> Image:
     b = io.BytesIO()
     image.save(b, 'png')
@@ -310,7 +336,7 @@ class Images(commands.Cog):
 
     @commands.command(aliases=['deep', 'fry'])
     async def deepfry(self, ctx: utils.CustomContext, *, image: Optional[str]):
-        """Greyscale the specified image!
+        """Deepfry the specified image!
 
         The bot checks for images in this order:
 
@@ -366,7 +392,7 @@ class Images(commands.Cog):
 
     @commands.command()
     async def noise(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=50):
-        """Blurs the specified image! Strength should be in between 0 and 100
+        """Adds noise to specified image! Strength should be in between 0 and 100
 
         The bot checks for images in this order:
 
@@ -394,6 +420,70 @@ class Images(commands.Cog):
             ctx.author,
             title=f'Here\'s your noisy image:',
             image='attachment://noise.png'
+        )
+
+        await ctx.send(embed=embed, file=file)
+
+    @commands.command(aliases=['bright', 'brightness', 'dark', 'darken'])
+    async def brighten(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=1.25):
+        """Brightens specified image! Passing in an strength less than 1 will darken it instead
+
+        The bot checks for images in this order:
+
+        1. Attached image
+        2. Attached image in replied message
+        3. Emote in replied message (only if emote is by itself)
+        4. Specified user's avatar
+        5. Specified emote's image
+        6. Invoker's avatar
+        """
+
+        if not 0 < strength:
+            raise commands.BadArgument('Strength should be more than zero!')
+
+        if not image:
+            image_bytes = await utils.ImageConverter().convert(ctx, image)
+        else:
+            image_bytes = image
+
+        file = await self.bot.loop.run_in_executor(None, brighten_image, image_bytes, strength)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Here\'s your brightened image:',
+            image='attachment://brighten.png'
+        )
+
+        await ctx.send(embed=embed, file=file)
+
+    @commands.command()
+    async def contrast(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=1.25):
+        """Adds contrast to specified image! Passing in an strength less than 1 will lower it instead
+
+        The bot checks for images in this order:
+
+        1. Attached image
+        2. Attached image in replied message
+        3. Emote in replied message (only if emote is by itself)
+        4. Specified user's avatar
+        5. Specified emote's image
+        6. Invoker's avatar
+        """
+
+        if not 0 < strength:
+            raise commands.BadArgument('Strength should be more than zero!')
+
+        if not image:
+            image_bytes = await utils.ImageConverter().convert(ctx, image)
+        else:
+            image_bytes = image
+
+        file = await self.bot.loop.run_in_executor(None, contrast_image, image_bytes, strength)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Here\'s your modified image:',
+            image='attachment://contrast.png'
         )
 
         await ctx.send(embed=embed, file=file)
