@@ -25,6 +25,7 @@ intents = discord.Intents(
     messages=True,
     members=True,
     guilds=True,
+    emojis=True,
     bans=True
 )
 
