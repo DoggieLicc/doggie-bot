@@ -1,14 +1,23 @@
-from typing import Union
+import itertools
+from typing import Union, List
 
 import discord
 from discord.ext import commands, menus
 from discord.ext.commands import Greedy
 
 import asyncio
-import string
 import time
 
 import utils
+
+
+def get_hoisters(members: List[discord.Member]):
+    def check(member):
+        value = ord(member.display_name[0])
+        return 0 <= value <= 47 or 58 <= value <= 64
+
+    members = sorted(members, key=lambda m: m.display_name)
+    return list(itertools.takewhile(check, members))[:200]
 
 
 class RecentJoinsMenu(menus.ListPageSource):
@@ -158,18 +167,10 @@ class UtilityCog(commands.Cog, name="Utility"):
     @commands.guild_only()
     @commands.cooldown(5, 60)
     @commands.group(aliases=['hoist'], invoke_without_command=True)
-    async def hoisters(self, ctx):
+    async def hoisters(self, ctx: utils.CustomContext):
         """Shows a list of members who have names made to 'hoist' themselves to the top of the member list!"""
 
-        ok_chars = list(string.ascii_letters + string.digits)
-        members = sorted(ctx.guild.members, key=lambda m: m.display_name)[:200]
-
-        hoisters: [discord.Member] = []
-
-        for member in members:
-            if member.display_name[0] in ok_chars:
-                break
-            hoisters.append(member)
+        hoisters = get_hoisters(ctx.guild.members)
 
         if not hoisters:
             embed = utils.create_embed(
@@ -189,15 +190,8 @@ class UtilityCog(commands.Cog, name="Utility"):
     @hoisters.command(aliases=['ids'])
     async def id(self, ctx):
         """Like `hoisters`, but only shows the ids to make it easy to use with commands"""
-        ok_chars = list(string.ascii_letters + string.digits)
-        members = sorted(ctx.guild.members, key=lambda m: m.display_name)[:200]
 
-        hoisters: [int] = []
-
-        for member in members:
-            if member.display_name[0] in ok_chars:
-                break
-            hoisters.append(member.id)
+        hoisters: List[int] = [m.id for m in get_hoisters(ctx.guild.members)]
 
         if not hoisters:
             embed = utils.create_embed(
