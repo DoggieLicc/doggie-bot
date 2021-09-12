@@ -172,16 +172,17 @@ class CustomBot(commands.Bot):
         async with self.db.cursor() as cursor:
             for row in await cursor.execute('SELECT * FROM logging_config'):
                 guild: discord.Guild = self.get_guild(row['guild_id'])
-                kick_channel = guild.get_channel(row['kick_channel'])
-                ban_channel = guild.get_channel(row['ban_channel'])
-                purge_channel = guild.get_channel(row['purge_channel'])
-                delete_channel = guild.get_channel(row['delete_channel'])
-                mute_channel = guild.get_channel(row['mute_channel'])
 
                 if not guild:
                     await cursor.execute('DELETE FROM basic_config WHERE guild_id = (?)', (row['guild_id'],))
                     await self.db.commit()
                     continue
+
+                kick_channel = guild.get_channel(row['kick_channel'])
+                ban_channel = guild.get_channel(row['ban_channel'])
+                purge_channel = guild.get_channel(row['purge_channel'])
+                delete_channel = guild.get_channel(row['delete_channel'])
+                mute_channel = guild.get_channel(row['mute_channel'])
 
                 config = LoggingConfig(
                     guild=guild,
