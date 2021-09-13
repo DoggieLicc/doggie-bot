@@ -281,14 +281,19 @@ class Images(commands.Cog):
     async def invert(self, ctx: utils.CustomContext, *, image: Optional[str]):
         """Inverts the colors of a specified image!
 
-        The bot checks for images in this order:
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
 
-        1. Attached image
-        2. Attached image in replied message
-        3. Emote in replied message (only if emote is by itself)
-        4. Specified user's avatar
-        5. Specified emote's image
-        6. Invoker's avatar
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
         """
 
         # Use converter here so that it triggers even without given argument
@@ -309,14 +314,19 @@ class Images(commands.Cog):
     async def greyscale(self, ctx: utils.CustomContext, *, image: Optional[str]):
         """Greyscale the specified image!
 
-        The bot checks for images in this order:
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
 
-        1. Attached image
-        2. Attached image in replied message
-        3. Emote in replied message (only if emote is by itself)
-        4. Specified user's avatar
-        5. Specified emote's image
-        6. Invoker's avatar
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
         """
 
         alias = ctx.invoked_with.lower()
@@ -338,14 +348,19 @@ class Images(commands.Cog):
     async def deepfry(self, ctx: utils.CustomContext, *, image: Optional[str]):
         """Deepfry the specified image!
 
-        The bot checks for images in this order:
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
 
-        1. Attached image
-        2. Attached image in replied message
-        3. Emote in replied message (only if emote is by itself)
-        4. Specified user's avatar
-        5. Specified emote's image
-        6. Invoker's avatar
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
         """
 
         # Use converter here so that it triggers even without given argument
@@ -365,14 +380,19 @@ class Images(commands.Cog):
     async def blur(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=5):
         """Blurs the specified image!
 
-        The bot checks for images in this order:
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
 
-        1. Attached image
-        2. Attached image in replied message
-        3. Emote in replied message (only if emote is by itself)
-        4. Specified user's avatar
-        5. Specified emote's image
-        6. Invoker's avatar
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
         """
 
         if not image:
@@ -394,14 +414,19 @@ class Images(commands.Cog):
     async def noise(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=50):
         """Adds noise to specified image! Strength should be in between 0 and 100
 
-        The bot checks for images in this order:
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
 
-        1. Attached image
-        2. Attached image in replied message
-        3. Emote in replied message (only if emote is by itself)
-        4. Specified user's avatar
-        5. Specified emote's image
-        6. Invoker's avatar
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
         """
 
         if not 0 < strength <= 100:
@@ -428,14 +453,19 @@ class Images(commands.Cog):
     async def brighten(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=1.25):
         """Brightens specified image! Passing in an strength less than 1 will darken it instead
 
-        The bot checks for images in this order:
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
 
-        1. Attached image
-        2. Attached image in replied message
-        3. Emote in replied message (only if emote is by itself)
-        4. Specified user's avatar
-        5. Specified emote's image
-        6. Invoker's avatar
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
         """
 
         if not 0 < strength:
@@ -460,14 +490,19 @@ class Images(commands.Cog):
     async def contrast(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=1.25):
         """Adds contrast to specified image! Passing in an strength less than 1 will lower it instead
 
-        The bot checks for images in this order:
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
 
-        1. Attached image
-        2. Attached image in replied message
-        3. Emote in replied message (only if emote is by itself)
-        4. Specified user's avatar
-        5. Specified emote's image
-        6. Invoker's avatar
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
         """
 
         if not 0 < strength:
