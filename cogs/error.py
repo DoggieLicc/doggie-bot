@@ -12,7 +12,8 @@ class ErrorHandler(commands.Cog):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: utils.CustomContext, error):
-        if ctx.command and ctx.command.has_error_handler() and not ctx.uncaught_error:
+        if ctx.command and (ctx.command.has_error_handler() or ctx.command.cog.has_error_handler()) \
+                and not ctx.uncaught_error:
             return
 
         if isinstance(error, commands.CommandInvokeError):
