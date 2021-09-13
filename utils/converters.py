@@ -208,44 +208,57 @@ class NitrolessEmoteConverter(commands.Converter):
 
 class ImageConverter(commands.Converter):
     @staticmethod
-    async def message_convert(ctx, message, arg=None) -> bytes:
+    async def fake_asset_read(ctx, *, url):
+        asset = discord.Asset(ctx.bot._connection, url=url, key='')
+
+        try:
+            return await asset.read()
+        except (discord.DiscordException, discord.HTTPException, discord.NotFound):
+            return None
+
+    async def message_convert(self, ctx, message: discord.Message, arg: Optional[str] = None) -> bytes:
+        arg = arg or message.content
 
         if message.attachments:
             if message.attachments[0].content_type.startswith('image'):
                 return await message.attachments[0].read()
 
-        if message.content:
-            try:
-                emoji = await NitrolessEmoteConverter().convert(ctx, arg or message.content)
-            except (commands.BadArgument, commands.CommandError):
-                emoji = None
-
-            if emoji:
-                return await emoji.read()
-
-        if (arg or message.content).startswith('http'):
-            asset = discord.Asset(ctx.bot._connection, url=arg or message.content, key='')
-
-            try:
-                return await asset.read()
-            except Exception:
-                pass
+        if message.stickers and message.stickers[0].format != discord.StickerFormatType.lottie:
+            asset_bytes = await self.fake_asset_read(ctx, url=message.stickers[0].url)
+            if asset_bytes: return asset_bytes
 
         if message.embeds:
-            asset = discord.Asset(ctx.bot._connection, url=message.embeds[0].image.url, key='')
+            if message.embeds[0].image:
+                asset_bytes = await self.fake_asset_read(ctx, url=message.embeds[0].image.url)
+
+                if asset_bytes: return asset_bytes
+
+            if message.embeds[0].thumbnail:
+                asset_bytes = await self.fake_asset_read(ctx, url=message.embeds[0].thumbnail.url)
+
+                if asset_bytes: return asset_bytes
+
+        if arg:
+            try:
+                user = await commands.UserConverter().convert(ctx, arg)
+                return await user.display_avatar.read()
+            except (commands.BadArgument, commands.CommandError):
+                pass
 
             try:
-                return await asset.read()
-            except Exception:
+                emoji = await NitrolessEmoteConverter().convert(ctx, arg)
+                return await emoji.read()
+            except (commands.BadArgument, commands.CommandError):
                 pass
+
+            if arg.startswith('http'):
+                asset_bytes = await self.fake_asset_read(ctx, url=arg)
+
+                if asset_bytes: return asset_bytes
 
         raise commands.BadArgument()
 
     async def convert(self, ctx, argument: Optional[str]) -> bytes:
-        if ctx.message.attachments:
-            if ctx.message.attachments[0].content_type.startswith('image'):
-                return await ctx.message.attachments[0].read()
-
         if ctx.message.reference:
             try:
                 message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
@@ -255,22 +268,14 @@ class ImageConverter(commands.Converter):
 
         if argument:
             try:
-                user = await commands.UserConverter().convert(ctx, argument)
-                return await user.display_avatar.read()
-            except (commands.BadArgument, commands.CommandError):
-                pass
-
-            try:
                 message = await commands.MessageConverter().convert(ctx, argument)
-                return await self.message_convert(ctx, ctx.message, argument)
+                return await self.message_convert(ctx, message, argument)
             except commands.BadArgument:
                 pass
 
-            try:
-                return await self.message_convert(ctx, ctx.message, argument)
-            except commands.BadArgument:
-                pass
-
-            raise commands.BadArgument('Couldn\'t get an user or emoji from argument')
+        try:
+            return await self.message_convert(ctx, ctx.message, argument)
+        except commands.BadArgument:
+            pass
 
         return await ctx.author.display_avatar.read()
