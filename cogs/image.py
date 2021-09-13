@@ -1,11 +1,11 @@
 import io
 
 import discord
-from PIL import Image, ImageOps, ImageFilter, ImageEnhance
+from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError
 from discord.ext import commands
-
+from aiohttp import ClientError
 from typing import List, Optional
-from unsplash import Unsplash, Photo
+from unsplash import Unsplash, Photo, UnsplashException
 
 import utils
 
@@ -488,13 +488,12 @@ class Images(commands.Cog):
 
         await ctx.send(embed=embed, file=file)
 
-    @dog.error
-    @duck.error
-    @fox.error
-    @random.error
-    @hug.error
-    @unsplash.error
-    async def api_error(self, ctx: utils.CustomContext, error):
+    async def cog_command_error(self, ctx: utils.CustomContext, error: Exception) -> None:
+        embed = None
+
+        if isinstance(error, commands.CommandInvokeError):
+            error = error.original
+
         if isinstance(error, utils.MissingAPIKey):
             embed = utils.create_embed(
                 ctx.author,
@@ -503,16 +502,27 @@ class Images(commands.Cog):
                 color=discord.Color.red()
             )
 
+        if isinstance(error, (UnsplashException, ClientError)):
+            embed = utils.create_embed(
+                ctx.author,
+                title='Error while using api!',
+                description='For some reason an error happened, maybe the API is down?',
+                color=discord.Color.red()
+            )
+
+        if isinstance(error, UnidentifiedImageError):
+            embed = utils.create_embed(
+                ctx.author,
+                title='Error while making image!',
+                description='The bot wasn\'t able to identify the image\'s format\n'
+                            '**Note:** Links from sites like Tenor and GIPHY don\'t work, use the direct image url',
+                color=discord.Color.red()
+            )
+
+        if embed:
             return await ctx.send(embed=embed)
 
-        embed = utils.create_embed(
-            ctx.author,
-            title='Error while using api!',
-            description='For some reason an error happened, maybe the API is down?',
-            color=discord.Color.red()
-        )
-
-        await ctx.send(embed=embed)
+        ctx.uncaught_error = True
 
 
 def setup(bot):
