@@ -197,13 +197,15 @@ class CustomBot(commands.Bot):
 
     @staticmethod
     def get_custom_prefix(_bot: 'CustomBot', message: discord.Message):
+        default_prefixes = ['doggie.', 'Doggie.', 'dog.', 'Dog.']
+
         if not message.guild:
-            return commands.when_mentioned_or('doggie.')(_bot, message) + ['Doggie.']
+            return commands.when_mentioned_or(*default_prefixes)(_bot, message)
 
         config = _bot.basic_configs.get(message.guild.id)
 
         if not config or not config.prefix:
-            return commands.when_mentioned_or('doggie.')(_bot, message) + ['Doggie.']
+            return commands.when_mentioned_or(*default_prefixes)(_bot, message)
 
         else:
             return commands.when_mentioned_or(config.prefix)(_bot, message)
