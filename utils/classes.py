@@ -269,6 +269,12 @@ class Emotes:
     rules = '<:rules:880246996013834331>'
     news = '<:news:880246997678968842>'
 
+    ban_create = '<:bancreate:887729899903807588>'
+    ban_delete = '<:bandelete:887729900910444554>'
+    member_leave = '<:memberleave:887729902156152852>'
+    message_delete = '<:messagedelete:887729903317946388>'
+    emote_create = '<:emotecreate:887729904312008744>'
+
     @staticmethod
     def channel(chann):
         if chann.type == ChannelType.text:
