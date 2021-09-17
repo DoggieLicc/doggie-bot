@@ -10,6 +10,7 @@ import utils
 
 async def ban_embed(guild: discord.Guild, punished: discord.User, action):
     mod, reason = None, "Unknown"
+    emote = utils.Emotes.ban_create if action.name == 'ban' else utils.Emotes.ban_delete
 
     await asyncio.sleep(3)
 
@@ -24,8 +25,8 @@ async def ban_embed(guild: discord.Guild, punished: discord.User, action):
 
     embed = utils.create_embed(
         None,
-        title=f'{punished} has been {action.name}ned! ({punished.id})',
-        description=f'{action.name}ned by: {mod.mention if mod else "Unknown"}'
+        title=f'{emote} {punished} has been {action.name}ned! ({punished.id})',
+        description=f'{action.name.title()}ned by: {mod.mention if mod else "Unknown"}'
                     f'\n\nReason: {reason or "No reason specified"}',
         thumbnail=punished.display_avatar,
         color=discord.Color.red()
@@ -119,7 +120,7 @@ class EventsCog(commands.Cog):
 
         embed = utils.create_embed(
             None,
-            title=f'{kicked} has been kicked! ({kicked.id})',
+            title=f'{utils.Emotes.member_leave} {kicked} has been kicked! ({kicked.id})',
             description=f'Kicked by: {mod.mention if mod else "Unknown"}\n\nReason: {reason or "No reason specified"}',
             thumbnail=kicked.display_avatar,
             color=discord.Color.red())

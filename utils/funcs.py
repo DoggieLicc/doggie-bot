@@ -152,12 +152,14 @@ def str_to_file(string: str, *, filename: str = 'file.txt', encoding: str = 'utf
 
 
 def format_deleted_msg(message: discord.Message, title: Optional[str] = None) -> discord.Embed:
+    emote = '<:messagedelete:887729903317946388>'
     reply = message.reference
+
     if reply: reply = reply.resolved
     reply_deleted = isinstance(reply, discord.DeletedReferencedMessage)
 
     embed = discord.Embed(
-        title=title or f'Message deleted in #{message.channel}',
+        title=f'{emote} {title}' if title else f'{emote} Message deleted in #{message.channel}',
         description=f'"{message.content}"' if message.content else '*No content*',
         color=discord.Color.red()
     )
