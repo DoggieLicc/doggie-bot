@@ -141,12 +141,7 @@ def make_mask(colors, width, height):
     return color_image
 
 
-def make_flag(b: bytes, alpha: int, max_size: int, colors: List):
-    if not 0 < alpha <= 100:
-        raise commands.BadArgument('Transparency should be in between 0 and 100')
-
-    alpha /= 100
-
+def make_flag(b: bytes, alpha: float, max_size: int, colors: List):
     image = Image.open(io.BytesIO(b)).convert('RGBA')
 
     mask = make_mask(colors, *image.size)
@@ -158,6 +153,30 @@ def make_flag(b: bytes, alpha: int, max_size: int, colors: List):
     img_bytes.seek(0)
 
     return discord.File(img_bytes, 'pride.png')
+
+
+async def pride_flag(ctx: utils.CustomContext, image: Optional[bytes], transparency: int, colors: List):
+    if not 0 < transparency <= 100:
+        raise commands.BadArgument('Transparency should be in between 0 and 100')
+
+    transparency /= 100
+
+    if not image:
+        image_bytes = await utils.ImageConverter().convert(ctx, image)
+    else:
+        image_bytes = image
+
+    limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
+
+    file = await ctx.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, colors)
+
+    embed = utils.create_embed(
+        ctx.author,
+        title=f'Here\'s your {ctx.command.name} image:',
+        image='attachment://pride.png'
+    )
+
+    await ctx.send(embed=embed, file=file)
 
 
 class Images(commands.Cog):
@@ -433,24 +452,10 @@ class Images(commands.Cog):
 
         gay_colors = [(255, 0, 24), (255, 165, 44), (255, 255, 65), (0, 128, 24), (0, 0, 249), (134, 0, 125)]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
+        await pride_flag(ctx, image, transparency, gay_colors)
 
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, gay_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your gay image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['transgender'])
-    async def trans(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
+    @commands.command(aliases=['trans'])
+    async def transgender(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
         """Adds the transgender flag to image!
 
         **Steps for getting image:**
@@ -470,24 +475,10 @@ class Images(commands.Cog):
 
         trans_colors = [(91, 206, 250), (245, 169, 184), (255, 255, 255), (245, 169, 184), (91, 206, 250)]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
+        await pride_flag(ctx, image, transparency, trans_colors)
 
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, trans_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your transgender image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['bisexual'])
-    async def bi(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
+    @commands.command(aliases=['bi'])
+    async def bisexual(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
         """Adds the bisexual flag to image!
 
         **Steps for getting image:**
@@ -507,21 +498,7 @@ class Images(commands.Cog):
 
         bi_colors = [(216, 9, 126), (216, 9, 126), (140, 87, 156), (36, 70, 142), (36, 70, 142)]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, bi_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your bisexual image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
+        await pride_flag(ctx, image, transparency, bi_colors)
 
     @commands.command(aliases=['lesb'])
     async def lesbian(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
@@ -546,24 +523,10 @@ class Images(commands.Cog):
             (213, 45, 0), (239, 118, 39), (255, 154, 86), (255, 255, 255), (209, 98, 164), (181, 86, 144), (163, 2, 98)
         ]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
+        await pride_flag(ctx, image, transparency, lesbian_colors)
 
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, lesbian_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your lesbian image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['asexual'])
-    async def ace(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
+    @commands.command(aliases=['ace'])
+    async def asexual(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
         """Adds the asexual flag to image!
 
         **Steps for getting image:**
@@ -583,24 +546,10 @@ class Images(commands.Cog):
 
         ace_colors = [(0, 0, 0), (164, 164, 164), (255, 255, 255), (129, 0, 129)]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
+        await pride_flag(ctx, image, transparency, ace_colors)
 
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, ace_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your asexual image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['pansexual'])
-    async def pan(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
+    @commands.command(aliases=['pan'])
+    async def pansexual(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
         """Adds the pansexual flag to image!
 
         **Steps for getting image:**
@@ -620,24 +569,10 @@ class Images(commands.Cog):
 
         pan_colors = [(255, 28, 141), (255, 215, 0), (26, 179, 255)]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
+        await pride_flag(ctx, image, transparency, pan_colors)
 
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, pan_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your pansexual image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['nonbinary', 'non-binary', 'non_binary'])
-    async def nb(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
+    @commands.command(aliases=['nb', 'non-binary', 'non_binary'])
+    async def nonbinary(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
         """Adds the non-binary flag to image!
 
         **Steps for getting image:**
@@ -657,21 +592,7 @@ class Images(commands.Cog):
 
         nb_colors = [(255, 244, 48), (255, 255, 255), (156, 89, 209), (0, 0, 0)]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, nb_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your non-binary image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
+        await pride_flag(ctx, image, transparency, nb_colors)
 
     @commands.command(aliases=['nonconforming'])
     async def gnc(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
@@ -696,21 +617,7 @@ class Images(commands.Cog):
             (80, 40, 76), (150, 71, 122), (93, 150, 247), (255, 255, 255), (93, 150, 247), (150, 71, 122), (80, 40, 76)
         ]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, gnc_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your gnc image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
+        await pride_flag(ctx, image, transparency, gnc_colors)
 
     @commands.command(aliases=['aro'])
     async def aromantic(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
@@ -733,21 +640,7 @@ class Images(commands.Cog):
 
         aromantic_colors = [(58, 166, 63), (168, 212, 122), (255, 255, 255), (170, 170, 170), (0, 0, 0)]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, aromantic_colors)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your aromantic image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
+        await pride_flag(ctx, image, transparency, aromantic_colors)
 
     @commands.command(aliases=['gq'])
     async def genderqueer(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
@@ -770,23 +663,7 @@ class Images(commands.Cog):
 
         genderqueer_colors = [(181, 126, 220), (255, 255, 255), (73, 128, 34)]
 
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(
-            None, make_flag, image_bytes, transparency, limit, genderqueer_colors
-        )
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your genderqueer image:',
-            image='attachment://pride.png'
-        )
-
-        await ctx.send(embed=embed, file=file)
+        await pride_flag(ctx, image, transparency, genderqueer_colors)
 
     async def cog_command_error(self, ctx: utils.CustomContext, error: Exception) -> None:
         embed = None
