@@ -456,7 +456,7 @@ class Images(commands.Cog):
 
     @commands.command(aliases=['homo', 'homosexual'])
     async def gay(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the pride rainbow to image!
+        """Adds the gay rainbow to image!
 
         **Steps for getting image:**
         1. Replied message -> Message steps
