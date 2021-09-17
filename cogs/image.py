@@ -431,9 +431,9 @@ class Images(commands.Cog):
 
         await ctx.send(embed=embed, file=file)
 
-    @commands.command(aliases=['rainbow'])
-    async def gay(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the gay rainbow to image!
+    @commands.command(aliases=['rainbow', 'lgbt'])
+    async def pride(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
+        """Adds the pride rainbow to image!
 
         **Steps for getting image:**
         1. Replied message -> Message steps
@@ -450,7 +450,38 @@ class Images(commands.Cog):
         5. Specified link
         """
 
-        gay_colors = [(255, 0, 24), (255, 165, 44), (255, 255, 65), (0, 128, 24), (0, 0, 249), (134, 0, 125)]
+        pride_colors = [(255, 0, 24), (255, 165, 44), (255, 255, 65), (0, 128, 24), (0, 0, 249), (134, 0, 125)]
+
+        await pride_flag(ctx, image, transparency, pride_colors)
+
+    @commands.command(aliases=['homo', 'homosexual'])
+    async def gay(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
+        """Adds the pride rainbow to image!
+
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
+
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
+        """
+
+        gay_colors = [
+            (7, 141, 112),
+            (38, 206, 170),
+            (153, 232, 194),
+            (255, 255, 255),
+            (123, 173, 227),
+            (80, 73, 203),
+            (62, 26, 120)
+        ]
 
         await pride_flag(ctx, image, transparency, gay_colors)
 
