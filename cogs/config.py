@@ -10,11 +10,11 @@ T = Optional[Union[discord.TextChannel, bool]]
 
 
 class LoggingConverter(commands.FlagConverter):
-    kick_channel: T = commands.flag(aliases=['kick', 'kickchannel'])
-    ban_channel: T = commands.flag(aliases=['ban', 'banchannel'])
-    purge_channel: T = commands.flag(aliases=['purge', 'purgechannel'])
-    delete_channel: T = commands.flag(aliases=['delete', 'deletechannel'])
-    mute_channel: T = commands.flag(aliases=['mute', 'mutechannel'])
+    kick_channel: T = commands.flag(aliases=['kick', 'kicks', 'kickchannel'])
+    ban_channel: T = commands.flag(aliases=['ban', 'bans', 'banchannel'])
+    purge_channel: T = commands.flag(aliases=['purge', 'purges', 'purgechannel'])
+    delete_channel: T = commands.flag(aliases=['delete', 'deletes', 'deletechannel'])
+    mute_channel: T = commands.flag(aliases=['mute', 'mutes', 'mutechannel'])
 
 
 class Configuration(commands.Cog):
