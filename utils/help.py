@@ -73,10 +73,12 @@ class CustomHelp(commands.HelpCommand):
             self.cog = ctx.bot.get_cog('Misc')
 
     async def send_command_help(self, command):
+        command_help = command.help or 'No help set'
         embed = utils.create_embed(
             self.context.author,
             title=f'Showing help for "{command}":',
-            description=command.help or 'No help set'
+            description=f'**Signature:** {command.signature}\n\n'
+                        f'{command_help}'
         )
 
         if command.aliases:
