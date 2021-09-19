@@ -196,7 +196,7 @@ class EmbedConverter(commands.FlagConverter, delimiter=':', prefix='-'):
 
 class NitrolessEmoteConverter(commands.Converter):
     async def convert(self, ctx, argument: str) -> Union[discord.Emoji, discord.PartialEmoji]:
-        argument = argument.strip('`\n ').replace(';', ':')
+        argument = argument.strip('`\n \\').replace(';', ':')
 
         try:
             return await commands.EmojiConverter().convert(ctx, argument)
