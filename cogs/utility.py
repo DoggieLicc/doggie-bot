@@ -138,7 +138,7 @@ class UtilityCog(commands.Cog, name="Utility"):
         t = time.perf_counter()
 
         def check(_reaction, _user):
-            return _reaction.message == message and not (_user.bot and not users) or _user in users \
+            return _reaction.message == message and ((not _user.bot and not users) or _user in users) \
                    and str(_reaction.emoji) == '\N{PARTY POPPER}' and _user != ctx.bot.user
 
         try:
