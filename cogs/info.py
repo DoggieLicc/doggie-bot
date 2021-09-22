@@ -1,7 +1,7 @@
 import base64
 import datetime
 
-from typing import Optional, Union, cast
+from typing import Optional, Union
 
 import whois as whois
 import aiowiki
@@ -175,6 +175,7 @@ class Info(commands.Cog, name='Information'):
             raise commands.UserNotFound(user)
 
         flags = [name.replace('_', ' ').title() for name, value in dict.fromkeys(iter(user.public_flags)) if value]
+        badges = '\n'.join(flags) or 'None'
 
         embed = utils.create_embed(
             ctx.author,
@@ -185,24 +186,35 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(
             name=f'Is bot? {utils.Emotes.bot_tag}',
             value=f'Yes\n'
-                  f'[Invite This Bot]({discord.utils.oauth_url(user.id)})' if user.bot else 'No'
+                  f'[Invite This Bot]({discord.utils.oauth_url(user.id)})' if user.bot else 'No',
+            inline=False
         )
 
-        embed.add_field(name='User ID:', value=user.id)
-        embed.add_field(name='Creation Date:', value=utils.user_friendly_dt(user.created_at), inline=False)
-        embed.add_field(name='Badges:', value='\n'.join(flags) or 'None')
+        embed.add_field(
+            name='General Info:',
+            value=f'**User ID:** {user.id}\n'
+                  f'**Creation Date:** {utils.user_friendly_dt(user.created_at)}\n'
+                  f'**Badges:** {badges}',
+            inline=False
+        )
 
         if isinstance(user, discord.Member) and user.guild == ctx.guild:
             role_mentions = [role.mention for role in reversed(user.roles)][:-1]
+            top_role = user.top_role.mention if user.top_role != ctx.guild.default_role else 'No roles!'
 
-            embed.add_field(name='Server Nickname:', value=user.nick or 'No nickname')
-            embed.add_field(name='Joined Server At:', value=utils.user_friendly_dt(user.joined_at), inline=False)
-            embed.add_field(name='Highest Role:', value=user.top_role.mention, inline=False)
-            embed.add_field(name='Roles:', value='\n'.join(role_mentions) or 'No roles!')
+            embed.add_field(
+                name='Member Info:',
+                value=f'**Nickname:** {user.nick or "No nickname"}\n'
+                      f'**Joined Server At:** {utils.user_friendly_dt(user.joined_at)}\n'
+                      f'**Highest Role:** {top_role}\n'
+                      f'**Roles:** {" ".join(role_mentions) or "No roles!"}',
+                inline=False
+            )
 
             embed.add_field(
                 name=f'Permissions: {utils.Emotes.stafftools}',
-                value=utils.format_perms(user.guild_permissions)
+                value=utils.format_perms(user.guild_permissions),
+                inline=False
             )
 
         await ctx.send(embed=embed)
@@ -234,8 +246,8 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='Invite channel:',
-            value=f'Name: #{invite.channel.name} {utils.Emotes.channel(invite.channel)}\n'
-                  f'ID: {invite.channel.id}',
+            value=f'**Name:** #{invite.channel.name} {utils.Emotes.channel(invite.channel)}\n'
+                  f'**ID:** {invite.channel.id}',
             inline=True
         )
 
@@ -253,11 +265,13 @@ class Info(commands.Cog, name='Information'):
             inline=False
         )
 
-        embed.add_field(name='Invite ID:', value=invite.id, inline=False)
-        embed.add_field(name='Server name:', value=invite.guild, inline=False)
-        embed.add_field(name='Server description:', value=invite.guild.description or 'None', inline=False)
-        embed.add_field(name='Server ID:', value=invite.guild.id, inline=False)
-        embed.add_field(name='Server created at:', value=utils.user_friendly_dt(invite.guild.created_at), inline=False)
+        embed.add_field(
+            name='Server Info:',
+            value=f'**Name:** {invite.guild}\n'
+                  f'**Description:** {invite.guild.description or "None"}\n'
+                  f'**ID:** {invite.guild.id}\n'
+                  f'**Created at:** {utils.user_friendly_dt(invite.guild.created_at)}'
+        )
 
         await ctx.send(embed=embed)
 
@@ -293,11 +307,14 @@ class Info(commands.Cog, name='Information'):
                 )
 
         if isinstance(channel, discord.VoiceChannel):
-            embed.add_field(name='Bitrate:', value=f'{round(channel.bitrate / 1000)}kbps')
-            embed.add_field(name='Region:', value=str((channel.rtc_region or 'Automatic')).title())
-            embed.add_field(name='Connected:', value=f'{len(channel.members)} connected\
-            {f"/ {channel.user_limit} max" if channel.user_limit else ""}',
-                            inline=False)
+            embed.add_field(
+                name='Voice Channel Info:',
+                value=f'**Bitrate:** {round(channel.bitrate / 1000)}kbps\n'
+                      f'**Region:** {str((channel.rtc_region or "Automatic")).title()}\n'
+                      f'**# Connected:** {len(channel.members)} connected '
+                      f'{f"/ {channel.user_limit} max" if channel.user_limit else ""}',
+                inline=False
+            )
 
         if isinstance(channel, discord.StageChannel):
             embed.add_field(name='Connected:', value=f'{len(channel.members)} connected')
@@ -332,27 +349,24 @@ class Info(commands.Cog, name='Information'):
         elif role.is_integration():
             embed.add_field(name='Integration ID:', value=role.tags.integration_id, inline=False)
 
-        embed.add_field(name='Role name:', value=role.mention)
-        embed.add_field(name='Role position:', value=role.position)
-        embed.add_field(name='Role ID:', value=role.id, inline=False)
-        embed.add_field(name='Role color:', value=str(role.color), inline=False)
-        embed.add_field(name='# of people with role:', value=len(role.members), inline=False)
-
         embed.add_field(
-            name=f'{utils.Emotes.mention} Mentionable?:',
-            value=('Yes' if role.mentionable else 'No'),
+            name='General Info:',
+            value=f'**Name:** {role.mention}\n'
+                  f'**Position:** {role.position}\n'
+                  f'**ID:** {role.id}\n'
+                  f'**Color:** {role.color}\n'
+                  f'**Created at:** {utils.user_friendly_dt(role.created_at)}\n'
+                  f'**# members with role:** {len(role.members)}\n'
+                  f'**Mentionable?:** {"Yes" if role.mentionable else "No"}\n'
+                  f'**Hoisted?:** {"Yes" if role.hoist else "No"}\n',
             inline=False
         )
 
-        embed.add_field(name='Appears in member list?:', value=('Yes' if role.hoist else 'No'), inline=False)
-
         embed.add_field(
-            name=f'{utils.Emotes.stafftools} permissions:',
+            name=f'{utils.Emotes.stafftools} Permissions:',
             value=utils.format_perms(role.permissions),
             inline=False
         )
-
-        embed.add_field(name='Role created at:', value=utils.user_friendly_dt(role.created_at), inline=False)
 
         await ctx.send(embed=embed)
 
@@ -422,12 +436,20 @@ class Info(commands.Cog, name='Information'):
             thumbnail=user.display_avatar
         )
 
-        embed.add_field(name='Token:', value=f'{token[0]}.{token[1]}.X', inline=False)
-        embed.add_field(name='User:', value=f'{user}{utils.Emotes.badges(user)}')
-        embed.add_field(name='Is bot?', value=('Yes' if user.bot else 'No'))
-        embed.add_field(name='User ID:', value=user.id, inline=False)
-        embed.add_field(name='User Creation Date:', value=utils.user_friendly_dt(user.created_at), inline=False)
-        embed.add_field(name='Token Creation Date:', value=utils.user_friendly_dt(time), inline=False)
+        embed.add_field(
+            name='Token Info:',
+            value=f'**Token:** {token}\n'
+                  f'**Creation Date:** {utils.user_friendly_dt(time)}',
+            inline=False
+        )
+
+        embed.add_field(
+            name='User Info:',
+            value=f'**Name:** {user}\n'
+                  f'**ID:** {user.id}\n'
+                  f'**Is bot?:** {"Yes" if user.bot else "No"}'
+                  f'**Created at:** {utils.user_friendly_dt(user.created_at)}'
+        )
 
         await ctx.send(embed=embed)
 
