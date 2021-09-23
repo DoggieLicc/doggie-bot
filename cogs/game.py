@@ -1,14 +1,12 @@
+import discord
+import utils
+
 from typing import Optional
 
-import discord
 from discord.ext import commands
-from discord.ext.commands.cooldowns import BucketType
 
 from mojang import MojangAPI as Mojang
 from osu import OsuApi, OsuApiException
-
-import utils
-
 from datetime import timedelta
 
 
@@ -42,7 +40,8 @@ def sync_minecraft(ctx, account):
     embed = utils.create_embed(
         ctx.author,
         title="Minecraft account info:",
-        thumbnail="https://cdn.discordapp.com/attachments/632730054396215299/825080584451391529/grass.png")
+        thumbnail="https://cdn.discordapp.com/attachments/632730054396215299/825080584451391529/grass.png"
+    )
 
     embed.add_field(name="Current Username:", value=discord.utils.escape_markdown(profile.name), inline=False)
     embed.add_field(name="Profile UUID:", value=profile.id, inline=False)
@@ -65,7 +64,9 @@ def sync_minecraft(ctx, account):
     # Dream's UUID
     if profile.id == 'ec70bcaf702f4bb8b48d276fa52a780c':
         embed.set_thumbnail(
-            url="https://media.discordapp.net/attachments/632730054396215299/827393984875855982/ForsenCD-emote.jpg")
+            url="https://media.discordapp.net/attachments/632730054396215299/827393984875855982/ForsenCD-emote.jpg"
+        )
+
     return embed
 
 
@@ -118,7 +119,7 @@ class Games(commands.Cog, name="Games"):
         else:
             self.osu_api = None
 
-    @commands.cooldown(1, 5, BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.command(aliases=["mc"])
     async def minecraft(self, ctx: utils.CustomContext, account):
         """Gets info of minecraft accounts using current username or their UUID"""
@@ -133,7 +134,7 @@ class Games(commands.Cog, name="Games"):
 
     @osu.command(aliases=['user'])
     @check_osu()
-    @commands.cooldown(15, 60, BucketType.user)
+    @commands.cooldown(15, 60, commands.BucketType.user)
     async def account(self, ctx: utils.CustomContext, account, gamemode: Optional[ModeConverter] = 'osu'):
         """Gets info of osu! accounts! You can also specify a gamemode to get stats for that gamemode!"""
 
@@ -187,7 +188,7 @@ class Games(commands.Cog, name="Games"):
 
     @osu.command(aliases=['bm'])
     @check_osu()
-    @commands.cooldown(15, 60, BucketType.user)
+    @commands.cooldown(15, 60, commands.BucketType.user)
     async def beatmap(self, ctx: utils.CustomContext, beatmap_id: int):
         """Gets a beatmap from a beatmap ID! (Not a beatmap set, an individual beatmap)"""
 

@@ -1,10 +1,9 @@
 import discord
+import utils
 
 from discord.ext import commands
-
 from typing import Optional, Union
 
-import utils
 
 T = Optional[Union[discord.TextChannel, bool]]
 
@@ -27,11 +26,10 @@ class Configuration(commands.Cog):
         if not ctx.guild:
             raise commands.NoPrivateMessage()
 
-        if ctx.author.guild_permissions.manage_guild:
-            return True
-
-        else:
+        if not ctx.author.guild_permissions.manage_guild:
             raise commands.MissingPermissions(['manage_guild'])
+
+        return True
 
     @commands.group(invoke_without_command=True, aliases=['configs', 'configuration', 'configurations'])
     async def config(self, ctx: utils.CustomContext):
@@ -83,7 +81,7 @@ class Configuration(commands.Cog):
             description=f'The prefix has been set to "{prefix}" (You can still use the bot\'s mention as the prefix!)'
         )
 
-        await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+        await ctx.send(embed=embed)
 
     @config.command(aliases=['mute', 'muterole'])
     async def mute_role(self, ctx: utils.CustomContext, role: Union[discord.Role, bool]):
@@ -168,10 +166,10 @@ class Configuration(commands.Cog):
         `doggie.logging ban: #logs delete: #deletes`
         """
 
-        if any([v for _, v in iter(config) if v == True]):
+        if any([v for _, v in config if v is True]):
             raise commands.BadFlagArgument(config.get_flags()['ban_channel'])
 
-        options = {k: v for k, v in iter(config) if v is not None}
+        options = {k: v for k, v in config if v is not None}
 
         if not options:
             raise commands.BadFlagArgument(config.get_flags()['ban_channel'])

@@ -1,11 +1,11 @@
 import discord
+import utils
+
 from discord.ext import commands
 from discord.ext.commands import Greedy
 
 from datetime import datetime, timezone, timedelta
 from typing import Optional, cast
-
-import utils
 
 
 class ReminderCog(commands.Cog, name="Reminder"):

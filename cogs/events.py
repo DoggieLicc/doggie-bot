@@ -1,18 +1,18 @@
+import asyncio
+import utils
 import discord
+
 from discord.ext import commands
 
 from typing import Union, List, Optional
-import asyncio
 from datetime import datetime, timedelta, timezone
-
-import utils
 
 
 async def ban_embed(guild: discord.Guild, punished: discord.User, action):
     mod, reason = None, "Unknown"
     emote = utils.Emotes.ban_create if action.name == 'ban' else utils.Emotes.ban_delete
 
-    await asyncio.sleep(3)
+    await asyncio.sleep(5)
 
     try:
         async for entry in guild.audit_logs(limit=10, action=action):
@@ -104,7 +104,7 @@ class EventsCog(commands.Cog):
             return
 
         mod, reason = None, "Unknown"
-        await asyncio.sleep(2)
+        await asyncio.sleep(5)
         d = datetime.now(timezone.utc) - timedelta(seconds=5)
         try:
             async for entry in kicked.guild.audit_logs(after=d, limit=10, action=discord.AuditLogAction.kick):

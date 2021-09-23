@@ -1,8 +1,9 @@
 import dataclasses
 import inspect
+import aiohttp
+
 from datetime import datetime
 from typing import Literal, Optional, Union, List, TypedDict, no_type_check
-import aiohttp
 
 API_BASE_URL = 'https://api.unsplash.com/'
 ORIENTATION_LITERAL = Literal['landscape', 'portrait', 'squarish']
