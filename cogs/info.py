@@ -1,15 +1,14 @@
+import discord
 import base64
 import datetime
+import whois
+import aiowiki
+import utils
 
 from typing import Optional, Union
 
-import whois as whois
-import aiowiki
-import discord
 from discord import Color, Member, Role, User
 from discord.ext import commands
-
-import utils
 
 
 def sync_whois(ctx: utils.CustomContext, domain: str):

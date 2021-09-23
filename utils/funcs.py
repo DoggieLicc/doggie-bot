@@ -44,7 +44,7 @@ def guess_user_nitro_status(user: Union[User, Member]) -> bool:
     """Guess if an user or member has Discord Nitro"""
 
     if isinstance(user, Member):
-        has_emote_status = any([a.emoji.is_custom_emoji() for a in user.activities if hasattr(a, 'emoji') and a.emoji])
+        has_emote_status = any([a.emoji.is_custom_emoji() for a in user.activities if getattr(a, 'emoji', None)])
 
         return any([user.display_avatar.is_animated(), has_emote_status, user.premium_since])
 

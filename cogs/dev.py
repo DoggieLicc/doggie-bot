@@ -3,13 +3,13 @@ import copy
 import io
 import textwrap
 import traceback
-from contextlib import redirect_stdout
-from typing import Union, Optional, List
-
+import utils
 import discord
+
 from discord.ext import commands
 
-import utils
+from contextlib import redirect_stdout
+from typing import Union, Optional, List
 
 
 def cleanup_code(content):
@@ -35,7 +35,7 @@ class SayFlags(commands.FlagConverter):
     embeds: List[utils.EmbedConverter] = commands.flag(name='embeds', aliases=['embed'], default=lambda ctx: [])
 
 
-class Dev(commands.Cog):
+class Dev(commands.Cog, command_attrs=dict(hidden=True)):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
@@ -45,7 +45,7 @@ class Dev(commands.Cog):
 
         return True
 
-    @commands.command(hidden=True)
+    @commands.command()
     async def load(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
@@ -63,7 +63,7 @@ class Dev(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command(hidden=True)
+    @commands.command()
     async def unload(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
@@ -81,7 +81,7 @@ class Dev(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command(hidden=True)
+    @commands.command()
     async def reload(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
@@ -105,13 +105,12 @@ class Dev(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command(hidden=True, aliases=['ra'])
+    @commands.command(aliases=['ra'])
     async def reloadall(self, ctx):
         for cog in self.bot.cogs_list:
             try:
                 self.bot.reload_extension(cog)
             except commands.ExtensionNotLoaded:
-                print('l')
                 try:
                     self.bot.load_extension(cog)
                 except (commands.NoEntryPointError, commands.ExtensionFailed) as e:
@@ -130,7 +129,7 @@ class Dev(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command(hidden=True)
+    @commands.command()
     async def list_cogs(self, ctx: utils.CustomContext):
         embed = utils.create_embed(
             ctx.author,
@@ -142,7 +141,7 @@ class Dev(commands.Cog):
         embed.add_field(name='Number of cogs loaded:', value=f'{len(self.bot.cogs)} cogs', inline=False)
         await ctx.send(embed=embed)
 
-    @commands.command(hidden=True)
+    @commands.command()
     async def eval(self, ctx: utils.CustomContext, *, code):
         await ctx.channel.trigger_typing()
 
@@ -227,7 +226,7 @@ class Dev(commands.Cog):
 
                     return await ctx.send(embed=embed)
 
-    @commands.command(hidden=True)
+    @commands.command()
     async def sudo(self, ctx: utils.CustomContext, who: Union[discord.Member, discord.User], *, command: str):
         msg = copy.copy(ctx.message)
         msg.channel = ctx.channel
@@ -236,7 +235,7 @@ class Dev(commands.Cog):
         new_ctx = await self.bot.get_context(msg, cls=type(ctx))
         await self.bot.invoke(new_ctx)
 
-    @commands.command(hidden=True)
+    @commands.command()
     async def say(self, ctx: utils.CustomContext, *, flags: SayFlags):
         await ctx.send(
             **dict(flags),
@@ -246,9 +245,9 @@ class Dev(commands.Cog):
             files=[await file.to_file() for file in ctx.message.attachments]
         )
 
-    @commands.command(hidden=True, aliases=['gitpull'])
+    @commands.command(aliases=['gitpull'])
     async def pull(self, ctx: utils.CustomContext):
-        cmd = f'git pull'
+        cmd = 'git pull'
 
         proc = await asyncio.create_subprocess_shell(
             cmd,

@@ -112,8 +112,6 @@ class Random(commands.Cog):
 
         image: Photo = self.cached_random_photos.pop(0)
 
-        print(len(self.cached_random_photos))
-
         description = f'"{image.description or image.alt_description}"\n\n' \
                       f'*Photo by [{image.user.name}](https://unsplash.com/@{image.user.username}{utm_params}) on ' \
                       f'[Unsplash](https://unsplash.com/{utm_params})*'

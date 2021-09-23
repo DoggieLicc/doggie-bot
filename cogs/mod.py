@@ -1,11 +1,12 @@
 import discord
+import unicodedata
+import utils
+
 from discord.ext import commands, menus
 from discord.ext.commands import Greedy
 
-import unicodedata
 from typing import Union, Optional
 
-import utils
 
 GREEDY_INTENTIONAL = Greedy[Union[utils.IntentionalMember, utils.IntentionalUser]]
 

@@ -1,14 +1,9 @@
+import discord
+import utils
 import inspect
 
-from io import StringIO
-
-import discord
-
 from discord.ext import commands
-from discord.ext.commands import BucketType
-from discord.utils import oauth_url
-
-import utils
+from io import StringIO
 
 
 class Misc(commands.Cog):
@@ -21,7 +16,7 @@ class Misc(commands.Cog):
     async def info(self, ctx: utils.CustomContext):
         """Shows information for the bot!"""
 
-        invite_url = oauth_url(ctx.me.id, permissions=discord.Permissions(2550164614))
+        invite_url = discord.utils.oauth_url(ctx.me.id, permissions=discord.Permissions(2550164614))
 
         embed = utils.create_embed(
             ctx.author,
@@ -66,7 +61,7 @@ class Misc(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.cooldown(3, 86_400, BucketType.user)
+    @commands.cooldown(3, 86_400, commands.BucketType.user)
     @commands.command(aliases=['report', 'bug'])
     async def suggest(self, ctx: utils.CustomContext, *, suggestion):
         """Send a suggestion or bug report to the bot owner!"""

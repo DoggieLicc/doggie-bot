@@ -1,7 +1,7 @@
 import discord
-from discord.ext import commands, menus
-
 import utils
+
+from discord.ext import commands, menus
 
 
 def format_first_message(ctx):

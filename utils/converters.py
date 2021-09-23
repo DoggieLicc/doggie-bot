@@ -18,10 +18,12 @@ __all__ = [
     'ImageConverter'
 ]
 
+ID_REGEX = re.compile(r'([0-9]{15,20})$')
+
 
 class IntentionalMember(commands.converter.MemberConverter):
     async def convert(self, ctx, argument: str) -> Member:
-        if not argument.isnumeric() and not (len(argument) > 5 and argument[-5] == '#') and not \
+        if not (len(argument) > 5 and argument[-5] == '#') and not \
                 self._get_id_match(argument) and not re.match(r'<@!?([0-9]{15,20})>$', argument):
             # Not a mention or an ID a name#tag
             raise commands.errors.MemberNotFound(argument)
@@ -31,7 +33,7 @@ class IntentionalMember(commands.converter.MemberConverter):
 
 class IntentionalUser(commands.converter.UserConverter):
     async def convert(self, ctx, argument: str) -> User:
-        if not argument.isnumeric() and not (len(argument) > 5 and argument[-5] == '#') and not \
+        if not (len(argument) > 5 and argument[-5] == '#') and not \
                 self._get_id_match(argument) and not re.match(r'<@!?([0-9]{15,20})>$', argument):
             # Not a mention or an ID or a name#tag
             raise commands.errors.UserNotFound(argument)
@@ -96,9 +98,6 @@ class TimeConverter(commands.Converter):
             raise commands.BadArgument()
 
         return Time(amount, unit_correct_name, unit, seconds)
-
-
-ID_REGEX = re.compile(r'([0-9]{15,20})$')
 
 
 class MentionedTextChannel(commands.Converter):

@@ -1,11 +1,10 @@
-import io
-
 import discord
-from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw
-from discord.ext import commands
-from typing import Optional, List
-
+import io
 import utils
+
+from discord.ext import commands
+from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw
+from typing import Optional, List
 
 
 def invert_image(b: bytes, max_size) -> discord.File:

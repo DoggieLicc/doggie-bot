@@ -1,11 +1,12 @@
 import functools
 import inspect
+import aiohttp
+
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Literal, Union, Optional, List
 
-import aiohttp
 
 BASE_URL = 'https://osu.ppy.sh/api/v2/'
 
@@ -146,7 +147,6 @@ class OsuApi:
                 return data
 
         except Exception as e:
-            print(e)
             if isinstance(e, OsuApiException): raise
             raise OsuApiException(f'{type(e)}: {e}')
 
