@@ -112,7 +112,7 @@ You will know which arguments to put in a command by looking at its command sign
 
 **minecraft - \<account>**: Gets info of minecraft accounts using current username or their UUID
 
-**osu - \<subcommand>**: Get info for osu accounts and beatmaps
+**osu - \<subcommand>**: Gets info for osu! accounts and beatmaps!
 
 ## Utility commands:
 
@@ -126,9 +126,57 @@ You will know which arguments to put in a command by looking at its command sign
 
 **newacc**: Shows the newest accounts in this server!
 
-## Image commands:
+**poll - [timeout=600] \<question> [options...]**: Makes a poll that anyone can vote on! Use quotes to separate multi-word question and options
 
-**unsplash - \<subcommand>**: Get an image from the Unsplash API
+## Images commands:
+
+**invert - [image]**: Inverts the colors of a specified image!
+
+**greyscale - [image]**: Greyscale the specified image!
+
+**deepfry - [image]**: Deepfry the specified image!
+
+**blur - [image] [strength=5]**: Blurs the specified image!
+
+**noise - [image] [strength=50]**: Adds noise to specified image! Strength should be in between 0 and 100
+
+**brighten - [image] [strength=1.25]**: Brightens specified image! Passing in an strength less than 1 will darken it instead
+
+**contrast - [image] [strength=1.25]**: Adds contrast to specified image! Passing in an strength less than 1 will lower it instead
+
+**pride - [image] [transparency=50]**: Adds the pride rainbow to image!
+
+**gay - [image] [transparency=50]**: Adds the gay rainbow to image!
+
+**transgender - [image] [transparency=50]**: Adds the transgender flag to image!
+
+**bisexual - [image] [transparency=50]**: Adds the bisexual flag to image!
+
+**lesbian - [image] [transparency=50]**: Adds the lesbian flag to image!
+
+**asexual - [image] [transparency=50]**: Adds the asexual flag to image!
+
+**pansexual - [image] [transparency=50]**: Adds the pansexual flag to image!
+
+**nonbinary - [image] [transparency=50]**: Adds the non-binary flag to image!
+
+**gnc - [image] [transparency=50]**: Adds the gender nonconforming flag to image!
+
+**aromantic - [image] [transparency=50]**: Adds the aromantic flag to image!
+
+**genderqueer - [image] [transparency=50]**: Adds the genderqueer flag to image!
+
+## Configuration commands:
+
+**config - \<subcommand>**: Shows the current configuration for this server!
+
+**logging - \<flags>...**: Sets the log channels for this server! `help logging` for help with flags format
+
+## Random commands:
+
+**random - \<subcommand>**: Commands that choose something random!
+
+**unsplash - \<subcommand>**: Commands that have to do with the Unsplash API!
 
 **fox**: Gets a random fox from randomfox.ca
 
@@ -136,8 +184,12 @@ You will know which arguments to put in a command by looking at its command sign
 
 **dog**: Gets a random dog from random.dog
 
-## Configuration commands:
+**hug - [user]**: Get picture of furries hugging, because why not?
 
-**config - \[subcommand]**: Shows the current configuration for this server!
+**boop - [user]**: Get picture of furries booping eachother, because why not?
 
-**logging - \<flags>...**: Sets the log channels for this server! `help logging` for help with flags format
+**hold - [user]**: Get picture of furries holding eachother, because why not?
+
+**kiss - [user]**: Get picture of furries kissing, because why not?
+
+**lick - [user]**: Get picture of furries licking eachother, because why not?
