@@ -3,8 +3,17 @@ import io
 import utils
 
 from discord.ext import commands
-from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw
+from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw, ImageFont
 from typing import Optional, List
+
+
+def image_to_file(image: Image, name: str) -> discord.File:
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, 'png', optimize=True)
+
+    img_bytes.seek(0)
+
+    return discord.File(img_bytes, f'{name}.png')
 
 
 def invert_image(b: bytes, max_size) -> discord.File:
@@ -16,26 +25,16 @@ def invert_image(b: bytes, max_size) -> discord.File:
     r2, g2, b2 = inverted_image.split()
 
     image = Image.merge('RGBA', (r2, g2, b2, a))
-
-    img_bytes = io.BytesIO()
     image = maybe_resize_image(image, max_size)
-    image.save(img_bytes, 'png', optimize=True)
 
-    img_bytes.seek(0)
-
-    return discord.File(img_bytes, 'inverted.png')
+    return image_to_file(image, 'inverted')
 
 
 def greyscale_image(b: bytes) -> discord.File:
     # Double convert for transparent gifs
     image = Image.open(io.BytesIO(b)).convert('RGBA').convert('LA')
 
-    img_bytes = io.BytesIO()
-    image.save(img_bytes, 'png')
-
-    img_bytes.seek(0)
-
-    return discord.File(img_bytes, 'greyscale.png')
+    return image_to_file(image, 'greyscale')
 
 
 def deepfry_image(b: bytes) -> discord.File:
@@ -62,22 +61,14 @@ def noise_image(b: bytes, alpha: float) -> discord.File:
 
     image = Image.blend(original, noise, alpha)
 
-    img_bytes = io.BytesIO()
-    image.save(img_bytes, 'png', optimize=True)
-
-    img_bytes.seek(0)
-    return discord.File(img_bytes, 'noise.png')
+    return image_to_file(image, 'noise')
 
 
 def blur_image(b: bytes, radius: int) -> discord.File:
     image = Image.open(io.BytesIO(b)).convert('RGBA')
     image = image.filter(ImageFilter.GaussianBlur(radius))
 
-    img_bytes = io.BytesIO()
-    image.save(img_bytes, 'png', optimize=True)
-
-    img_bytes.seek(0)
-    return discord.File(img_bytes, 'blur.png')
+    return image_to_file(image, 'blur')
 
 
 def brighten_image(b: bytes, intensity: float) -> discord.File:
@@ -86,11 +77,7 @@ def brighten_image(b: bytes, intensity: float) -> discord.File:
     b = ImageEnhance.Brightness(image)
     image = b.enhance(intensity)
 
-    img_bytes = io.BytesIO()
-    image.save(img_bytes, 'png', optimize=True)
-
-    img_bytes.seek(0)
-    return discord.File(img_bytes, 'brighten.png')
+    return image_to_file(image, 'brighten')
 
 
 def contrast_image(b: bytes, intensity: float) -> discord.File:
@@ -99,11 +86,7 @@ def contrast_image(b: bytes, intensity: float) -> discord.File:
     c = ImageEnhance.Contrast(image)
     image = c.enhance(intensity)
 
-    img_bytes = io.BytesIO()
-    image.save(img_bytes, 'png', optimize=True)
-
-    img_bytes.seek(0)
-    return discord.File(img_bytes, 'contrast.png')
+    return image_to_file(image, 'contrast')
 
 
 def maybe_resize_image(image: Image, max_size: int) -> Image:
@@ -147,11 +130,7 @@ def make_flag(b: bytes, alpha: float, max_size: int, colors: List):
     blended_image = Image.blend(image, mask, alpha)
     resized_image = maybe_resize_image(blended_image, max_size)
 
-    img_bytes = io.BytesIO()
-    resized_image.save(img_bytes, 'png', optimize=True)
-    img_bytes.seek(0)
-
-    return discord.File(img_bytes, 'pride.png')
+    return image_to_file(resized_image, 'pride')
 
 
 async def pride_flag(ctx: utils.CustomContext, image: Optional[bytes], transparency: int, colors: List):
@@ -176,6 +155,49 @@ async def pride_flag(ctx: utils.CustomContext, image: Optional[bytes], transpare
     )
 
     await ctx.send(embed=embed, file=file)
+
+
+def add_impact(b: bytes, max_size: int, top_text: str, bottom_text: str):
+    image = Image.open(io.BytesIO(b)).convert('RGBA')
+
+    top_text = top_text.upper()
+    bottom_text = bottom_text.upper() if bottom_text else None
+
+    if image.width < 256:
+        height = int(256 * (image.height / image.width))
+        image = image.resize((256, height))
+
+    impact = ImageFont.truetype('assets/impact.ttf', image.width // 10)
+    canvas = ImageDraw.Draw(image)
+
+    xpos = image.width / 2
+
+    font_kwargs = {
+        'fill': (255, 255, 255),
+        'font': impact,
+        'align': 'center',
+        'stroke_width': 3,
+        'stroke_fill': (0, 0, 0)
+    }
+
+    canvas.multiline_text(
+        xy=(xpos, 0),
+        text=top_text,
+        anchor='ma',
+        **font_kwargs
+    )
+
+    if bottom_text:
+        canvas.multiline_text(
+            xy=(xpos, image.height),
+            text=bottom_text,
+            anchor='md',
+            **font_kwargs
+        )
+
+    image = maybe_resize_image(image, max_size)
+
+    return image_to_file(image, 'impact')
 
 
 class Images(commands.Cog):
@@ -430,6 +452,53 @@ class Images(commands.Cog):
 
         await ctx.send(embed=embed, file=file)
 
+    @commands.command(aliases=['meme', 'text'])
+    async def impact(
+            self,
+            ctx: utils.CustomContext,
+            image: Optional[utils.ImageConverter],
+            top_text: str,
+            bottom_text: Optional[str]
+    ):
+        """Adds text with impact font to specified image!
+
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
+
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
+        """
+
+        if not image:
+            image_bytes = await utils.ImageConverter().convert(ctx, image)
+        else:
+            image_bytes = image
+
+        file = await self.bot.loop.run_in_executor(
+            None,
+            add_impact,
+            image_bytes,
+            ctx.guild.filesize_limit,
+            top_text,
+            bottom_text
+        )
+
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Here\'s your modified image:',
+            image='attachment://impact.png'
+        )
+
+        await ctx.send(embed=embed, file=file)
+
     @commands.command(aliases=['rainbow', 'lgbt'])
     async def pride(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
         """Adds the pride rainbow to image!
@@ -455,7 +524,7 @@ class Images(commands.Cog):
 
     @commands.command(aliases=['homo', 'homosexual'])
     async def gay(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the gay rainbow to image!
+        """Adds the gay flag to image!
 
         **Steps for getting image:**
         1. Replied message -> Message steps
