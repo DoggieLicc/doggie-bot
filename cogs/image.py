@@ -486,7 +486,8 @@ class Images(commands.Cog):
             None,
             add_impact,
             image_bytes,
-            ctx.guild.filesize_limit,
+            ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
+            ,
             top_text,
             bottom_text
         )
