@@ -277,4 +277,7 @@ class ImageConverter(commands.Converter):
         except commands.BadArgument:
             pass
 
+        if argument:
+            raise commands.BadArgument('Wasn\'t able to convert argument to an image!')
+
         return await ctx.author.display_avatar.read()
