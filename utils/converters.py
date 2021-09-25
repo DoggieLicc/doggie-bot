@@ -215,8 +215,31 @@ class ImageConverter(commands.Converter):
         except (discord.DiscordException, discord.HTTPException, discord.NotFound):
             return None
 
+    async def arg_converter(self, ctx, arg: str):
+        try:
+            user = await commands.UserConverter().convert(ctx, arg)
+            return await user.display_avatar.read()
+        except (commands.BadArgument, commands.CommandError):
+            pass
+
+        try:
+            emoji = await NitrolessEmoteConverter().convert(ctx, arg)
+            return await emoji.read()
+        except (commands.BadArgument, commands.CommandError):
+            pass
+
+        if arg.startswith('http'):
+            asset_bytes = await self.fake_asset_read(ctx, url=arg)
+
+            if asset_bytes: return asset_bytes
+
+        raise commands.BadArgument()
+
     async def message_convert(self, ctx, message: discord.Message, arg: Optional[str] = None) -> bytes:
-        arg = arg or message.content
+        if arg:
+            return await self.arg_converter(ctx, arg)
+
+        arg = message.content
 
         if message.attachments:
             if message.attachments[0].content_type.startswith('image'):
@@ -238,26 +261,20 @@ class ImageConverter(commands.Converter):
                 if asset_bytes: return asset_bytes
 
         if arg:
-            try:
-                user = await commands.UserConverter().convert(ctx, arg)
-                return await user.display_avatar.read()
-            except (commands.BadArgument, commands.CommandError):
-                pass
-
-            try:
-                emoji = await NitrolessEmoteConverter().convert(ctx, arg)
-                return await emoji.read()
-            except (commands.BadArgument, commands.CommandError):
-                pass
-
-            if arg.startswith('http'):
-                asset_bytes = await self.fake_asset_read(ctx, url=arg)
-
-                if asset_bytes: return asset_bytes
+            return await self.arg_converter(ctx, arg)
 
         raise commands.BadArgument()
 
     async def convert(self, ctx, argument: Optional[str]) -> bytes:
+        if argument:
+            try:
+                message = await commands.MessageConverter().convert(ctx, argument)
+                return await self.message_convert(ctx, message)
+            except commands.BadArgument:
+                pass
+
+            return await self.message_convert(ctx, ctx.message, argument)
+
         if ctx.message.reference:
             try:
                 message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
@@ -265,19 +282,9 @@ class ImageConverter(commands.Converter):
             except (discord.Forbidden, discord.HTTPException, commands.BadArgument):
                 pass
 
-        if argument:
-            try:
-                message = await commands.MessageConverter().convert(ctx, argument)
-                return await self.message_convert(ctx, message, argument)
-            except commands.BadArgument:
-                pass
-
         try:
-            return await self.message_convert(ctx, ctx.message, argument)
+            return await self.message_convert(ctx, ctx.message)
         except commands.BadArgument:
             pass
-
-        if argument:
-            raise commands.BadArgument('Wasn\'t able to convert argument to an image!')
 
         return await ctx.author.display_avatar.read()
