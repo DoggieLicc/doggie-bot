@@ -170,6 +170,8 @@ class Info(commands.Cog, name='Information'):
 
         user: Union[discord.Member, discord.User, str] = user or ctx.author
 
+        fetched = user if user.banner else await self.bot.fetch_user(user.id)
+
         if isinstance(user, str):
             raise commands.UserNotFound(user)
 
@@ -179,7 +181,8 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Info for {user} {utils.Emotes.badges(user)}:',
-            thumbnail=user.display_avatar
+            thumbnail=user.display_avatar,
+            image=fetched.banner
         )
 
         embed.add_field(
@@ -432,7 +435,8 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Info for {user.name}\'s token!',
-            thumbnail=user.display_avatar
+            thumbnail=user.display_avatar,
+            image=user.banner
         )
 
         embed.add_field(
