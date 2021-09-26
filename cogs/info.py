@@ -323,16 +323,13 @@ class Info(commands.Cog, name='Information'):
             embed.add_field(name='Region:', value=str((channel.rtc_region or 'Automatic')).title())
 
         embed.add_field(
-            name='Channel type:',
-            value=f'{str(channel.type).replace("_", " ").title()} Channel',
+            name='General Channel Info:',
+            value=f'**Type:** {str(channel.type).replace("_", " ").title()} channel\n'
+                  f'**Category:** {channel.category}\n'
+                  f'**ID:** {channel.id}\n'
+                  f'**Created at:** {utils.user_friendly_dt(channel.created_at)}',
             inline=False
         )
-
-        embed.add_field(name='Channel category:', value=channel.category)
-        embed.add_field(name='Channel ID:', value=channel.id, inline=False)
-
-        if not isinstance(channel, discord.Thread):
-            embed.add_field(name='Creation date:', value=utils.user_friendly_dt(channel.created_at), inline=False)
 
         await ctx.send(embed=embed)
 
