@@ -120,18 +120,27 @@ class UtilityCog(commands.Cog, name="Utility"):
     @commands.max_concurrency(3, commands.BucketType.channel)
     @commands.guild_only()
     @commands.command(aliases=['bottest', 'selfbottest', 'bt', 'sbt', 'self'])
-    async def selfbot(self, ctx, users: Greedy[discord.Member]):
+    async def selfbot(self, ctx: utils.CustomContext, users: Greedy[discord.Member]):
         """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)
         When someone reacts with to the message, The user and the time will be sent.
         You can specify users so that the bot will only respond to their reactions."""
 
         if users: users.append(ctx.author)
 
+        selfbot_embed = discord.Embed(
+            color=discord.Color.green(),
+            title='Giveaway',
+            description=f'**Prize:** Discord Nitro\n'
+                        f'**Time left:** Infinity\n'
+                        f'**Hosted by:** {ctx.guild.owner.mention}\n'
+                        f'**React with :tada: to participate!**'
+        )
+
+        selfbot_embed.set_author(name='Discord Nitro')
+
         message = await ctx.send(
-            ':tada: GIVEAWAY :tada:\n'
-            'Prize: Discord Nitro\n'
-            'Timeleft: Infinity\n'
-            'React with :tada: to participate!'
+            ':tada: **GIVEAWAY** :tada: :yay:',
+            embed=selfbot_embed
         )
 
         await message.add_reaction('\N{PARTY POPPER}')
