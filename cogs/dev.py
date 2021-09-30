@@ -268,6 +268,11 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
 
         await ctx.send(embed=embed)
 
+    @commands.command(aliases=['clean'])
+    async def cleanup(self, ctx: utils.CustomContext, limit=100):
+        messages = await ctx.channel.purge(limit=limit, bulk=False, check=lambda m: m.author == ctx.me)
+        await ctx.send(f'Deleted {len(messages)} message(s)', delete_after=3, reference=ctx.message)
+
 
 def setup(bot):
     bot.add_cog(Dev(bot))
