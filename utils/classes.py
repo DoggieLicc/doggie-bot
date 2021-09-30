@@ -105,11 +105,7 @@ class CustomBot(commands.Bot):
 
     async def get_owner(self) -> User:
         if not self.owner_id or self.owner_ids:
-            app = await self.application_info()
-            if app.team:
-                self.owner_ids = {m.id for m in app.team.members}
-            else:
-                self.owner_id = app.owner.id
+            await self.application_info()
 
         return await self.fetch_user(self.owner_id or list(self.owner_ids)[0])
 
