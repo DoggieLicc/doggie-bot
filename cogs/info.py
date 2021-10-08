@@ -338,7 +338,11 @@ class Info(commands.Cog, name='Information'):
     async def role(self, ctx: utils.CustomContext, *, role: discord.Role):
         """Shows info for the role specified using role mention or ID"""
 
-        embed = utils.create_embed(ctx.author, title=f'Info for {role.name} {utils.Emotes.role}:')
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Info for {role.name} {utils.Emotes.role}:',
+            thumbnail=role.icon
+        )
 
         if role.is_bot_managed():
             bot = ctx.guild.get_member(role.tags.bot_id)
