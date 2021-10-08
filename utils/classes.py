@@ -77,8 +77,7 @@ class CustomBot(commands.Bot):
             embed = create_embed(
                 message.author,
                 title='Bot has been pinged!',
-                description=f'The current prefixes are {self.user.mention} and '
-                            f'"{self.get_custom_prefix(self, message)[2]}"'
+                description='The current prefixes are: ' + ', '.join((await self.get_prefix(message))[1:])
             )
 
             await message.channel.send(embed=embed)
@@ -362,32 +361,42 @@ class Reminder:
 
     async def send_reminder(self):
         async with self.bot.db.cursor() as cursor:
-            await cursor.execute('INSERT OR IGNORE INTO reminders VALUES (?, ?, ?, ?, ?)',
-                                 (self.message_id,
-                                  self.user.id,
-                                  self.reminder,
-                                  int(self.end_time.timestamp()),
-                                  self.destination.id)
-                                 )
+            await cursor.execute(
+                'INSERT OR IGNORE INTO reminders VALUES (?, ?, ?, ?, ?)',
+                (self.message_id,
+                 self.user.id,
+                 self.reminder,
+                 int(self.end_time.timestamp()),
+                 self.destination.id)
+            )
 
         await self.bot.db.commit()
         await discord.utils.sleep_until(self.end_time)
 
-        embed = discord.Embed(title='Reminder!',
-                              description=self.reminder,
-                              color=discord.Color.green())
+        embed = discord.Embed(
+            title='Reminder!',
+            description=self.reminder,
+            color=discord.Color.green()
+        )
 
         if isinstance(self.destination, TextChannel):
-            embed.set_footer(icon_url=fix_url(self.user.display_avatar),
-                             text=f'Reminder sent by {self.user}')
+            embed.set_footer(
+                icon_url=fix_url(self.user.display_avatar),
+                text=f'Reminder sent by {self.user}'
+            )
+
         else:
-            embed.set_footer(icon_url=fix_url(self.user.display_avatar),
-                             text=f'This reminder is sent by you!')
+            embed.set_footer(
+                icon_url=fix_url(self.user.display_avatar),
+                text=f'This reminder is sent by you!'
+            )
 
         try:
             await self.destination.send(
                 f"**Hey {self.user.mention},**" if isinstance(self.destination, TextChannel) else None,
-                embed=embed)
+                embed=embed
+            )
+
         except (discord.Forbidden, discord.HTTPException):
             pass
 
@@ -416,13 +425,15 @@ class BasicConfig:
         config = replace(self, **kwargs)
 
         async with bot.db.cursor() as cursor:
-            await cursor.execute('REPLACE INTO basic_config VALUES(?, ?, ?, ?)',
-                                 (
-                                     config.guild.id,
-                                     config.prefix,
-                                     config.snipe,
-                                     config.mute_role.id if config.mute_role else None
-                                 ))
+            await cursor.execute(
+                'REPLACE INTO basic_config VALUES(?, ?, ?, ?)',
+                (
+                    config.guild.id,
+                    config.prefix,
+                    config.snipe,
+                    config.mute_role.id if config.mute_role else None
+                )
+            )
 
         await bot.db.commit()
 
@@ -444,15 +455,17 @@ class LoggingConfig:
         config = replace(self, **kwargs)
 
         async with bot.db.cursor() as cursor:
-            await cursor.execute('REPLACE INTO logging_config VALUES(?, ?, ?, ?, ?, ?)',
-                                 (
-                                     config.guild.id,
-                                     config.kick_channel.id if config.kick_channel else None,
-                                     config.ban_channel.id if config.ban_channel else None,
-                                     config.purge_channel.id if config.purge_channel else None,
-                                     config.delete_channel.id if config.delete_channel else None,
-                                     config.mute_channel.id if config.mute_channel else None
-                                 ))
+            await cursor.execute(
+                'REPLACE INTO logging_config VALUES(?, ?, ?, ?, ?, ?)',
+                (
+                    config.guild.id,
+                    config.kick_channel.id if config.kick_channel else None,
+                    config.ban_channel.id if config.ban_channel else None,
+                    config.purge_channel.id if config.purge_channel else None,
+                    config.delete_channel.id if config.delete_channel else None,
+                    config.mute_channel.id if config.mute_channel else None
+                )
+            )
 
         await bot.db.commit()
 
