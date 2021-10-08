@@ -267,6 +267,9 @@ class ImageConverter(commands.Converter):
 
     async def convert(self, ctx, argument: Optional[str]) -> bytes:
         if argument:
+            if ctx.message.reference or ctx.message.attachments:
+                raise commands.BadArgument()
+
             try:
                 message = await commands.MessageConverter().convert(ctx, argument)
                 return await self.message_convert(ctx, message)
