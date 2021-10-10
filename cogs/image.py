@@ -89,6 +89,14 @@ def contrast_image(b: bytes, intensity: float) -> discord.File:
     return image_to_file(image, 'contrast')
 
 
+def rotate_image(b: bytes, angle: int, max_size: int):
+    image = Image.open(io.BytesIO(b)).convert('RGBA')
+    image = image.rotate(-angle, expand=True)
+    image = maybe_resize_image(image, max_size)
+
+    return image_to_file(image, 'rotate')
+
+
 def maybe_resize_image(image: Image, max_size: int) -> Image:
     b = io.BytesIO()
     image.save(b, 'png')
@@ -496,6 +504,41 @@ class Images(commands.Cog):
             ctx.author,
             title=f'Here\'s your modified image:',
             image='attachment://impact.png'
+        )
+
+        await ctx.send(embed=embed, file=file)
+
+    @commands.command()
+    async def rotate(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], angle=90):
+        """Rotates an image! Positive number for clockwise, negative for counter-clockwise
+
+        **Steps for getting image:**
+        1. Replied message -> Message steps
+        2. Specified message -> Message steps
+        3. Command's message -> Message steps
+        4. Invoker's avatar
+
+        **Message steps:**
+        1. Attachment
+        2. Sticker
+        3. Embed image/thumbnail
+        3. Specified user
+        4. Specified emote
+        5. Specified link
+        """
+
+        if not image:
+            image_bytes = await utils.ImageConverter().convert(ctx, image)
+        else:
+            image_bytes = image
+
+        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
+        file = await self.bot.loop.run_in_executor(None, rotate_image, image_bytes, angle, limit)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title=f'Here\'s your modified image:',
+            image='attachment://rotate.png'
         )
 
         await ctx.send(embed=embed, file=file)
