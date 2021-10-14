@@ -144,6 +144,8 @@ You will know which arguments to put in a command by looking at its command sign
 
 **contrast - [image] [strength=1.25]**: Adds contrast to specified image! Passing in an strength less than 1 will lower it instead
 
+**rotate - [image] [angle=90]**: Rotates an image! Positive number for clockwise, negative for counter-clockwise
+
 **pride - [image] [transparency=50]**: Adds the pride rainbow to image!
 
 **gay - [image] [transparency=50]**: Adds the gay rainbow to image!
