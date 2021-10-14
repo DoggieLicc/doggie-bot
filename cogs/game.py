@@ -21,8 +21,8 @@ def sync_minecraft(ctx, account):
         if not profile:
             return utils.create_embed(
                 ctx.author,
-                title="Error!",
-                description="Account not found!",
+                title='Error!',
+                description='Account not found!',
                 color=discord.Color.red()
             )
 
@@ -30,8 +30,8 @@ def sync_minecraft(ctx, account):
     except Exception:
         return utils.create_embed(
             ctx.author,
-            title="Error!",
-            description="Can't lookup account! (API down?)",
+            title='Error!',
+            description='Can\'t lookup account! (API down?)',
             color=discord.Color.red()
         )
 
@@ -39,32 +39,32 @@ def sync_minecraft(ctx, account):
 
     embed = utils.create_embed(
         ctx.author,
-        title="Minecraft account info:",
-        thumbnail="https://cdn.discordapp.com/attachments/632730054396215299/825080584451391529/grass.png"
+        title='Minecraft account info:',
+        thumbnail=f'https://mc-heads.net/body/{account}.png'
     )
 
-    embed.add_field(name="Current Username:", value=discord.utils.escape_markdown(profile.name), inline=False)
-    embed.add_field(name="Profile UUID:", value=profile.id, inline=False)
+    embed.add_field(name='Current Username:', value=discord.utils.escape_markdown(profile.name), inline=False)
+    embed.add_field(name='Profile UUID:', value=profile.id, inline=False)
 
     embed.add_field(
-        name="Past Usernames:",
-        value=(discord.utils.escape_markdown(", ".join(past_names)) if past_names else "No past usernames"),
+        name='Past Usernames:',
+        value=(discord.utils.escape_markdown(', '.join(past_names)) if past_names else 'No past usernames'),
         inline=False
     )
 
     embed.add_field(
-        name="Skin:",
-        value=f"[Download Skin ({'Steve Type' if not profile.skin_model == 'slim' else 'Alex Type'})]"
-              f"({profile.skin_url})" if profile.skin_url else "No skin",
+        name='Skin:',
+        value=f'[Download Skin ({"Steve Type" if not profile.skin_model == "slim" else "Alex Type"})]'
+              f'({profile.skin_url})' if profile.skin_url else 'No skin',
         inline=False
     )
 
-    embed.add_field(name="Is legacy account?:", value="Yes" if profile.is_legacy_profile else "No", inline=False)
+    embed.add_field(name='Is legacy account?:', value='Yes' if profile.is_legacy_profile else 'No', inline=False)
 
     # Dream's UUID
     if profile.id == 'ec70bcaf702f4bb8b48d276fa52a780c':
         embed.set_thumbnail(
-            url="https://media.discordapp.net/attachments/632730054396215299/827393984875855982/ForsenCD-emote.jpg"
+            url='https://media.discordapp.net/attachments/632730054396215299/827393984875855982/ForsenCD-emote.jpg'
         )
 
     return embed
@@ -77,19 +77,19 @@ class ModeConverter(commands.Converter):
     async def convert(self, ctx: commands.Context, mode: str):
 
         if not mode:
-            return "osu"
+            return 'osu'
 
         mode = mode.lower()
-        if mode in ["s", "standard", "osu", "osu!", "std", "0"]:
-            return "osu"
-        elif mode in ["taiko", "t", "osu!taiko", "1"]:
-            return "taiko"
-        elif mode in ["c", "catch", "ctb", "osu!catch", "2"]:
-            return "fruits"
-        elif mode in ["m", "mania", "osu!mania", "3"]:
-            return "mania"
+        if mode in ['s', 'standard', 'osu', 'osu!', 'std', '0']:
+            return 'osu'
+        elif mode in ['taiko', 't', 'osu!taiko', '1']:
+            return 'taiko'
+        elif mode in ['c', 'catch', 'ctb', 'osu!catch', '2']:
+            return 'fruits'
+        elif mode in ['m', 'mania', 'osu!mania', '3']:
+            return 'mania'
         else:
-            return "osu"
+            return 'osu'
 
 
 def check_osu():
