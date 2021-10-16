@@ -389,10 +389,6 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(name='Emote name:', value=emoji.name, inline=False)
         embed.add_field(name='Emote ID:', value=emoji.id, inline=False)
         embed.add_field(name='Animated?:', value='Yes' if emoji.animated else 'No')
-
-        if isinstance(emoji, discord.PartialEmoji):
-            return await ctx.send(embed=embed)
-
         embed.add_field(name='Created at:', value=utils.user_friendly_dt(emoji.created_at), inline=False)
 
         await ctx.send(embed=embed)
