@@ -285,7 +285,7 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title=f'Info for {channel.name}: {utils.Emotes.channel(channel)}',
-            thumbnail=ctx.guild.icon.url
+            thumbnail=ctx.guild.icon
         )
 
         if isinstance(channel, (discord.TextChannel, discord.Thread)):
