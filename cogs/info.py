@@ -170,10 +170,10 @@ class Info(commands.Cog, name='Information'):
 
         user: Union[discord.Member, discord.User, str] = user or ctx.author
 
-        fetched = user if user.banner else await self.bot.fetch_user(user.id)
-
         if isinstance(user, str):
             raise commands.UserNotFound(user)
+
+        fetched = user if user.banner else await self.bot.fetch_user(user.id)
 
         flags = [name.replace('_', ' ').title() for name, value in dict.fromkeys(iter(user.public_flags)) if value]
         badges = '\n'.join(flags) or 'None'
@@ -438,7 +438,7 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='Token Info:',
-            value=f'**Token:** {token}\n'
+            value=f'**Token:** {".".join(token)}\n'
                   f'**Creation Date:** {utils.user_friendly_dt(time)}',
             inline=False
         )
@@ -447,7 +447,7 @@ class Info(commands.Cog, name='Information'):
             name='User Info:',
             value=f'**Name:** {user}\n'
                   f'**ID:** {user.id}\n'
-                  f'**Is bot?:** {"Yes" if user.bot else "No"}'
+                  f'**Is bot?:** {"Yes" if user.bot else "No"}\n'
                   f'**Created at:** {utils.user_friendly_dt(user.created_at)}'
         )
 
