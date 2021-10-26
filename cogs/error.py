@@ -148,20 +148,24 @@ class ErrorHandler(commands.Cog):
         lines = traceback.format_exception(etype, error, trace)
         traceback_t: str = ''.join(lines)
 
+        print(traceback_t)
         file = utils.str_to_file(traceback_t, filename='traceback.py')
 
         owner: discord.User = await self.bot.get_owner()
 
-        embed.add_field(name="Unhandled Error!:", value=f"{error}", inline=False)
-        embed.add_field(name="Message content:", value=ctx.message.content, inline=False)
+        embed.add_field(name='Unhandled Error!:', value=f"Error {error}", inline=False)
+        embed.add_field(name='Message content:', value=ctx.message.content or 'None', inline=False)
 
         embed.add_field(
-            name="Extra Info:",
-            value=f"Guild: {ctx.guild}: {ctx.guild.id if ctx.guild else 'None'}\n"
-                  f"Channel: {ctx.channel}:", inline=False
+            name='Extra Info:',
+            value=f'Guild: {ctx.guild}: {getattr(ctx.guild, "id", "None")}\n'
+                  f'Channel: {ctx.channel}:', inline=False
         )
 
-        await owner.send(file=file, embed=embed)
+        try:
+            await owner.send(file=file, embed=embed)
+        except discord.HTTPException:
+            pass
 
 
 def setup(bot):
