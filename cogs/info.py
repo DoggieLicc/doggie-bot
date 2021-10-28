@@ -164,7 +164,7 @@ class Info(commands.Cog, name='Information'):
 
         await ctx.send(embed=embed)
 
-    @commands.command(aliases=['member'])
+    @commands.command(aliases=['member', 'ui'])
     async def user(self, ctx: utils.CustomContext, *, user: Optional[Union[discord.Member, discord.User, str]]):
         """Shows information about the user specified, if no user specified then it returns info for invoker"""
 
@@ -201,7 +201,11 @@ class Info(commands.Cog, name='Information'):
         )
 
         if isinstance(user, discord.Member) and user.guild == ctx.guild:
-            role_mentions = [role.mention for role in reversed(user.roles)][:-1]
+            role_mentions = utils.shorten_below_number(
+                [role.mention for role in reversed(user.roles)][:-1],
+                separator=' ',
+                number=500
+            )
             top_role = user.top_role.mention if user.top_role != ctx.guild.default_role else 'No roles!'
 
             embed.add_field(
@@ -209,7 +213,7 @@ class Info(commands.Cog, name='Information'):
                 value=f'**Nickname:** {user.nick or "No nickname"}\n'
                       f'**Joined Server At:** {utils.user_friendly_dt(user.joined_at)}\n'
                       f'**Highest Role:** {top_role}\n'
-                      f'**Roles:** {" ".join(role_mentions) or "No roles!"}',
+                      f'**Roles:** {role_mentions or "No roles!"}',
                 inline=False
             )
 
