@@ -6,7 +6,6 @@ from uuid import UUID
 import discord
 from PIL import Image
 from discord import Embed, User, Member, Permissions
-from discord.utils import format_dt
 
 __all__ = [
     'create_embed',
@@ -53,7 +52,7 @@ def guess_user_nitro_status(user: Union[User, Member]) -> bool:
 
 def user_friendly_dt(dt: datetime):
     """Format a datetime as "short_date (relative_date)" """
-    return format_dt(dt, style='f') + f' ({format_dt(dt, style="R")})'
+    return discord.utils.format_dt(dt, style='f') + f' ({discord.utils.format_dt(dt, style="R")})'
 
 
 def format_perms(permissions: Permissions) -> str:
@@ -86,7 +85,7 @@ async def multi_punish(
         users: USER_LIST,
         func: Callable[[Union[Member, User], Any], Coroutine[Any, Any, Any]],
         **kwargs
-        ) -> Tuple[USER_LIST, USER_LIST]:
+) -> Tuple[USER_LIST, USER_LIST]:
     punished = []
     not_punished = [user for user in users if not hierarchy_check(mod, user)]
 
@@ -173,9 +172,11 @@ def format_deleted_msg(message: discord.Message, title: Optional[str] = None) ->
         file_urls = [f'[{file.filename}]({file.proxy_url})' for file in message.attachments]
         embed.add_field(name='Deleted files:', value=f'\n'.join(file_urls))
 
-    embed.add_field(name=f'Message created at:',
-                    value=user_friendly_dt(message.created_at),
-                    inline=False)
+    embed.add_field(
+        name=f'Message created at:',
+        value=user_friendly_dt(message.created_at),
+        inline=False
+    )
 
     if reply:
         if reply_deleted:
@@ -191,8 +192,6 @@ def format_deleted_msg(message: discord.Message, title: Optional[str] = None) ->
 
 
 def fix_url(url: Any):
-    """Makes sure image urls use `images.discordapp.net`"""
-
     if not url or url == discord.Embed.Empty:
         return discord.Embed.Empty
 
