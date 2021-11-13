@@ -25,6 +25,7 @@ class PhotoURLS:
 
 @dataclasses.dataclass(frozen=True)
 class PhotoInterchange:
+    name: Optional[str]
     make: Optional[str]
     model: Optional[str]
     exposure_time: Optional[str]
