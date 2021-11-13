@@ -140,7 +140,7 @@ class EventsCog(commands.Cog):
 
         if config and config.snipe:
             self.bot.sniped[:0] = [message]
-            self.bot.sniped = self.bot.sniped[:5000]
+            self.bot.sniped = self.bot.sniped[:10000]
 
         if not log_config or not log_config.delete_channel:
             return

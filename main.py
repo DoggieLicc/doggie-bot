@@ -38,7 +38,7 @@ async def startup():
         help_command=utils.CustomHelp(),
         strip_after_prefix=True,
         case_insensitive=True,
-        max_messages=10000,
+        max_messages=20000,
         intents=intents,
     )
 
