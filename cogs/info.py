@@ -59,16 +59,16 @@ def sync_whois(ctx: utils.CustomContext, domain: str):
     embed.add_field(name='Expiration Date:', value=expiration_date, inline=False)
     embed.add_field(name='Creation Date:', value=creation_date, inline=False)
 
-    if hasattr(query, 'owner'):
+    if getattr(query, 'owner', None):
         embed.add_field(name='Owner', value=query.owner, inline=False)
 
-    if hasattr(query, 'abuse_contact'):
+    if getattr(query, 'abuse_contact', None):
         embed.add_field(name='Abuse Contact', value=query.abuse_contact)
 
-    if hasattr(query, 'admin'):
+    if getattr(query, 'admin', None):
         embed.add_field(name='Admin', value=query.admin)
 
-    if hasattr(query, 'registrant'):
+    if getattr(query, 'registrant', None):
         embed.add_field(name='Registrant', value=query.registrant)
 
     return embed
