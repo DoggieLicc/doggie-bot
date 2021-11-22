@@ -71,10 +71,8 @@ def sync_minecraft(ctx, account):
 
 
 class ModeConverter(commands.Converter):
-    def __init__(self, bot: utils.CustomBot):
-        self.bot: utils.CustomBot = bot
-
     async def convert(self, ctx: commands.Context, mode: str):
+        print(mode, 'c')
 
         if not mode:
             return 'osu'
@@ -137,6 +135,8 @@ class Games(commands.Cog, name="Games"):
     @commands.cooldown(15, 60, commands.BucketType.user)
     async def account(self, ctx: utils.CustomContext, account, gamemode: Optional[ModeConverter] = 'osu'):
         """Gets info of osu! accounts! You can also specify a gamemode to get stats for that gamemode!"""
+
+        print(gamemode)
 
         user = await self.osu_api.fetch_user(user=account, mode=gamemode)
 
