@@ -510,6 +510,90 @@ class Info(commands.Cog, name='Information'):
 
         await ctx.send(embeds=[embed] + image_embeds)
 
+    @commands.guild_only()
+    @commands.cooldown(1, 60, commands.BucketType.guild)
+    @commands.command(aliases=['listchannel'])
+    async def channels(self, ctx: utils.CustomContext):
+        """Lists all the channels in the server! It will be sent to your DMs!"""
+
+        paginator = commands.Paginator(prefix='', suffix='', max_size=4000)
+        for channel in ctx.guild.channels:
+            paginator.add_line(
+                f'**Channel:** {channel.mention}\n'
+                f'**Category:** {channel.type.name.title()}\n'
+                f'**ID:** {channel.id}\n'
+            )
+
+        try:
+            for i, page in enumerate(paginator.pages):
+                dmembed = utils.create_embed(
+                    ctx.author,
+                    title=f'Listing channels: ({i+1}/{len(paginator.pages)+1})',
+                    description=page
+                )
+
+                await ctx.author.send(embed=dmembed)
+
+        except (discord.Forbidden, discord.HTTPException):
+            embed = utils.create_embed(
+                ctx.author,
+                color=discord.Color.red(),
+                title='Error!',
+                description='The bot can\'t DM you! Make sure that your DMs are open!'
+            )
+            await ctx.send(embed=embed)
+            return ctx.command.reset_cooldown(ctx)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title='Done!',
+            description='All channels have been sent to your DMs!'
+        )
+
+        await ctx.send(embed=embed)
+
+    @commands.guild_only()
+    @commands.cooldown(1, 60, commands.BucketType.guild)
+    @commands.command(aliases=['listemote', 'listemojis', 'listemoji'])
+    async def emotes(self, ctx: utils.CustomContext):
+        """Lists all the emotes in the server! It will be sent to your DMs!"""
+
+        paginator = commands.Paginator(prefix='', suffix='', max_size=4000)
+        for emoji in ctx.guild.emojis:
+            paginator.add_line(
+                f'**Emote:** {emoji}\n'
+                f'**Name:** {emoji.name}\n'
+                f'**ID:** {emoji.id}\n'
+            )
+
+        try:
+            for i, page in enumerate(paginator.pages):
+                embed = utils.create_embed(
+                    ctx.author,
+                    title=f'Listing emotes: ({i+1}/{len(paginator.pages)+1})',
+                    description=page
+                )
+
+                await ctx.author.send(embed=embed)
+
+        except (discord.Forbidden, discord.HTTPException):
+            embed = utils.create_embed(
+                ctx.author,
+                color=discord.Color.red(),
+                title='Error!',
+                description='The bot can\'t DM you! Make sure that your DMs are open!'
+            )
+            await ctx.send(embed=embed)
+            return ctx.command.reset_cooldown(ctx)
+
+        embed = utils.create_embed(
+            ctx.author,
+            title='Done!',
+            description='All channels have been sent to your DMs!'
+        )
+
+        await ctx.send(embed=embed)
+
     @commands.command(aliases=['colour'])
     async def color(self, ctx: utils.CustomContext, *, color: Union[Color, Role, Member]):
         """Gets info for a color! You can specify a member, role, or color.
