@@ -514,7 +514,7 @@ class Info(commands.Cog, name='Information'):
     @commands.cooldown(1, 60, commands.BucketType.guild)
     @commands.command(aliases=['listchannel'])
     async def channels(self, ctx: utils.CustomContext):
-        """Lists all the channels in the server! It will be sent to your DMs!"""
+        """Lists all the channels in the server! They will be sent to your DMs!"""
 
         paginator = commands.Paginator(prefix='', suffix='', max_size=4000)
         for channel in ctx.guild.channels:
@@ -556,7 +556,7 @@ class Info(commands.Cog, name='Information'):
     @commands.cooldown(1, 60, commands.BucketType.guild)
     @commands.command(aliases=['listemote', 'listemojis', 'listemoji'])
     async def emotes(self, ctx: utils.CustomContext):
-        """Lists all the emotes in the server! It will be sent to your DMs!"""
+        """Lists all the emotes in the server! They will be sent to your DMs!"""
 
         paginator = commands.Paginator(prefix='', suffix='', max_size=4000)
         for emoji in ctx.guild.emojis:
@@ -589,7 +589,7 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             ctx.author,
             title='Done!',
-            description='All channels have been sent to your DMs!'
+            description='All emotes have been sent to your DMs!'
         )
 
         await ctx.send(embed=embed)
