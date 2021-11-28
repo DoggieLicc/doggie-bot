@@ -20,6 +20,11 @@ cogs = [
 ]
 
 
+headers = {
+    'User-Agent': 'DoggieBot (Doggie#8512; "A Discord bot")'
+}
+
+
 intents = discord.Intents(
     reactions=True,
     messages=True,
@@ -47,7 +52,7 @@ async def startup():
     for cog in cogs:
         bot.load_extension(cog)
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(headers=headers) as session:
         bot.session = session
         await bot.start(bot.config['bot_token'])
 
