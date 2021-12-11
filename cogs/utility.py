@@ -120,12 +120,9 @@ class UtilityCog(commands.Cog, name="Utility"):
     @commands.max_concurrency(3, commands.BucketType.channel)
     @commands.guild_only()
     @commands.command(aliases=['bottest', 'selfbottest', 'bt', 'sbt', 'self'])
-    async def selfbot(self, ctx: utils.CustomContext, users: Greedy[discord.Member]):
+    async def selfbot(self, ctx: utils.CustomContext):
         """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)
-        When someone reacts with to the message, The user and the time will be sent.
-        You can specify users so that the bot will only respond to their reactions."""
-
-        if users: users.append(ctx.author)
+        When someone reacts with to the message, The user and the time to react will be sent."""
 
         selfbot_embed = discord.Embed(
             color=discord.Color.green(),
@@ -144,45 +141,71 @@ class UtilityCog(commands.Cog, name="Utility"):
         )
 
         await message.add_reaction('\N{PARTY POPPER}')
+
         t = time.perf_counter()
+        seen_users = set()
+        users_message: Optional[discord.Message] = None
 
         def check(_reaction, _user):
-            return _reaction.message == message and ((not _user.bot and not users) or _user in users) \
-                   and str(_reaction.emoji) == '\N{PARTY POPPER}' and _user != ctx.bot.user
+            if _reaction.message == message and str(_reaction.emoji) == '\N{PARTY POPPER}' \
+                    and not _user.bot and _user not in seen_users:
+                seen_users.add(_user)
+                return True
 
-        try:
-            reaction, user = await self.bot.wait_for("reaction_add", timeout=600, check=check)
-        except asyncio.TimeoutError:
+            return False
 
-            embed = utils.create_embed(
-                ctx.author,
-                title='Test timed out!',
-                description=f'No one reacted within 10 minutes!',
-                color=discord.Color.red()
-            )
+        while True:
+            try:
+                reaction, user = await self.bot.wait_for("reaction_add", timeout=600, check=check)
+            except asyncio.TimeoutError:
 
-        else:
-            if user == ctx.author:
-                embed = utils.create_embed(
-                    ctx.author,
-                    title='Test canceled!',
-                    description=f'You reacted to your own test, so it was canceled.\nAnyways, '
-                                f'your time is {round(time.perf_counter() - t, 2)} seconds.',
-                    color=discord.Color.red()
-                )
+                if not seen_users:
+                    embed = utils.create_embed(
+                        ctx.author,
+                        title='Test timed out!',
+                        description=f'No one reacted within 10 minutes!',
+                        color=discord.Color.red()
+                    )
+
+                    return await message.reply(embed=embed)
 
             else:
-                embed = utils.create_embed(
-                    ctx.author,
-                    title='Reaction found!',
-                    description=f'{user} (ID: {user.id})\nreacted with {reaction} in '
-                                f'{round(time.perf_counter() - t, 2)} seconds'
-                )
+                if user == ctx.author:
+                    embed = utils.create_embed(
+                        ctx.author,
+                        title='Test canceled!',
+                        description=f'You reacted to your own test, so it was canceled.\nAnyways, '
+                                    f'your time is {round(time.perf_counter() - t, 2)} seconds.',
+                        color=discord.Color.red()
+                    )
 
-        try:
-            await message.reply(embed=embed)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-            await ctx.send(embed=embed)
+                    return await message.reply(embed=embed)
+
+                else:
+                    if not users_message:
+
+                        embed = utils.create_embed(
+                            ctx.author,
+                            title='Reaction found!',
+                            description=f'{user} (ID: {user.id})\nreacted with {reaction} in '
+                                        f'{round(time.perf_counter() - t, 2)} seconds'
+                        )
+
+                        users_message = await message.reply(embed=embed)
+
+                    else:
+
+                        new_msg = f'\n\n{user} (ID: {user.id})\nreacted with {reaction} in ' \
+                                  f'{round(time.perf_counter() - t, 2)} seconds'
+
+                        embed = utils.create_embed(
+                            ctx.author,
+                            title='Reactions found!',
+                            description=users_message.embeds[0].description + new_msg
+                        )
+
+                        users_message = await users_message.edit(embed=embed)
+
 
     @commands.guild_only()
     @commands.cooldown(5, 60)
