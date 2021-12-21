@@ -16,7 +16,7 @@ class Misc(commands.Cog):
     async def info(self, ctx: utils.CustomContext):
         """Shows information for the bot!"""
 
-        invite_url = discord.utils.oauth_url(ctx.me.id, permissions=discord.Permissions(276354657494))
+        invite_url = discord.utils.oauth_url(ctx.me.id, permissions=discord.Permissions(1375866285270))
 
         embed = utils.create_embed(
             ctx.author,
