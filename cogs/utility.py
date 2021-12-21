@@ -167,7 +167,9 @@ class UtilityCog(commands.Cog, name="Utility"):
                         color=discord.Color.red()
                     )
 
-                    return await message.reply(embed=embed)
+                    await message.reply(embed=embed)
+
+                return
 
             else:
                 if user == ctx.author:
