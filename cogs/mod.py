@@ -6,6 +6,7 @@ from discord.ext import commands, menus
 from discord.ext.commands import Greedy
 
 from typing import Union, Optional
+from datetime import datetime, timezone, timedelta
 
 
 GREEDY_INTENTIONAL = Greedy[Union[utils.IntentionalMember, utils.IntentionalUser]]
@@ -169,7 +170,8 @@ class Moderation(commands.Cog):
             ctx: utils.CustomContext,
             members: Greedy[utils.IntentionalMember],
             *,
-            reason: Optional[str] = "No reason specified"):
+            reason: Optional[str] = "No reason specified"
+    ):
 
         """Kick members who broke the rules! You can specify multiple members in one command.
         You and this bot needs the "Kick Members" permission!"""
@@ -187,6 +189,85 @@ class Moderation(commands.Cog):
             )  # type: ignore
 
         embed = utils.punish_embed(ctx.author, 'kicked', reason, lists)
+
+        await ctx.send(embed=embed)
+
+    @commands.bot_has_permissions(moderate_members=True)
+    @commands.has_permissions(moderate_members=True)
+    @commands.command()
+    async def timeout(
+            self,
+            ctx: utils.CustomContext,
+            members: Greedy[utils.IntentionalMember],
+            duration: Greedy[utils.TimeConverter],
+            *,
+            reason: Optional[str] = 'No reason specified'
+    ):
+        """Puts specified members in timeout! You can specify multiple members in one command.
+        You and this bot needs the "Moderate Members" permission! (called Timeout Members)
+        Discord limits timeouts to 28 days!
+
+        Examples:
+        `dog.timeout @annoying1 @annoying2 1d 12h spam` - Timeout annoying1 and annoying2 for 1 day, 12 hours for "spam"
+        `dog.timeout Doggie#8512 3h` - Timeout Doggie (without specified reason)"""
+
+        if not members:
+            raise commands.MemberNotFound(reason)
+
+        durations = [d for d in duration if duration]
+        durations_set = set([duration.unit for duration in durations])
+        total_seconds = sum([t.seconds for t in durations])
+        end_time = datetime.now(timezone.utc) + timedelta(seconds=total_seconds)
+
+        if total_seconds >= 28*24*60*60:
+            raise commands.BadArgument('You can\'t timeout for more than 28 days! (Discord limit)')
+
+        if not durations:
+            raise commands.BadArgument('The duration wasn\'t specified or it was invalid!')
+
+        if len(durations) != len(durations_set):
+            raise commands.BadArgument('There were duplicate units in the duration!')
+
+        async with ctx.channel.typing():
+            # noinspection PyTypeChecker
+            lists = await utils.multi_punish(
+                ctx.author,
+                members,
+                discord.Member.timeout,
+                until=end_time,
+                reason=f'{str(ctx.author)}: {reason}'
+            )  # type: ignore
+
+        embed = utils.punish_embed(ctx.author, 'timed out', reason, lists)
+
+        await ctx.send(embed=embed)
+
+    @commands.has_permissions(moderate_members=True)
+    @commands.bot_has_permissions(moderate_members=True)
+    @commands.command(aliases=['timein', 'removetimeout'])
+    async def untimeout(
+            self,
+            ctx: utils.CustomContext,
+            members: Greedy[utils.IntentionalMember],
+            *,
+            reason: Optional[str] = "No reason specified"
+    ):
+        """Removes timeout from members!
+        You and this bot needs the "Moderate Members" permission! (called Timeout Members)"""
+
+        if not members:
+            raise commands.MemberNotFound(reason)
+
+        async with ctx.channel.typing():
+            # noinspection PyTypeChecker
+            lists = await utils.multi_punish(
+                ctx.author,
+                members,
+                discord.Member.remove_timeout,
+                reason=f'{str(ctx.author)}: {reason}'
+            )  # type: ignore
+
+        embed = utils.punish_embed(ctx.author, 'untimedout', reason, lists)
 
         await ctx.send(embed=embed)
 
