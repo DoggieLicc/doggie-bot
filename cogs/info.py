@@ -253,7 +253,8 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(
             name='Invite channel:',
             value=f'**Name:** #{invite.channel.name} {utils.Emotes.channel(invite.channel)}\n'
-                  f'**ID:** {invite.channel.id}',
+                  f'**ID:** {invite.channel.id}\n'
+                  f'**Created at:** {utils.user_friendly_dt(invite.channel.created_at)}',
             inline=True
         )
 
