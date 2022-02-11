@@ -32,13 +32,13 @@ class Misc(commands.Cog):
 
         embed.add_field(
             name="Join support server!",
-            value="[Support Server](https://discord.gg/Uk6fg39cWn)",
+            value="[Support Server](https://discord.gg/fzzeScC6XC)",
             inline=False
         )
 
         embed.add_field(
             name='Bot Creator:',
-            value='[Doggie 2#8512](https://github.com/DoggieLicc/)',
+            value='[Doggie#6969](https://github.com/DoggieLicc/)',
             inline=True
         )
 
