@@ -6,7 +6,7 @@ A multipurpose bot that combines Info Bot, Mini Mod, and Reminder Friend's comma
 This bot runs on the master branch of [discord.py](https://github.com/Rapptz/discord.py)
 
 ## Invite this bot:
-[Invite Link](https://discord.com/oauth2/authorize?client_id=875185463651078194&scope=bot&permissions=1375866285270), it's recommended to not remove any permissions, as some or all commands may stop working
+[Invite Link](https://discord.com/oauth2/authorize?client_id=930596365426360421&scope=bot&permissions=1375866285270), it's recommended to not remove any permissions, as some or all commands may stop working
 
 ## Hosting guide:
 
