@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../Discordpy 2.0/.idea/Discordpy 2.0.iml" filepath="$PROJECT_DIR$/../Discordpy 2.0/.idea/Discordpy 2.0.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/DoggieBot.iml" filepath="$PROJECT_DIR$/.idea/DoggieBot.iml" />
     </modules>
   </component>
