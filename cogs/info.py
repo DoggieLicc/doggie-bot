@@ -372,7 +372,7 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name=f'{utils.Emotes.stafftools} Permissions:',
-            value=utils.format_perms(role.permissions),
+            value=utils.format_perms(role.permissions) or 'None',
             inline=False
         )
 
