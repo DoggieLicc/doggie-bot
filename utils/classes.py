@@ -122,8 +122,6 @@ class CustomBot(commands.Bot):
                 destination: Union[User, TextChannel] = self.get_channel(row['destination']) or user
 
                 if destination is None or user is None:
-                    await cursor.execute('DELETE FROM reminders WHERE id = (?)', (message_id,))
-                    await self.db.commit()
                     continue
 
                 _reminder = Reminder(
@@ -146,8 +144,6 @@ class CustomBot(commands.Bot):
                 mute_role = guild.get_role(row['mute_role']) if guild else None
 
                 if not guild:
-                    await cursor.execute('DELETE FROM basic_config WHERE guild_id = (?)', (row['guild_id'],))
-                    await self.db.commit()
                     continue
 
                 config = BasicConfig(
@@ -170,8 +166,6 @@ class CustomBot(commands.Bot):
                 guild: discord.Guild = self.get_guild(row['guild_id'])
 
                 if not guild:
-                    await cursor.execute('DELETE FROM basic_config WHERE guild_id = (?)', (row['guild_id'],))
-                    await self.db.commit()
                     continue
 
                 kick_channel = guild.get_channel(row['kick_channel'])
