@@ -4,6 +4,6 @@ whois~=0.9.13
 mojang~=0.1.8
 aiohttp~=3.7.4.post0
 
-git+git://github.com/DoggieLicc/discord.py@master#egg=discord.py
+git+git://github.com/Rapptz/discord.py@master#egg=discord.py
 git+git://github.com/Rapptz/discord-ext-menus@master#egg=discord-ext-menus
 git+https://github.com/Gelbpunkt/aiowiki
