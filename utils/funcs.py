@@ -1,11 +1,11 @@
+import discord
 import io
+
+from discord import Embed, User, Member, Permissions
 from datetime import datetime
 from typing import Union, Any, Callable, Tuple, List, Coroutine, Optional
 from uuid import UUID
-
-import discord
 from PIL import Image
-from discord import Embed, User, Member, Permissions
 
 __all__ = [
     'create_embed',
@@ -17,10 +17,10 @@ __all__ = [
     'multi_punish',
     'punish_embed',
     'is_uuid4',
-    'format_deleted_msg',
     'str_to_file',
     'fix_url',
-    'solid_color_image'
+    'solid_color_image',
+    'perms_check'
 ]
 
 
@@ -113,7 +113,7 @@ def punish_embed(mod: Member, punishment: str, reason: str, punish_lists: Tuple[
 
     if not_punished:
         embed = create_embed(mod,
-                             title=f'Some users couldn\'t be {punishment}!',
+                             title=f'Users couldn\'t be {punishment}!',
                              description=f'{len(punished)} users were {punishment} for "{reason[:1000]}"\n'
                                          f'{len(not_punished)} users couldn\'t be punished, '
                                          f'maybe their role is higher than yours. or higher than this bot\'s roles.',
@@ -150,47 +150,6 @@ def str_to_file(string: str, *, filename: str = 'file.txt', encoding: str = 'utf
     return file
 
 
-def format_deleted_msg(message: discord.Message, title: Optional[str] = None) -> discord.Embed:
-    emote = '<:messagedelete:887729903317946388>'
-    reply = message.reference
-
-    if reply: reply = reply.resolved
-    reply_deleted = isinstance(reply, discord.DeletedReferencedMessage)
-
-    embed = discord.Embed(
-        title=f'{emote} {title}' if title else f'{emote} Message deleted in #{message.channel}',
-        description=f'"{message.content}"' if message.content else '*No content*',
-        color=discord.Color.red()
-    )
-
-    embed.set_author(name=f'{message.author}: {message.author.id}', icon_url=fix_url(message.author.display_avatar))
-
-    if message.attachments:
-        if message.attachments[0].filename.endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
-            embed.set_image(url=fix_url(message.attachments[0].proxy_url))
-
-        file_urls = [f'[{file.filename}]({file.proxy_url})' for file in message.attachments]
-        embed.add_field(name='Deleted files:', value=f'\n'.join(file_urls))
-
-    embed.add_field(
-        name=f'Message created at:',
-        value=user_friendly_dt(message.created_at),
-        inline=False
-    )
-
-    if reply:
-        if reply_deleted:
-            msg = 'Replied message has been deleted.'
-        else:
-            msg = f'Replied to {reply.author} - [Link to replied message]({reply.jump_url} "Jump to Message")'
-
-        embed.add_field(name='Message reply:', value=msg)
-
-    embed.add_field(name='Message channel:', value=message.channel.mention, inline=False)
-
-    return embed
-
-
 def fix_url(url: Any):
     if not url or url == discord.Embed.Empty:
         return discord.Embed.Empty
@@ -205,3 +164,14 @@ def solid_color_image(color: tuple):
     buffer.seek(0)
 
     return buffer
+
+
+def perms_check(interaction: discord.Interaction, permission: str):
+    if isinstance(interaction.user, User):
+        return False
+
+    mod_perms = [p for p, v in interaction.channel.permissions_for(interaction.user) if v]
+    bot_perms = [p for p, v in interaction.channel.permissions_for(interaction.guild.me) if v]
+
+    if permission in mod_perms and permission in bot_perms:
+        return True

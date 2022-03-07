@@ -1,204 +1,21 @@
 import discord
 import asyncio
-import yaml
-import asqlite
 
-from discord import TextChannel, ChannelType, Message, User
-from discord.ext import commands, menus
+from discord import TextChannel, ChannelType, User
+from discord.ext import menus
 
-from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
-from typing import Union, Optional, Dict, List
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Union, Any
 
 from utils.funcs import guess_user_nitro_status, user_friendly_dt, create_embed, fix_url
 
 __all__ = [
-    'CustomContext',
-    'CustomBot',
     'CustomMenu',
     'Emotes',
     'ReminderList',
     'Reminder',
-    'BasicConfig',
-    'LoggingConfig',
-    'MissingAPIKey'
 ]
-
-
-class CustomContext(commands.Context):
-    def __init__(self, **attrs):
-        super().__init__(**attrs)
-        self.bot: CustomBot = self.bot
-        self.uncaught_error = False
-
-    async def send(self, *args, **kwargs) -> Message:
-        kwargs['reference'] = kwargs.get('reference', self.message.reference)
-
-        return await super().send(*args, **kwargs)
-
-    @property
-    def basic_config(self):
-        return self.bot.basic_configs.get(self.guild.id, BasicConfig(self.guild))
-
-    @property
-    def logging_config(self):
-        return self.bot.logging_configs.get(self.guild.id, LoggingConfig(self.guild))
-
-
-class CustomBot(commands.Bot):
-    # noinspection PyTypeChecker
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        with open('config.yaml', 'r') as file:
-            self.config = yaml.safe_load(file)
-
-        self.reminders: Dict[int, Reminder] = {}
-        self.basic_configs: Dict[int, BasicConfig] = {}
-        self.logging_configs: Dict[int, LoggingConfig] = {}
-        self.sniped: List[Message] = []
-        self.cogs_list: List[str] = []
-
-        self.fully_ready = False
-        self.start_time: datetime = None  # type: ignore
-        self.db: asqlite.Connection = None  # type: ignore
-        self.session = None
-
-        self.loop.create_task(self.startup())
-
-    async def get_context(self, message: Message, *, cls=CustomContext) -> CustomContext:
-        return await super().get_context(message, cls=cls)
-
-    async def on_message(self, message):
-        if not self.fully_ready:
-            await self.wait_for('fully_ready')
-
-        if message.content in [f'<@!{self.user.id}>', f'<@{self.user.id}>']:
-            embed = create_embed(
-                message.author,
-                title='Bot has been pinged!',
-                description='The current prefixes are: ' + ', '.join((await self.get_prefix(message))[1:])
-            )
-
-            await message.channel.send(embed=embed)
-
-        await self.process_commands(message)
-
-    async def startup(self):
-        await self.wait_until_ready()
-
-        self.start_time: datetime = datetime.now(timezone.utc)
-
-        self.db: asqlite.Connection = await asqlite.connect('data.db', check_same_thread=False)
-
-        await self.load_reminders()
-        await self.load_basic_config()
-        await self.load_logging_config()
-
-        self.fully_ready = True
-        self.dispatch('fully_ready')
-
-    async def close(self):
-        await self.db.close()
-        await super().close()
-
-    async def get_owner(self) -> User:
-        if not self.owner_id and not self.owner_ids:
-            info = await self.application_info()
-            self.owner_id = info.owner.id
-
-        return await self.fetch_user(self.owner_id or list(self.owner_ids)[0])
-
-    async def load_reminders(self):
-        async with self.db.cursor() as cursor:
-            for row in await cursor.execute('SELECT * FROM reminders'):
-                message_id: int = row['id']
-                try:
-                    user: User = await self.fetch_user(row['user_id'])
-                except discord.NotFound:
-                    user: None = None
-                reminder: str = row['reminder']
-                end_time: int = row['end_time']
-                destination: Union[User, TextChannel] = self.get_channel(row['destination']) or user
-
-                if destination is None or user is None:
-                    continue
-
-                _reminder = Reminder(
-                    message_id=message_id,
-                    user=user,
-                    reminder=reminder,
-                    destination=destination,
-                    end_time=datetime.fromtimestamp(end_time, timezone.utc),
-                    bot=self
-                )
-
-                self.reminders[_reminder.id] = _reminder
-
-    async def load_basic_config(self):
-        async with self.db.cursor() as cursor:
-            for row in await cursor.execute('SELECT * FROM basic_config'):
-                guild = self.get_guild(row['guild_id'])
-                prefix = row['prefix']
-                snipe = bool(row['snipe'])
-                mute_role = guild.get_role(row['mute_role']) if guild else None
-
-                if not guild:
-                    continue
-
-                config = BasicConfig(
-                    guild=guild,
-                    prefix=prefix,
-                    snipe=snipe,
-                    mute_role=mute_role
-                )
-
-                if row['mute_role'] and not mute_role:
-                    await cursor.execute('UPDATE basic_config SET mute_role = ? WHERE guild_id = ?', (None, guild.id))
-                    await self.db.commit()
-                    continue
-
-                self.basic_configs[config.guild.id] = config
-
-    async def load_logging_config(self):
-        async with self.db.cursor() as cursor:
-            for row in await cursor.execute('SELECT * FROM logging_config'):
-                guild: discord.Guild = self.get_guild(row['guild_id'])
-
-                if not guild:
-                    continue
-
-                kick_channel = guild.get_channel(row['kick_channel'])
-                ban_channel = guild.get_channel(row['ban_channel'])
-                purge_channel = guild.get_channel(row['purge_channel'])
-                delete_channel = guild.get_channel(row['delete_channel'])
-                mute_channel = guild.get_channel(row['mute_channel'])
-
-                config = LoggingConfig(
-                    guild=guild,
-                    kick_channel=kick_channel,
-                    ban_channel=ban_channel,
-                    purge_channel=purge_channel,
-                    delete_channel=delete_channel,
-                    mute_channel=mute_channel
-                )
-
-                self.logging_configs[config.guild.id] = config
-
-    @staticmethod
-    def get_custom_prefix(_bot: 'CustomBot', message: discord.Message):
-        default_prefixes = ['doggie.', 'Doggie.', 'dog.', 'Dog.']
-
-        if not message.guild:
-            return commands.when_mentioned_or(*default_prefixes)(_bot, message)
-
-        config = _bot.basic_configs.get(message.guild.id)
-
-        if not config or not config.prefix:
-            return commands.when_mentioned_or(*default_prefixes)(_bot, message)
-
-        else:
-            return commands.when_mentioned_or(config.prefix)(_bot, message)
 
 
 class CustomMenu(menus.MenuPages):
@@ -345,7 +162,7 @@ class Reminder:
     reminder: str
     destination: Union[User, TextChannel]
     end_time: datetime
-    bot: CustomBot
+    bot: Any
     id: int = field(init=False)
     task: asyncio.Future = field(init=False)
 
@@ -407,67 +224,3 @@ class Reminder:
 
     def __str__(self):
         return self.reminder
-
-
-@dataclass(frozen=True)
-class BasicConfig:
-    guild: discord.Guild
-    prefix: Optional[str] = None
-    snipe: Optional[bool] = None
-    mute_role: Optional[discord.Role] = None
-
-    async def set_config(self, bot: CustomBot, **kwargs) -> 'BasicConfig':
-        config = replace(self, **kwargs)
-
-        async with bot.db.cursor() as cursor:
-            await cursor.execute(
-                'REPLACE INTO basic_config VALUES(?, ?, ?, ?)',
-                (
-                    config.guild.id,
-                    config.prefix,
-                    config.snipe,
-                    config.mute_role.id if config.mute_role else None
-                )
-            )
-
-        await bot.db.commit()
-
-        bot.basic_configs[config.guild.id] = config
-
-        return config
-
-
-@dataclass(frozen=True)
-class LoggingConfig:
-    guild: discord.Guild
-    kick_channel: Optional[TextChannel] = None
-    ban_channel: Optional[TextChannel] = None
-    purge_channel: Optional[TextChannel] = None
-    delete_channel: Optional[TextChannel] = None
-    mute_channel: Optional[TextChannel] = None
-
-    async def set_config(self, bot: CustomBot, **kwargs) -> 'LoggingConfig':
-        config = replace(self, **kwargs)
-
-        async with bot.db.cursor() as cursor:
-            await cursor.execute(
-                'REPLACE INTO logging_config VALUES(?, ?, ?, ?, ?, ?)',
-                (
-                    config.guild.id,
-                    config.kick_channel.id if config.kick_channel else None,
-                    config.ban_channel.id if config.ban_channel else None,
-                    config.purge_channel.id if config.purge_channel else None,
-                    config.delete_channel.id if config.delete_channel else None,
-                    config.mute_channel.id if config.mute_channel else None
-                )
-            )
-
-        await bot.db.commit()
-
-        bot.logging_configs[config.guild.id] = config
-
-        return config
-
-
-class MissingAPIKey(commands.CommandError):
-    pass

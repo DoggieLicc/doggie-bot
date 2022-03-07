@@ -3,4 +3,3 @@
 from utils.classes import *
 from utils.converters import *
 from utils.funcs import *
-from utils.help import CustomHelp
