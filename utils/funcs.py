@@ -151,7 +151,7 @@ def str_to_file(string: str, *, filename: str = 'file.txt', encoding: str = 'utf
 
 
 def format_deleted_msg(message: discord.Message, title: Optional[str] = None) -> discord.Embed:
-    emote = '<:messagedelete:887729903317946388>'
+    emote = '<:messagedelete:941816371401064490>'
     reply = message.reference
 
     if reply: reply = reply.resolved
