@@ -233,8 +233,8 @@ class Moderation(commands.Cog):
             lists = await utils.multi_punish(
                 ctx.author,
                 members,
-                discord.Member.timeout,
-                until=end_time,
+                discord.Member.edit,
+                timed_out_until=end_time,
                 reason=f'{str(ctx.author)}: {reason}'
             )  # type: ignore
 
