@@ -97,8 +97,7 @@ async def startup():
 
     tree = client.tree = app_commands.CommandTree(client)
 
-    cmds = [v for n, v in inspect.getmembers(commands) if isinstance(v, app_commands.Command)]
-    print(cmds)
+    cmds = [v for n, v in inspect.getmembers(commands) if isinstance(v, (app_commands.Command, app_commands.ContextMenu))]
 
     for cmd in cmds:
         tree.add_command(cmd, guild=GUILD)
