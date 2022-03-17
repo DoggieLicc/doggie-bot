@@ -44,6 +44,7 @@ class CustomClient(discord.Client):
         self.db: asqlite.Connection = None  # type: ignore
         self.session = None
 
+    async def setup_hook(self) -> None:
         self.loop.create_task(self.startup())
 
     async def startup(self):
@@ -56,6 +57,7 @@ class CustomClient(discord.Client):
         await self.load_reminders()
 
         await self.tree.sync(guild=GUILD)
+        await self.tree.sync()
 
     async def close(self):
         await self.db.close()
