@@ -64,6 +64,7 @@ class CustomBot(commands.Bot):
         self.db: asqlite.Connection = None  # type: ignore
         self.session = None
 
+    async def setup_hook(self):
         self.loop.create_task(self.startup())
 
     async def get_context(self, message: Message, *, cls=CustomContext) -> CustomContext:

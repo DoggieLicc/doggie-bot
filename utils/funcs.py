@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-def create_embed(user: Optional[Union[Member, User]], *, image=Embed.Empty, thumbnail=Embed.Empty, **kwargs) -> Embed:
+def create_embed(user: Optional[Union[Member, User]], *, image=None, thumbnail=None, **kwargs) -> Embed:
     """Makes a discord.Embed with options for image and thumbnail URLs, and adds a footer with author name"""
 
     kwargs['color'] = kwargs.get('color', discord.Color.green())
@@ -192,8 +192,8 @@ def format_deleted_msg(message: discord.Message, title: Optional[str] = None) ->
 
 
 def fix_url(url: Any):
-    if not url or url == discord.Embed.Empty:
-        return discord.Embed.Empty
+    if not url:
+        return None
 
     return str(url)
 

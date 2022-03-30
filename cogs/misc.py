@@ -122,5 +122,5 @@ class Misc(commands.Cog):
         await ctx.send(f'Here you go, {ctx.author.mention}. (You should view this on a PC)', file=file)
 
 
-def setup(bot):
-    bot.add_cog(Misc(bot))
+async def setup(bot):
+    await bot.add_cog(Misc(bot))

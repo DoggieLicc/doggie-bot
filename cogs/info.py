@@ -127,7 +127,6 @@ class Info(commands.Cog, name='Information'):
             name='General Info:',
             value=f'Description: {guild.description or "No description"}\n'
                   f'Owner: {guild.owner} ({guild.owner_id})\n'
-                  f'Region: {str(guild.region).replace("-", " ").title()}\n'
                   f'ID: {guild.id}\n'
                   f'Creation date: {utils.user_friendly_dt(guild.created_at)}',
             inline=False
@@ -678,5 +677,5 @@ class Info(commands.Cog, name='Information'):
         await ctx.send(embed=embed)
 
 
-def setup(bot):
-    bot.add_cog(Info(bot))
+async def setup(bot):
+    await bot.add_cog(Info(bot))

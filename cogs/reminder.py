@@ -176,5 +176,5 @@ class ReminderCog(commands.Cog, name="Reminder"):
         await ctx.send(embed=embed)
 
 
-def setup(bot):
-    bot.add_cog(ReminderCog(bot))
+async def setup(bot):
+    await bot.add_cog(ReminderCog(bot))

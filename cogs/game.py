@@ -197,7 +197,7 @@ class Games(commands.Cog, name="Games"):
 
         embed = utils.create_embed(
             ctx.author,
-            image=beatmap_set.covers['cover'] or discord.Embed.Empty,
+            image=beatmap_set.covers['cover'] or None,
             url=beatmap.url,
             title=f'Showing info for osu! beatmap set!:',
             description=f'**Title:** {beatmap_set.title}\n'
@@ -267,5 +267,5 @@ class Games(commands.Cog, name="Games"):
         ctx.uncaught_error = True
 
 
-def setup(bot):
-    bot.add_cog(Games(bot))
+async def setup(bot):
+    await bot.add_cog(Games(bot))
