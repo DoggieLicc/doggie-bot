@@ -496,5 +496,5 @@ class Moderation(commands.Cog):
             await self.bot.wait_for('finalize_menu', check=lambda c: c == ctx, timeout=360)
 
 
-def setup(bot):
-    bot.add_cog(Moderation(bot))
+async def setup(bot):
+    await bot.add_cog(Moderation(bot))

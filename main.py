@@ -48,9 +48,8 @@ async def startup():
     )
 
     bot.cogs_list = cogs
-
     for cog in cogs:
-        bot.load_extension(cog)
+        await bot.load_extension(cog)
 
     async with aiohttp.ClientSession(headers=headers) as session:
         bot.session = session

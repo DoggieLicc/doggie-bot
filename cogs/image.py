@@ -829,5 +829,5 @@ class Images(commands.Cog):
         ctx.uncaught_error = True
 
 
-def setup(bot):
-    bot.add_cog(Images(bot))
+async def setup(bot):
+    await bot.add_cog(Images(bot))

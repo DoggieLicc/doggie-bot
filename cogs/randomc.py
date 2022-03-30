@@ -230,5 +230,5 @@ class Random(commands.Cog):
         ctx.uncaught_error = True
 
 
-def setup(bot):
-    bot.add_cog(Random(bot))
+async def setup(bot):
+    await bot.add_cog(Random(bot))

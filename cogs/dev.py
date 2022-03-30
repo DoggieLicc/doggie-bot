@@ -49,7 +49,7 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
     async def load(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
-                self.bot.load_extension(f'cogs.{cog}')
+                await self.bot.load_extension(f'cogs.{cog}')
             except Exception as e:
                 embed = format_error(ctx.author, e)
                 return await ctx.send(embed=embed)
@@ -67,7 +67,7 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
     async def unload(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
-                self.bot.unload_extension(f'cogs.{cog}')
+                await self.bot.unload_extension(f'cogs.{cog}')
             except Exception as e:
                 embed = format_error(ctx.author, e)
                 return await ctx.send(embed=embed)
@@ -85,10 +85,10 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
     async def reload(self, ctx: utils.CustomContext, *cogs: str):
         for cog in cogs:
             try:
-                self.bot.reload_extension(f'cogs.{cog}')
+                await self.bot.reload_extension(f'cogs.{cog}')
             except commands.ExtensionNotLoaded:
                 try:
-                    self.bot.load_extension(f'cogs.{cog}')
+                    await self.bot.load_extension(f'cogs.{cog}')
                 except (commands.NoEntryPointError, commands.ExtensionFailed) as e:
                     embed = format_error(ctx.author, e)
                     return await ctx.send(embed=embed)
@@ -109,10 +109,10 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
     async def reloadall(self, ctx):
         for cog in self.bot.cogs_list:
             try:
-                self.bot.reload_extension(cog)
+                await self.bot.reload_extension(cog)
             except commands.ExtensionNotLoaded:
                 try:
-                    self.bot.load_extension(cog)
+                    await self.bot.load_extension(cog)
                 except (commands.NoEntryPointError, commands.ExtensionFailed) as e:
                     embed = format_error(ctx.author, e)
                     return await ctx.send(embed=embed)
@@ -274,5 +274,5 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
         await ctx.send(f'Deleted {len(messages)} message(s)', delete_after=3, reference=ctx.message)
 
 
-def setup(bot):
-    bot.add_cog(Dev(bot))
+async def setup(bot):
+    await bot.add_cog(Dev(bot))
