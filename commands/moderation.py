@@ -9,14 +9,14 @@ from typing import Optional
 
 
 __all__ = [
-    'ban',
-    'unban',
-    'softban',
-    'kick',
-    'timeout',
-    'untimeout',
+    'multiban',
+    'multiunban',
+    'multisoftban',
+    'multikick',
+    'multitimeout',
+    'multiuntimeout',
     'purge',
-    'rename',
+    'multirename',
     'asciify'
 ]
 
@@ -24,7 +24,7 @@ __all__ = [
 @app_commands.command()
 @app_commands.describe(user1='User to ban (You can also use user ID).')
 @app_commands.describe(reason='The reason to ban the users for, this will show up in the audit log.')
-async def ban(
+async def multiban(
         interaction: Interaction,
         user1: User,
         reason: Optional[str],
@@ -61,7 +61,7 @@ async def ban(
 @app_commands.command()
 @app_commands.describe(user1='User to unban, use User ID.')
 @app_commands.describe(reason='The reason to unban the users for, this will show up in the audit log.')
-async def unban(
+async def multiunban(
         interaction: Interaction,
         user1: User,
         reason: Optional[str],
@@ -98,7 +98,7 @@ async def unban(
 @app_commands.command()
 @app_commands.describe(user1='User to softban (You can also use user ID).')
 @app_commands.describe(reason='The reason to softban the users for, this will show up in the audit log.')
-async def softban(
+async def multisoftban(
         interaction: Interaction,
         user1: User,
         reason: Optional[str],
@@ -142,7 +142,7 @@ async def softban(
 @app_commands.command()
 @app_commands.describe(member1='Member to kick (You can also use user ID).')
 @app_commands.describe(reason='The reason to kick the members for, this will show up in the audit log.')
-async def kick(
+async def multikick(
         interaction: Interaction,
         member1: Member,
         reason: Optional[str],
@@ -180,7 +180,7 @@ async def kick(
 @app_commands.describe(member1='The member to timeout (You can also use user ID).')
 @app_commands.describe(hours='The amount of hours to timeout for (float 0-621)')
 @app_commands.describe(reason='The reason to timeout the members for. this will show up in the audit log.')
-async def timeout(
+async def multitimeout(
         interaction: Interaction,
         member1: Member,
         hours: app_commands.Range[float, 0, 672 - 1],
@@ -220,7 +220,7 @@ async def timeout(
 @app_commands.command()
 @app_commands.describe(member1='The member to remove the timeout from (You can also use user ID).')
 @app_commands.describe(reason='The reason to untimeout the members for. this will show up in the audit log.')
-async def untimeout(
+async def multiuntimeout(
         interaction: Interaction,
         member1: Member,
         reason: Optional[str],
@@ -287,7 +287,7 @@ async def purge(
 @app_commands.describe(member1='Member to rename (You can also use user ID).')
 @app_commands.describe(nickname='The name to rename the members\' nickname to (1-32 characters).')
 @app_commands.describe(reason='The reason to rename the users for, this will show up in the audit log.')
-async def rename(
+async def multirename(
         interaction: Interaction,
         member1: Member,
         nickname: str,
