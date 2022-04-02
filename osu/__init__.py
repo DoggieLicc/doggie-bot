@@ -218,16 +218,17 @@ class User:
     is_supporter: bool
     has_supported: bool
 
-    last_visit: datetime
+    last_visit: Optional[datetime]
     join_date: datetime
 
     statistics: UserStatistics
 
     @classmethod
     def from_dict(cls, env):
+        last_visit = env.pop('last_visit')
         return cls(
             statistics=UserStatistics.from_dict(env.pop('statistics')),
-            last_visit=datetime.fromisoformat(env.pop('last_visit')),
+            last_visit=datetime.fromisoformat(last_visit) if last_visit else None,
             join_date=datetime.fromisoformat(env.pop('join_date')),
             **{k: v for k, v in env.items() if k in inspect.signature(cls).parameters}
         )

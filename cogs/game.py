@@ -136,8 +136,6 @@ class Games(commands.Cog, name="Games"):
     async def account(self, ctx: utils.CustomContext, account, gamemode: Optional[ModeConverter] = 'osu'):
         """Gets info of osu! accounts! You can also specify a gamemode to get stats for that gamemode!"""
 
-        print(gamemode)
-
         user = await self.osu_api.fetch_user(user=account, mode=gamemode)
 
         embed = utils.create_embed(
@@ -153,7 +151,7 @@ class Games(commands.Cog, name="Games"):
                         f'**Active?:** {"Yes" if user.is_active else "No"}\n'
                         f'**Country:** {user.country_code}\n'
                         f'**Joined at:** {utils.user_friendly_dt(user.join_date)}\n'
-                        f'**Last seen:** {utils.user_friendly_dt(user.last_visit)}'
+                        f'**Last seen:** {utils.user_friendly_dt(user.last_visit) if user.last_visit else "Unknown"}'
         )
 
         stats = user.statistics
