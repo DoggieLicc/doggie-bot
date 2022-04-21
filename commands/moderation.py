@@ -24,6 +24,7 @@ __all__ = [
 @app_commands.command()
 @app_commands.describe(user1='User to ban (You can also use user ID).')
 @app_commands.describe(reason='The reason to ban the users for, this will show up in the audit log.')
+@app_commands.checks.has_permissions(ban_members=True)
 async def multiban(
         interaction: Interaction,
         user1: User,
@@ -38,9 +39,6 @@ async def multiban(
         user9: Optional[User]
 ):
     """Bans the specified users"""
-
-    if not utils.perms_check(interaction, 'ban_members'):
-        return
 
     reason = reason or 'No reason specified'
 
@@ -61,6 +59,7 @@ async def multiban(
 @app_commands.command()
 @app_commands.describe(user1='User to unban, use User ID.')
 @app_commands.describe(reason='The reason to unban the users for, this will show up in the audit log.')
+@app_commands.checks.has_permissions(ban_members=True)
 async def multiunban(
         interaction: Interaction,
         user1: User,
@@ -75,9 +74,6 @@ async def multiunban(
         user9: Optional[User]
 ):
     """Unbans the specified users"""
-
-    if not utils.perms_check(interaction, 'ban_members'):
-        return
 
     reason = reason or 'No reason specified'
 
@@ -98,6 +94,7 @@ async def multiunban(
 @app_commands.command()
 @app_commands.describe(user1='User to softban (You can also use user ID).')
 @app_commands.describe(reason='The reason to softban the users for, this will show up in the audit log.')
+@app_commands.checks.has_permissions(ban_members=True)
 async def multisoftban(
         interaction: Interaction,
         user1: User,
@@ -112,9 +109,6 @@ async def multisoftban(
         user9: Optional[User]
 ):
     """Softbans the specified users (ban then unban)"""
-
-    if not utils.perms_check(interaction, 'ban_members'):
-        return
 
     reason = reason or 'No reason specified'
 
@@ -142,6 +136,7 @@ async def multisoftban(
 @app_commands.command()
 @app_commands.describe(member1='Member to kick (You can also use user ID).')
 @app_commands.describe(reason='The reason to kick the members for, this will show up in the audit log.')
+@app_commands.checks.has_permissions(kick_members=True)
 async def multikick(
         interaction: Interaction,
         member1: Member,
@@ -156,9 +151,6 @@ async def multikick(
         member9: Optional[Member]
 ):
     """Kicks the specified members"""
-
-    if not utils.perms_check(interaction, 'kick_members'):
-        return
 
     reason = reason or 'No reason specified'
 
@@ -180,6 +172,7 @@ async def multikick(
 @app_commands.describe(member1='The member to timeout (You can also use user ID).')
 @app_commands.describe(hours='The amount of hours to timeout for (float 0-621)')
 @app_commands.describe(reason='The reason to timeout the members for. this will show up in the audit log.')
+@app_commands.checks.has_permissions(moderate_members=True)
 async def multitimeout(
         interaction: Interaction,
         member1: Member,
@@ -195,9 +188,6 @@ async def multitimeout(
         member9: Optional[Member]
 ):
     """Timeouts the specified members for a certain time!"""
-
-    if not utils.perms_check(interaction, 'moderate_members'):
-        return
 
     members = [u for u in [member1, member2, member3, member4, member5, member6, member7, member8, member9] if u]
     reason = reason or 'No reason specified'
@@ -220,6 +210,7 @@ async def multitimeout(
 @app_commands.command()
 @app_commands.describe(member1='The member to remove the timeout from (You can also use user ID).')
 @app_commands.describe(reason='The reason to untimeout the members for. this will show up in the audit log.')
+@app_commands.checks.has_permissions(moderate_members=True)
 async def multiuntimeout(
         interaction: Interaction,
         member1: Member,
@@ -234,9 +225,6 @@ async def multiuntimeout(
         member9: Optional[Member]
 ):
     """Untimeouts the specified members"""
-
-    if not utils.perms_check(interaction, 'moderate_members'):
-        return
 
     members = [u for u in [member1, member2, member3, member4, member5, member6, member7, member8, member9] if u]
     reason = reason or 'No reason specified'
@@ -257,15 +245,13 @@ async def multiuntimeout(
 @app_commands.command()
 @app_commands.describe(amount='The amount of messages to search (1-100). Default is 20')
 @app_commands.describe(user='The user to only delete messages from (You can also use user ID).')
+@app_commands.checks.has_permissions(manage_messages=True)
 async def purge(
         interaction: Interaction,
         amount: app_commands.Range[int, 1, 100] = 20,
         user: Optional[User] = None
 ):
     """Deletes multiple messages in current channel! Specify an user to only delete their messages."""
-
-    if not utils.perms_check(interaction, 'delete_messages'):
-        return
 
     amount = 200 if abs(amount) >= 200 else abs(amount) + 1
 
@@ -287,6 +273,7 @@ async def purge(
 @app_commands.describe(member1='Member to rename (You can also use user ID).')
 @app_commands.describe(nickname='The name to rename the members\' nickname to (1-32 characters).')
 @app_commands.describe(reason='The reason to rename the users for, this will show up in the audit log.')
+@app_commands.checks.has_permissions(manage_nicknames=True)
 async def multirename(
         interaction: Interaction,
         member1: Member,
@@ -302,9 +289,6 @@ async def multirename(
         reason: Optional[str] = 'No reason specified'
 ):
     """Renames members' nicknames to a specified nickname"""
-
-    if not utils.perms_check(interaction, 'manage_nicknames'):
-        return
 
     members = [u for u in [member1, member2, member3, member4, member5, member6, member7, member8, member9] if u]
 
@@ -333,6 +317,7 @@ async def multirename(
 
 @app_commands.command()
 @app_commands.describe(member1='Member whose name to asciify (You can also use user ID).')
+@app_commands.checks.has_permissions(manage_nicknames=True)
 async def asciify(
         interaction: Interaction,
         member1: Member,
@@ -346,9 +331,6 @@ async def asciify(
         member9: Optional[Member],
 ):
     """Replace weird unicode letters in nicknames with normal ASCII text."""
-
-    if not utils.perms_check(interaction, 'manage_nicknames'):
-        return
 
     members = [u for u in [member1, member2, member3, member4, member5, member6, member7, member8, member9] if u]
 
