@@ -676,6 +676,29 @@ class Info(commands.Cog, name='Information'):
 
         await ctx.send(embed=embed)
 
+    @commands.command(aliases=['id'])
+    async def snowflake(self, ctx: utils.CustomContext, id: int):
+        """Gets creation date for a Discord snowflake"""
+
+        try:
+            time = discord.utils.snowflake_time(id)
+            embed = utils.create_embed(
+                ctx.author,
+                title='Snowflake info:',
+                description=f'**ID:** {id}\n'
+                            f'**Creation Date:** {utils.user_friendly_dt(time)}'
+            )
+
+        except OSError:
+            embed = utils.create_embed(
+                ctx.author,
+                title='Invalid ID!',
+                description='The snowflake ID was invalid.',
+                color=discord.Color.red()
+            )
+
+        await ctx.send(embed=embed)
+
 
 async def setup(bot):
     await bot.add_cog(Info(bot))
