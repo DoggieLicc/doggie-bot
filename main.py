@@ -26,6 +26,7 @@ headers = {
 
 
 intents = discord.Intents(
+    message_content=True,
     reactions=True,
     messages=True,
     members=True,
