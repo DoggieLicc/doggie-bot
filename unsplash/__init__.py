@@ -21,6 +21,7 @@ class PhotoURLS:
     regular: str
     thumb: str
     small: str
+    small_s3: str
 
 
 @dataclasses.dataclass(frozen=True)
