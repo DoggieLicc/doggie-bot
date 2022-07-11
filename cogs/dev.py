@@ -143,7 +143,6 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
 
     @commands.command()
     async def eval(self, ctx: utils.CustomContext, *, code):
-        await ctx.channel.trigger_typing()
 
         env = {
             'bot': self.bot,
