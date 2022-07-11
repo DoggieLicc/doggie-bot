@@ -88,6 +88,49 @@ class HoistersIDMenu(menus.ListPageSource):
         return " ".join(map(str, entries))
 
 
+class SauceMenu(menus.ListPageSource):
+    async def format_page(self, menu, result):
+        index = menu.current_page + 1
+
+        if not menu.ctx.channel.is_nsfw() and result['header']['hidden']:
+            embed = utils.create_embed(
+                menu.ctx.author,
+                title=f'Result {index}/{self._max_pages}:',
+                description='Potentially explicit result in channel not marked as NSFW.',
+                color=discord.Color.red()
+            )
+
+        else:
+            embed = utils.create_embed(
+                menu.ctx.author,
+                title=f'Result {index}/{self._max_pages}:',
+                thumbnail=result['header']['thumbnail']
+            )
+
+            if urls := result['data'].get('ext_urls'):
+                embed.add_field(name='URL:', value=urls[0], inline=False)
+
+            if title := result['data'].get('title'):
+                embed.add_field(name='Title:', value=title, inline=False)
+
+        if (author_name := result['data'].get('author_name')) or (result['data'].get('author_url')):
+            author_url = result['data'].get('author_url')
+            if author_name and author_url:
+                author_str = f'[{author_name}]({author_url})'
+            else:
+                author_str = author_name or author_url
+
+            embed.add_field(name='Author:', value=author_str, inline=False)
+
+        embed.add_field(name='Index:', value=result['header']['index_name'].split(' - ')[0].split(': ')[1], inline=False)
+
+        embed.add_field(name='Similarity:', value=result['header']['similarity'] + '%', inline=False)
+
+        embed.add_field(name='Potentially explicit?', value='Yes' if result['header']['hidden'] else 'No', inline=False)
+
+        return embed
+
+
 class PollSelect(discord.ui.Select):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -207,7 +250,6 @@ class UtilityCog(commands.Cog, name="Utility"):
                         )
 
                         users_message = await users_message.edit(embed=embed)
-
 
     @commands.guild_only()
     @commands.cooldown(5, 60)
@@ -408,6 +450,38 @@ class UtilityCog(commands.Cog, name="Utility"):
             )
 
             await ctx.send(embed=embed)
+
+    @commands.command(aliases=['sauce', 'saucenow'])
+    @commands.cooldown(4, 30, commands.BucketType.default)
+    @commands.cooldown(100, 60 * 60 * 24, commands.BucketType.default)  # api limits
+    async def saucenao(self, ctx: utils.CustomContext, image: Optional[str]):
+        """Gets the source of an image using SauceNAO, usually for art. Most anime databases are disabled. :3"""
+
+        image_url = ctx.message.attachments[0].url if ctx.message.attachments else image
+
+        if not image_url:
+            raise commands.MissingRequiredArgument(ctx.author)
+
+        BASE_URL = 'https://saucenao.com/search.php'
+
+        allowed_dbs = [23, 24, 29, 34, 39, 40, 41, 42]
+
+        params = {
+            'api_key': ctx.bot.config['saucenow_api_key'],
+            'output_type': 2,
+            'numres': 10,
+            'hide': 1,
+            'dbs[]': allowed_dbs,
+            'url': image_url
+        }
+
+        async with ctx.bot.session.get(BASE_URL, params=params) as resp:
+            data = await resp.json()
+            results = data['results']
+
+        pages = utils.CustomMenu(source=SauceMenu(results, per_page=1), clear_reactions_after=True)
+
+        await pages.start(ctx)
 
 
 async def setup(bot):
