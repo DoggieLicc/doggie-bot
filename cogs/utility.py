@@ -467,7 +467,7 @@ class UtilityCog(commands.Cog, name="Utility"):
         allowed_dbs = [23, 24, 29, 34, 39, 40, 41, 42]
 
         params = {
-            'api_key': ctx.bot.config['saucenao_api_key'],
+            'api_key': ctx.bot.config['saucenao_api_key'],  # key
             'output_type': 2,
             'numres': 10,
             'hide': 1,
