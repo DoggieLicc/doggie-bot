@@ -491,7 +491,7 @@ class Info(commands.Cog, name='Information'):
                     name='Replied Message:',
                     value=f'ID: {replied.id}\n'
                           f'Author: {replied.author.mention}\n'
-                          f'Content: {replied.content[100] or "*No content*"}\n'
+                          f'Content: {replied.content[:100] or "*No content*"}\n'
                           f'[Jump to Message]({replied.jump_url})'
                 )
 
