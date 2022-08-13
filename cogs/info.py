@@ -506,7 +506,7 @@ class Info(commands.Cog, name='Information'):
             inline=False
         )
 
-        image_embeds = [utils.create_embed(None, url=message.jump_url, image=image) for image in images[:4]]
+        image_embeds = [utils.create_embed(None, url=message.jump_url, image=image) for image in images]
 
         await ctx.send(embeds=[embed] + image_embeds)
 
