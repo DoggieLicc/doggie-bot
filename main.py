@@ -11,8 +11,6 @@ from datetime import datetime, timezone
 from typing import Dict, Union
 
 
-GUILD = discord.Object(id=930499492686487602)
-
 headers = {
     'User-Agent': 'DoggieBot (Doggie#8512; "A Discord bot")'
 }
@@ -56,7 +54,6 @@ class CustomClient(discord.Client):
 
         await self.load_reminders()
 
-        await self.tree.sync(guild=GUILD)
         await self.tree.sync()
 
     async def close(self):
@@ -102,7 +99,7 @@ async def startup():
     cmds = [v for n, v in inspect.getmembers(commands) if isinstance(v, (app_commands.Command, app_commands.ContextMenu))]
 
     for cmd in cmds:
-        tree.add_command(cmd, guild=GUILD)
+        tree.add_command(cmd)
 
     await client.start(client.config['bot_token'])
 
