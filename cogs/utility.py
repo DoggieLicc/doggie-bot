@@ -92,7 +92,7 @@ class SauceMenu(menus.ListPageSource):
     async def format_page(self, menu, result):
         index = menu.current_page + 1
 
-        if not menu.ctx.channel.is_nsfw() and result['header']['hidden']:
+        if menu.ctx.guild and not menu.ctx.channel.is_nsfw() and result['header']['hidden']:
             embed = utils.create_embed(
                 menu.ctx.author,
                 title=f'Result {index}/{self._max_pages}:',
