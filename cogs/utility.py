@@ -138,6 +138,7 @@ class PollSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         self.selected_options[interaction.user.id] = self.values[0]
+        await interaction.response.defer()
 
 
 class UtilityCog(commands.Cog, name="Utility"):
