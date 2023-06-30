@@ -1,9 +1,9 @@
 PyYAML~=5.4.1
-Pillow~=8.3.1
+Pillow~=9.5.0
 whois~=0.9.13
 mojang~=0.1.8
 aiohttp~=3.7.4.post0
-discord.py~=2.1.0
+discord.py~=2.3.1
 
 git+https://github.com/Rapptz/discord-ext-menus@master#egg=discord-ext-menus
 git+https://github.com/Gelbpunkt/aiowiki
