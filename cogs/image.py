@@ -3,42 +3,57 @@ import io
 import utils
 
 from discord.ext import commands
-from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw, ImageFont
+from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw, ImageFont, ImageSequence
 from typing import Optional, List
 
 
-def image_to_file(image: Image, name: str) -> discord.File:
+def image_to_file(image: Image, extension) -> discord.File:
     img_bytes = io.BytesIO()
-    image.save(img_bytes, 'png', optimize=True)
+    image.save(img_bytes, extension, optimize=True)
 
     img_bytes.seek(0)
 
-    return discord.File(img_bytes, f'{name}.png')
+    return discord.File(img_bytes, f'image.{extension}')
 
 
-def invert_image(b: bytes, max_size) -> discord.File:
-    image = Image.open(io.BytesIO(b)).convert('RGBA')
+def hande_gif_images(func, b: bytes, *args, **kwargs):
+    im = Image.open(io.BytesIO(b))
+    frames = []
+    new = io.BytesIO()
 
+    for frame in ImageSequence.Iterator(im):
+        frame = frame.convert('RGBA')
+        frame = func(frame, *args, **kwargs)
+        frames.append(frame)
+
+    if len(frames) == 1:
+        return image_to_file(frames[0], 'png')
+
+    frames[0].save(new, 'gif', append_images=frames[1:], save_all=True)
+    new.seek(0)
+
+    return discord.File(new, 'image.gif')
+
+
+def invert_image(image: Image):
     r, g, b, a = image.split()
     rgb_image = Image.merge('RGB', (r, g, b))
     inverted_image = ImageOps.invert(rgb_image)
     r2, g2, b2 = inverted_image.split()
 
     image = Image.merge('RGBA', (r2, g2, b2, a))
-    image = maybe_resize_image(image, max_size)
 
-    return image_to_file(image, 'inverted')
-
-
-def greyscale_image(b: bytes) -> discord.File:
-    # Double convert for transparent gifs
-    image = Image.open(io.BytesIO(b)).convert('RGBA').convert('LA')
-
-    return image_to_file(image, 'greyscale')
+    return image
 
 
-def deepfry_image(b: bytes) -> discord.File:
-    original = Image.open(io.BytesIO(b)).convert('P').convert('RGB')
+def greyscale_image(image: Image):
+    image = image.convert('LA')
+
+    return image
+
+
+def deepfry_image(image: Image):
+    original = image.convert('P').convert('RGB')
     noise = Image.effect_noise(original.size, 20).convert('RGB')
 
     b = ImageEnhance.Brightness(original)
@@ -49,54 +64,46 @@ def deepfry_image(b: bytes) -> discord.File:
     image = Image.blend(image, noise, 0.25).convert('P').convert('RGB')
 
     img_bytes = io.BytesIO()
-    image.save(img_bytes, 'jpeg', quality=10, optimize=True)
+    image.save(img_bytes, 'png', quality=10, optimize=True)
 
     img_bytes.seek(0)
-    return discord.File(img_bytes, 'deepfry.jpg')
+    return image
 
 
-def noise_image(b: bytes, alpha: float) -> discord.File:
-    original = Image.open(io.BytesIO(b)).convert('RGBA')
-    noise = Image.effect_noise(original.size, 20).convert('RGBA')
+def noise_image(image: Image, alpha: float):
+    noise = Image.effect_noise(image.size, 20).convert('RGBA')
 
-    image = Image.blend(original, noise, alpha)
+    image = Image.blend(image, noise, alpha)
 
-    return image_to_file(image, 'noise')
+    return image
 
 
-def blur_image(b: bytes, radius: int) -> discord.File:
-    image = Image.open(io.BytesIO(b)).convert('RGBA')
+def blur_image(image: Image, radius: int):
     image = image.filter(ImageFilter.GaussianBlur(radius))
 
-    return image_to_file(image, 'blur')
+    return image
 
 
-def brighten_image(b: bytes, intensity: float) -> discord.File:
-    image = Image.open(io.BytesIO(b)).convert('RGBA')
-
+def brighten_image(image: Image, intensity: float):
     b = ImageEnhance.Brightness(image)
     image = b.enhance(intensity)
 
-    return image_to_file(image, 'brighten')
+    return image
 
 
-def contrast_image(b: bytes, intensity: float) -> discord.File:
-    image = Image.open(io.BytesIO(b)).convert('RGBA')
-
+def contrast_image(image: Image, intensity: float):
     c = ImageEnhance.Contrast(image)
     image = c.enhance(intensity)
 
-    return image_to_file(image, 'contrast')
+    return image
 
 
-def rotate_image(b: bytes, angle: int, max_size: int):
-    image = Image.open(io.BytesIO(b)).convert('RGBA')
+def rotate_image(image: Image, angle: int):
     image = image.rotate(-angle, expand=True)
-    image = maybe_resize_image(image, max_size)
 
-    return image_to_file(image, 'rotate')
+    return image
 
-
+"""
 def maybe_resize_image(image: Image, max_size: int) -> Image:
     b = io.BytesIO()
     image.save(b, 'png')
@@ -109,6 +116,7 @@ def maybe_resize_image(image: Image, max_size: int) -> Image:
         image.save(b, 'png')
 
     return image
+"""
 
 
 def make_mask(colors, width, height):
@@ -131,14 +139,11 @@ def make_mask(colors, width, height):
     return color_image
 
 
-def make_flag(b: bytes, alpha: float, max_size: int, colors: List):
-    image = Image.open(io.BytesIO(b)).convert('RGBA')
-
+def make_flag(image: Image, alpha: float, colors: List):
     mask = make_mask(colors, *image.size)
     blended_image = Image.blend(image, mask, alpha)
-    resized_image = maybe_resize_image(blended_image, max_size)
 
-    return image_to_file(resized_image, 'pride')
+    return blended_image
 
 
 async def pride_flag(ctx: utils.CustomContext, image: Optional[bytes], transparency: int, colors: List):
@@ -154,20 +159,18 @@ async def pride_flag(ctx: utils.CustomContext, image: Optional[bytes], transpare
 
     limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
 
-    file = await ctx.bot.loop.run_in_executor(None, make_flag, image_bytes, transparency, limit, colors)
+    file = await ctx.bot.loop.run_in_executor(None, hande_gif_images, make_flag, image_bytes, transparency, colors)
 
     embed = utils.create_embed(
         ctx.author,
         title=f'Here\'s your {ctx.command.name} image:',
-        image='attachment://pride.png'
+        image=f'attachment://{file.filename}'
     )
 
     await ctx.send(embed=embed, file=file)
 
 
-def add_impact(b: bytes, max_size: int, top_text: str, bottom_text: str):
-    image = Image.open(io.BytesIO(b)).convert('RGBA')
-
+def add_impact(image: Image, top_text: str, bottom_text: str):
     top_text = top_text.upper()
     bottom_text = bottom_text.upper() if bottom_text else None
 
@@ -203,9 +206,7 @@ def add_impact(b: bytes, max_size: int, top_text: str, bottom_text: str):
             **font_kwargs
         )
 
-    image = maybe_resize_image(image, max_size)
-
-    return image_to_file(image, 'impact')
+    return image
 
 
 class Images(commands.Cog):
@@ -236,13 +237,12 @@ class Images(commands.Cog):
         # Use converter here so that it triggers even without given argument
         image_bytes = await utils.ImageConverter().convert(ctx, image)
 
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, invert_image, image_bytes, limit)
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, invert_image, image_bytes)
 
         embed = utils.create_embed(
             ctx.author,
             title='Here\'s your inverted image:',
-            image='attachment://inverted.png'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -271,12 +271,12 @@ class Images(commands.Cog):
         # Use converter here so that it triggers even without given argument
         image_bytes = await utils.ImageConverter().convert(ctx, image)
 
-        file = await self.bot.loop.run_in_executor(None, greyscale_image, image_bytes)
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, greyscale_image, image_bytes)
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Here\'s your {alias[:4]}scale image:',
-            image='attachment://greyscale.png'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -303,12 +303,12 @@ class Images(commands.Cog):
         # Use converter here so that it triggers even without given argument
         image_bytes = await utils.ImageConverter().convert(ctx, image)
 
-        file = await self.bot.loop.run_in_executor(None, deepfry_image, image_bytes)
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, deepfry_image, image_bytes)
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Here\'s your deepfried image:',
-            image='attachment://deepfry.jpg'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -337,12 +337,12 @@ class Images(commands.Cog):
         else:
             image_bytes = image
 
-        file = await self.bot.loop.run_in_executor(None, blur_image, image_bytes, abs(strength))
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, blur_image, image_bytes, abs(strength))
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Here\'s your blurred image:',
-            image='attachment://blur.png'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -376,12 +376,12 @@ class Images(commands.Cog):
         else:
             image_bytes = image
 
-        file = await self.bot.loop.run_in_executor(None, noise_image, image_bytes, strength)
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, noise_image, image_bytes, strength)
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Here\'s your noisy image:',
-            image='attachment://noise.png'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -413,12 +413,12 @@ class Images(commands.Cog):
         else:
             image_bytes = image
 
-        file = await self.bot.loop.run_in_executor(None, brighten_image, image_bytes, strength)
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, brighten_image, image_bytes, strength)
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Here\'s your brightened image:',
-            image='attachment://brighten.png'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -450,12 +450,12 @@ class Images(commands.Cog):
         else:
             image_bytes = image
 
-        file = await self.bot.loop.run_in_executor(None, contrast_image, image_bytes, strength)
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, contrast_image, image_bytes, strength)
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Here\'s your modified image:',
-            image='attachment://contrast.png'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -492,10 +492,9 @@ class Images(commands.Cog):
 
         file = await self.bot.loop.run_in_executor(
             None,
+            hande_gif_images,
             add_impact,
             image_bytes,
-            ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-            ,
             top_text,
             bottom_text
         )
@@ -503,7 +502,7 @@ class Images(commands.Cog):
         embed = utils.create_embed(
             ctx.author,
             title=f'Here\'s your modified image:',
-            image='attachment://impact.png'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -533,12 +532,12 @@ class Images(commands.Cog):
             image_bytes = image
 
         limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, rotate_image, image_bytes, angle, limit)
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, rotate_image, image_bytes, angle, limit)
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Here\'s your modified image:',
-            image='attachment://rotate.png'
+            image=f'attachment://{file.filename}'
         )
 
         await ctx.send(embed=embed, file=file)
@@ -808,7 +807,7 @@ class Images(commands.Cog):
 
         await pride_flag(ctx, image, transparency, genderqueer_colors)
 
-    async def cog_command_error(self, ctx: utils.CustomContext, error: Exception) -> None:
+    async def cog_command_error(self, ctx: utils.CustomContext, error: Exception):
         embed = None
 
         if isinstance(error, commands.CommandInvokeError):
