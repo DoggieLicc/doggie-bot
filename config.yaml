@@ -1,5 +1,5 @@
-bot_token: # Bot token here
-osu_client_id: # osu client id here
-osu_client_secret: # osu client secret here
-unsplash_api_key: # Unsplash api key here
-saucenao_api_key: # Saucenao api key here
+bot_token: OTMwNTk2MzY1NDI2MzYwNDIx.Yd4LZw.H5kmG8rTnps4jvA1XGX1VjgKAV8
+osu_client_id: 9150
+osu_client_secret: Wo7BOE6jDvHSliAaXJJaNIXcQgzVQRN49mmWN6RE
+unsplash_api_key: Anrk4njhlgKYtZNtoNOfocxwcii0hhnhZHpjMr0oE18
+saucenao_api_key: ac58c1346255232e1e498837a07a568abe132caa
