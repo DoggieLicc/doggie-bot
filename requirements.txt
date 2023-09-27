@@ -1,5 +1,5 @@
 PyYAML~=5.4.1
-Pillow~=9.5.0
+Pillow~=10.0.1
 whois~=0.9.13
 mojang~=0.1.8
 aiohttp~=3.8.5.post0
