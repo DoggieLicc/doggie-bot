@@ -157,7 +157,7 @@ async def pride_flag(ctx: utils.CustomContext, image: Optional[bytes], transpare
     else:
         image_bytes = image
 
-    limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
+    # limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
 
     file = await ctx.bot.loop.run_in_executor(None, hande_gif_images, make_flag, image_bytes, transparency, colors)
 
@@ -531,8 +531,7 @@ class Images(commands.Cog):
         else:
             image_bytes = image
 
-        limit = ctx.guild.filesize_limit if ctx.guild else 8 * 1000 * 1000
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, rotate_image, image_bytes, angle, limit)
+        file = await self.bot.loop.run_in_executor(None, hande_gif_images, rotate_image, image_bytes, angle)
 
         embed = utils.create_embed(
             ctx.author,
