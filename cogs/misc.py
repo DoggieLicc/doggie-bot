@@ -38,7 +38,7 @@ class Misc(commands.Cog):
 
         embed.add_field(
             name='Bot Creator:',
-            value='[Doggie#6969](https://github.com/DoggieLicc/)',
+            value='[@doggielicc](https://github.com/DoggieLicc/)',
             inline=True
         )
 
