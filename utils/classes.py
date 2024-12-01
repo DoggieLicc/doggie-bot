@@ -2,6 +2,7 @@ import discord
 import asyncio
 import yaml
 import asqlite
+import os
 
 from discord import TextChannel, ChannelType, Message, User
 from discord.ext import commands, menus
@@ -24,6 +25,9 @@ __all__ = [
     'MissingAPIKey'
 ]
 
+dirname = os.path.dirname(__file__)
+config_file = os.path.join(dirname, '../config.yaml')
+db_file = os.path.join(dirname, '../data.db')
 
 class CustomContext(commands.Context):
     def __init__(self, **attrs):
@@ -50,7 +54,7 @@ class CustomBot(commands.Bot):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        with open('config.yaml', 'r') as file:
+        with open(config_file, 'r') as file:
             self.config = yaml.safe_load(file)
 
         self.reminders: Dict[int, Reminder] = {}
@@ -90,7 +94,7 @@ class CustomBot(commands.Bot):
 
         self.start_time: datetime = datetime.now(timezone.utc)
 
-        self.db: asqlite.Connection = await asqlite.connect('data.db', check_same_thread=False)
+        self.db: asqlite.Connection = await asqlite.connect(db_file, check_same_thread=False)
 
         await self.load_reminders()
         await self.load_basic_config()
