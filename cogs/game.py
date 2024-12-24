@@ -5,19 +5,20 @@ from typing import Optional
 
 from discord.ext import commands
 
-from mojang import MojangAPI as Mojang
+from mojang import API as Mojang
 from osu import OsuApi, OsuApiException
 from datetime import timedelta
 
+mojang_api = Mojang()
 
 def sync_minecraft(ctx, account):
     try:
         if utils.is_uuid4(account):
             uuid = account
         else:
-            uuid = Mojang.get_uuid(account)
+            uuid = mojang_api.get_uuid(account)
 
-        profile = Mojang.get_profile(uuid)
+        profile = mojang_api.get_profile(uuid)
         if not profile:
             return utils.create_embed(
                 ctx.author,
@@ -26,16 +27,13 @@ def sync_minecraft(ctx, account):
                 color=discord.Color.red()
             )
 
-        name_history = Mojang.get_name_history(uuid)
-    except Exception:
+    except Exception as e:
         return utils.create_embed(
             ctx.author,
             title='Error!',
-            description='Can\'t lookup account! (API down?)',
+            description=f'Can\'t lookup account! (API down?) ({e})',
             color=discord.Color.red()
         )
-
-    past_names = [data['name'] for data in name_history if data['name'] != profile.name]
 
     embed = utils.create_embed(
         ctx.author,
@@ -47,14 +45,8 @@ def sync_minecraft(ctx, account):
     embed.add_field(name='Profile UUID:', value=profile.id, inline=False)
 
     embed.add_field(
-        name='Past Usernames:',
-        value=(discord.utils.escape_markdown(', '.join(past_names)) if past_names else 'No past usernames'),
-        inline=False
-    )
-
-    embed.add_field(
         name='Skin:',
-        value=f'[Download Skin ({"Steve Type" if not profile.skin_model == "slim" else "Alex Type"})]'
+        value=f'[Download Skin ({"Steve Type" if not profile.skin_variant == "slim" else "Alex Type"})]'
               f'({profile.skin_url})' if profile.skin_url else 'No skin',
         inline=False
     )
@@ -72,8 +64,6 @@ def sync_minecraft(ctx, account):
 
 class ModeConverter(commands.Converter):
     async def convert(self, ctx: commands.Context, mode: str):
-        print(mode, 'c')
-
         if not mode:
             return 'osu'
 
@@ -203,8 +193,8 @@ class Games(commands.Cog, name="Games"):
                         f'**Beatmap set ID:** {beatmap_set.id}\n'
                         f'**Artist:** {beatmap_set.artist}\n'
                         f'**Creator:** {beatmap_set.creator}\n'
-                        f'**# of plays:** {beatmap_set.play_count}\n'
-                        f'**# of favorites:** {beatmap_set.favourite_count}\n'
+                        f'**\# of plays:** {beatmap_set.play_count}\n'
+                        f'**\# of favorites:** {beatmap_set.favourite_count}\n'
                         f'**Submitted at:** {utils.user_friendly_dt(beatmap_set.submitted_date)}'
         )
 
