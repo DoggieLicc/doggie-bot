@@ -486,9 +486,10 @@ class Moderation(commands.Cog):
             return await ctx.send(embed=embed)
 
         pages = utils.CustomMenu(source=SnipeMenu(filtered), clear_reactions_after=True)
-        if (channel.overwrites_for(ctx.guild.default_role).view_channel == False and
-                ctx.channel.overwrites_for(ctx.guild.default_role).view_channel != False):
-            pages = utils.CustomMenu(source=SnipeMenu(filtered, maybe_first_snipe_msg(ctx)), clear_reactions_after=True)
+        if channel.type is discord.ChannelType.text:
+            if (channel.overwrites_for(ctx.guild.default_role).view_channel == False and
+                    ctx.channel.overwrites_for(ctx.guild.default_role).view_channel != False):
+                pages = utils.CustomMenu(source=SnipeMenu(filtered, maybe_first_snipe_msg(ctx)), clear_reactions_after=True)
 
         await pages.start(ctx)
 
