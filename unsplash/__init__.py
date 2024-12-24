@@ -2,6 +2,7 @@ import dataclasses
 import inspect
 import aiohttp
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Optional, Union, List, TypedDict, no_type_check
 
@@ -11,10 +12,10 @@ CONTENT_FILTER_LITERAL = Literal['low', 'high']
 
 
 def maybe_dt(string: Optional[str]):
-    return datetime.fromisoformat(string) if string else None
+    return datetime.fromisoformat(string.replace('Z', '+00:00')) if string else None
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class PhotoURLS:
     raw: str
     full: str
@@ -24,15 +25,15 @@ class PhotoURLS:
     small_s3: str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class PhotoInterchange:
-    name: Optional[str]
-    make: Optional[str]
-    model: Optional[str]
-    exposure_time: Optional[str]
-    aperture: Optional[float]
-    focal_length: Optional[float]
-    iso: Optional[int]
+    name: Optional[str] = None
+    make: Optional[str] = None
+    model: Optional[str] = None
+    exposure_time: Optional[str] = None
+    aperture: Optional[float] = None
+    focal_length: Optional[float] = None
+    iso: Optional[int] = None
 
 
 class PhotoLocationPosition(TypedDict):
@@ -40,16 +41,16 @@ class PhotoLocationPosition(TypedDict):
     longitude: float
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class PhotoLocation:
-    title: Optional[str]
-    name: Optional[str]
-    city: Optional[str]
-    country: Optional[str]
-    position: Optional[PhotoLocationPosition]
+    title: Optional[str] = None
+    name: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    position: Optional[PhotoLocationPosition] = None
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class PhotoLinks:
     self: str
     html: str
@@ -57,7 +58,7 @@ class PhotoLinks:
     download_location: str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class UserLinks:
     self: str
     html: str
@@ -68,22 +69,22 @@ class UserLinks:
     followers: str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class UserSocials:
     portfolio_url: str
-    instagram_username: Optional[str]
-    twitter_username: Optional[str]
-    paypal_email: Optional[str]
+    instagram_username: Optional[str] = None
+    twitter_username: Optional[str] = None
+    paypal_email: Optional[str] = None
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class UserProfileImage:
     small: str
     medium: str
     large: str
 
 
-@dataclasses.dataclass(unsafe_hash=True)
+@dataclass(unsafe_hash=True)
 class User:
     id: str
 
@@ -100,16 +101,16 @@ class User:
     accepted_tos: bool
     for_hire: bool
 
-    bio: Optional[str]
-    location: Optional[str]
-    instagram_username: Optional[str]
-    twitter_username: Optional[str]
-
     updated_at: datetime
     links: UserLinks
     profile_image: UserProfileImage
 
     social: UserSocials
+
+    bio: Optional[str] = None
+    location: Optional[str] = None
+    instagram_username: Optional[str] = None
+    twitter_username: Optional[str] = None
 
     @classmethod
     def from_dict(cls, env):
@@ -123,7 +124,7 @@ class User:
 
 
 @no_type_check
-@dataclasses.dataclass(unsafe_hash=True)
+@dataclass(unsafe_hash=True)
 class Photo:
     id: str
     created_at: datetime
@@ -138,11 +139,11 @@ class Photo:
     urls: PhotoURLS
     user: User
     links: PhotoLinks
+    categories: List[str] = field(default_factory=list)
 
-    description: Optional[str]
-    alt_description: Optional[str]
-    categories: List[str]
-    sponsorship: Optional[str]
+    description: Optional[str] = None
+    alt_description: Optional[str] = None
+    sponsorship: Optional[str] = None
 
     tags: Optional[dict] = None
     exif: Optional[PhotoInterchange] = None
@@ -172,7 +173,7 @@ class UnsplashException(Exception):
         super().__init__('Error(s) when fetching from Unsplash API: ' + message)
 
 
-@dataclasses.dataclass()
+@dataclass()
 class Page:
     total: int
     total_pages: int
