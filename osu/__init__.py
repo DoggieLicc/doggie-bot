@@ -12,7 +12,7 @@ BASE_URL = 'https://osu.ppy.sh/api/v2/'
 
 
 def maybe_dt(string: Optional[str]):
-    return datetime.fromisoformat(string) if string else None
+    return datetime.fromisoformat(string.replace('Z', '+00:00')) if string else None
 
 
 def check_access_key(func):
