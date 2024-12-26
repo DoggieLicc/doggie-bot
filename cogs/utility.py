@@ -310,7 +310,7 @@ class UtilityCog(commands.Cog, name="Utility"):
         """
 
         if not emotes:
-            raise commands.MissingRequiredArgument(ctx.channel)
+            raise commands.MissingRequiredArgument(ctx.command.params['emotes'])
 
         added, not_added = [], []
         embed = discord.Embed()
@@ -378,57 +378,6 @@ class UtilityCog(commands.Cog, name="Utility"):
 
         await pages.start(ctx)
 
-    @commands.guild_only()
-    @commands.command(aliases=['survey'], usage='[timeout=600] <question> [options...]')
-    async def poll(self, ctx: utils.CustomContext, timeout: Optional[int], question: str, *options: str):
-        """Makes a poll that anyone can vote on! Use quotes to separate multi-word question and options
-        The default timeout is 600 seconds
-
-        **Examples**:
-        `dog.poll 30 "What's your favorite color?" Red Blue Green` - 30 second poll with 3 options
-        `dog.poll "Do you like dogs?" Yes No` - 600 second poll with 2 options"""
-
-        if not options:
-            raise commands.MissingRequiredArgument(ctx.author)
-
-        if len(options) != len(set(options)):
-            raise commands.BadArgument('Can\'t have duplicate options!')
-
-        timeout = timeout or 600
-        end_time = discord.utils.format_dt(discord.utils.utcnow() + timedelta(seconds=timeout), "R")
-
-        view = discord.ui.View(timeout=timeout)
-        select = PollSelect(placeholder=question)
-        view.add_item(select)
-
-        for option in options[:25]:
-            select.add_option(label=option[:100])
-
-        poll_message = await ctx.send(
-            f'{ctx.author.mention} started a poll that will end {end_time}:',
-            view=view
-        )
-
-        await asyncio.sleep(timeout)
-
-        select.disabled = True
-
-        await poll_message.edit(
-            content=f'{ctx.author.mention} started a poll that ended {end_time}:',
-            view=view
-        )
-
-        counts = Counter(select.selected_options.values())
-        counts_msg = [f'**"{discord.utils.escape_markdown(c[0])}"** got {c[1]} votes!' for c in counts.most_common()]
-
-        embed = utils.create_embed(
-            ctx.author,
-            title='Poll has ended!',
-            description='\n'.join(counts_msg) or 'No one chose any options!'
-        )
-
-        await ctx.send(embed=embed, reference=poll_message)
-
     @selfbot.error
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.MaxConcurrencyReached):
@@ -461,7 +410,7 @@ class UtilityCog(commands.Cog, name="Utility"):
         image_url = ctx.message.attachments[0].url if ctx.message.attachments else image
 
         if not image_url:
-            raise commands.MissingRequiredArgument(ctx.author)
+            raise commands.MissingRequiredArgument(ctx.command.params['image'])
 
         BASE_URL = 'https://saucenao.com/search.php'
 

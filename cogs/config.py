@@ -167,12 +167,12 @@ class Configuration(commands.Cog):
         """
 
         if any([v for _, v in config if v is True]):
-            raise commands.BadFlagArgument(config.get_flags()['ban_channel'])
+            raise commands.BadFlagArgument(config.get_flags()['ban_channel'], '.', '.')
 
         options = {k: v for k, v in config if v is not None}
 
         if not options:
-            raise commands.BadFlagArgument(config.get_flags()['ban_channel'])
+            raise commands.BadFlagArgument(config.get_flags()['ban_channel'], '.', '.')
 
         msgs = [f'**{k.replace("_", " ").title()}:** {v.mention if v else "Disabled"}' for k, v in options.items()]
 
