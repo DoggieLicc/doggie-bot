@@ -193,8 +193,8 @@ class Games(commands.Cog, name="Games"):
                         f'**Beatmap set ID:** {beatmap_set.id}\n'
                         f'**Artist:** {beatmap_set.artist}\n'
                         f'**Creator:** {beatmap_set.creator}\n'
-                        f'**\# of plays:** {beatmap_set.play_count}\n'
-                        f'**\# of favorites:** {beatmap_set.favourite_count}\n'
+                        fr'**\# of plays:** {beatmap_set.play_count}\n'
+                        fr'**\# of favorites:** {beatmap_set.favourite_count}\n'
                         f'**Submitted at:** {utils.user_friendly_dt(beatmap_set.submitted_date)}'
         )
 

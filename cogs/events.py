@@ -65,7 +65,7 @@ class EventsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_command(self, ctx: utils.CustomContext):
-        await ctx.trigger_typing()
+        await ctx.typing()
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, banned: Union[discord.Member, discord.User]):

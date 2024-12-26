@@ -225,7 +225,8 @@ class Random(commands.Cog):
             )
 
         if embed:
-            return await ctx.send(embed=embed)
+            await ctx.send(embed=embed)
+            return
 
         ctx.uncaught_error = True
 

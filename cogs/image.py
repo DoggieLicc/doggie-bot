@@ -103,22 +103,6 @@ def rotate_image(image: Image, angle: int):
 
     return image
 
-"""
-def maybe_resize_image(image: Image, max_size: int) -> Image:
-    b = io.BytesIO()
-    image.save(b, 'png')
-
-    while b.tell() > max_size:
-        b.close()
-        new_size = image.size[0] // 2, image.size[1] // 2
-        image = image.resize(new_size, resample=Image.BILINEAR)
-        b = io.BytesIO()
-        image.save(b, 'png')
-
-    return image
-"""
-
-
 def make_mask(colors, width, height):
     color_height = height / len(colors)
 

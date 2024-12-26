@@ -281,8 +281,6 @@ class Emotes:
             return Emotes.news
         if chann.type == ChannelType.voice:
             return Emotes.voice
-        if chann.type == ChannelType.store:
-            return Emotes.store
         if chann.type == ChannelType.category:
             return ""
         if str(chann.type).endswith('thread'):

@@ -272,6 +272,10 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
         messages = await ctx.channel.purge(limit=limit, bulk=False, check=lambda m: m.author == ctx.me)
         await ctx.send(f'Deleted {len(messages)} message(s)', delete_after=3, reference=ctx.message)
 
+    @commands.command()
+    async def sync(self, ctx: commands.Context):
+        app_commands = await self.bot.tree.sync()
+        await ctx.send(f'Synced {len(app_commands)} app commands!')
 
 async def setup(bot):
     await bot.add_cog(Dev(bot))

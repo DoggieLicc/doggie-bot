@@ -7,6 +7,7 @@ from discord.ext.commands import Greedy
 
 from typing import Union, Optional
 from datetime import datetime, timezone, timedelta
+from functools import partial
 
 
 GREEDY_INTENTIONAL = Greedy[Union[utils.IntentionalMember, utils.IntentionalUser]]
@@ -258,12 +259,14 @@ class Moderation(commands.Cog):
         if not members:
             raise commands.MemberNotFound(reason)
 
+        remove_timeout = partial(discord.Member.edit, timed_out_until=None)
+
         async with ctx.channel.typing():
             # noinspection PyTypeChecker
             lists = await utils.multi_punish(
                 ctx.author,
                 members,
-                discord.Member.remove_timeout,
+                remove_timeout,
                 reason=f'{str(ctx.author)}: {reason}'
             )  # type: ignore
 
