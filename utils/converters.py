@@ -30,7 +30,7 @@ class IntentionalMember(commands.converter.MemberConverter):
             # Not a mention or an ID a name#tag or @username
             raise commands.errors.MemberNotFound(argument)
 
-        return await super().convert(ctx, argument)
+        return await super().convert(ctx, argument.strip('@'))
 
 
 class IntentionalUser(commands.converter.UserConverter):
@@ -42,7 +42,7 @@ class IntentionalUser(commands.converter.UserConverter):
             # Not a mention or an ID a name#tag or @username
             raise commands.errors.UserNotFound(argument)
 
-        return await super().convert(ctx, argument)
+        return await super().convert(ctx, argument.strip('@'))
 
 
 @dataclass(frozen=True)
