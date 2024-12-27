@@ -169,7 +169,7 @@ def add_impact(image: Image, top_text: str, bottom_text: str):
         'fill': (255, 255, 255),
         'font': impact,
         'align': 'center',
-        'stroke_width': 3,
+        'stroke_width': image.width / 10 / 10,
         'stroke_fill': (0, 0, 0)
     }
 

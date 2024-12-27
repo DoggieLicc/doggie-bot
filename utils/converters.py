@@ -24,8 +24,10 @@ ID_REGEX = re.compile(r'([0-9]{15,20})$')
 class IntentionalMember(commands.converter.MemberConverter):
     async def convert(self, ctx, argument: str) -> Member:
         if not (len(argument) > 5 and argument[-5] == '#') and not \
-                self._get_id_match(argument) and not re.match(r'<@!?([0-9]{15,20})>$', argument):
-            # Not a mention or an ID a name#tag
+            argument.startswith('@') and not \
+            self._get_id_match(argument) and not \
+            re.match(r'<@!?([0-9]{15,20})>$', argument):
+            # Not a mention or an ID a name#tag or @username
             raise commands.errors.MemberNotFound(argument)
 
         return await super().convert(ctx, argument)
@@ -34,8 +36,10 @@ class IntentionalMember(commands.converter.MemberConverter):
 class IntentionalUser(commands.converter.UserConverter):
     async def convert(self, ctx, argument: str) -> User:
         if not (len(argument) > 5 and argument[-5] == '#') and not \
-                self._get_id_match(argument) and not re.match(r'<@!?([0-9]{15,20})>$', argument):
-            # Not a mention or an ID or a name#tag
+            argument.startswith('@') and not \
+            self._get_id_match(argument) and not \
+            re.match(r'<@!?([0-9]{15,20})>$', argument):
+            # Not a mention or an ID a name#tag or @username
             raise commands.errors.UserNotFound(argument)
 
         return await super().convert(ctx, argument)
