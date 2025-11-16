@@ -133,3 +133,4 @@ dmypy.json
 *.db-wal
 *.db-shm
 config.yaml
+.idea/*
