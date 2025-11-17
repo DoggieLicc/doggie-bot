@@ -1,9 +1,11 @@
 import traceback
 import utils
+import logging
 
 import discord
 from discord.ext import commands
 
+logger = logging.getLogger(__name__)
 
 class ErrorHandler(commands.Cog):
     def __init__(self, bot: utils.CustomBot):
@@ -148,7 +150,7 @@ class ErrorHandler(commands.Cog):
         lines = traceback.format_exception(etype, error, trace)
         traceback_t: str = ''.join(lines)
 
-        print(traceback_t)
+        logger.error(traceback_t)
         file = utils.str_to_file(traceback_t, filename='traceback.py')
 
         owner: discord.User = await self.bot.get_owner()
