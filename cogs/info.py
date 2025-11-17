@@ -1,11 +1,12 @@
 import discord
 import base64
 import datetime
-import whois
-import aiowiki
 import utils
 
 from typing import Optional, Union
+
+import whoisdomain as whois
+from wikipya import Wikipya
 
 from discord import Color, Member, Role, User
 from discord.ext import commands
@@ -74,25 +75,11 @@ def sync_whois(ctx: utils.CustomContext, domain: str):
     return embed
 
 
-async def format_page(ctx: utils.CustomContext, page: aiowiki.Page, summary: str, search: str) -> discord.Embed:
-    summary = (summary[:3900] + '...') if len(summary) > 3900 else summary
-    urls = await page.urls()
-
-    embed = utils.create_embed(
-        ctx.author,
-        title=f'Wikipedia page for "{search}"',
-        description=summary,
-        url=urls[0],
-    )
-
-    return embed
-
-
 class Info(commands.Cog, name='Information'):
     """Get info for Discord objects, domains, and more"""
 
     def __init__(self, bot: utils.CustomBot):
-        self.wiki = aiowiki.Wiki.wikipedia()
+        self.wiki = Wikipya(lang="en")
         self.bot: utils.CustomBot = bot
 
     @commands.command(aliases=['guild'])
@@ -633,46 +620,29 @@ class Info(commands.Cog, name='Information'):
     async def wikipedia(self, ctx: utils.CustomContext, *, search):
         """Looks up Wikipedia articles by their title!"""
 
-        page = self.wiki.get_page(search)
-
         try:
-            summary = await page.summary()
-        except aiowiki.PageNotFound:
-            summary = None
+            page = await self.wiki.page(search)
+            summary = await self.wiki.summary(page.title)
+        except Exception:
+            embed = utils.create_embed(
+                ctx.author,
+                title=f'No results found for "{search}"!',
+                description='Try to search something else!',
+                color=discord.Color.red()
+            )
+            return await ctx.send(embed=embed)
 
-        if summary:
-            embed = await format_page(ctx, page, summary, search)
-        else:
-            pages = await self.wiki.opensearch(search)
+        image = await self.wiki.image(page.title)
+        extract = (summary.extract[:3900] + '...') if len(summary.extract) > 3900 else summary.extract
 
-            if pages:
+        embed = utils.create_embed(
+                ctx.author,
+                title=summary.title,
+                description=extract
+            )
 
-                best_search = [page.title for page in pages if page.title.lower() == search.lower()]
-
-                if best_search:
-                    page = self.wiki.get_page(best_search[0])
-                    summary = await page.summary()
-
-                    embed = await format_page(ctx, page, summary, search)
-
-                else:
-
-                    titles = [page.title for page in pages]
-
-                    embed = utils.create_embed(
-                        ctx.author,
-                        title=f'No page found for "{search}"! Did you mean...',
-                        description='\n'.join(titles),
-                        color=discord.Color.red()
-                    )
-
-            else:
-                embed = utils.create_embed(
-                    ctx.author,
-                    title=f'No results found for "{search}"!',
-                    description='Try to search something else!',
-                    color=discord.Color.red()
-                )
+        if summary.thumbnail:
+            embed.set_thumbnail(url=summary.thumbnail.source)
 
         await ctx.send(embed=embed)
 

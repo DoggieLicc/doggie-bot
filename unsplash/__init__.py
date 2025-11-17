@@ -1,10 +1,13 @@
 import dataclasses
 import inspect
 import aiohttp
+import logging
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Optional, Union, List, TypedDict, no_type_check
+
+logger = logging.getLogger(__name__)
 
 API_BASE_URL = 'https://api.unsplash.com/'
 ORIENTATION_LITERAL = Literal['landscape', 'portrait', 'squarish']
@@ -65,8 +68,8 @@ class UserLinks:
     photos: str
     likes: str
     portfolio: str
-    following: str
-    followers: str
+    following: Optional[str] = None
+    followers: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -153,10 +156,11 @@ class Photo:
 
     @classmethod
     def from_dict(cls, env):
+        env.pop('promoted_at')
         return cls(
             created_at=maybe_dt(env.pop('created_at')),
             updated_at=maybe_dt(env.pop('updated_at')),
-            promoted_at=maybe_dt(env.pop('promoted_at')) if env.get('promoted_at') else None,
+            promoted_at=None,
             color=int(env.pop('color').strip('#'), 16),
             urls=PhotoURLS(**env.pop('urls')),
             links=PhotoLinks(**env.pop('links')),
