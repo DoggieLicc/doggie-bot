@@ -8,6 +8,19 @@ This bot runs on the master branch of [discord.py](https://github.com/Rapptz/dis
 ## Invite this bot:
 [Invite Link](https://discord.com/oauth2/authorize?client_id=930596365426360421&scope=bot&permissions=1375866285270), it's recommended to not remove any permissions, as some or all commands may stop working
 
+## Hosting guide (docker compose, recomended):
+
+1. Create a bot account in the Discord Dev portal and invite it to your server. - [Guide](https://discordpy.readthedocs.io/en/latest/discord.html)
+
+2. Make sure to enable member intents too. - [Example](https://discordpy.readthedocs.io/en/latest/intents.html#privileged-intents)
+
+3. Install Docker Engine + docker compose if you don't have it already - [Docs](https://docs.docker.com/engine/install/)
+
+4. Use the `docker-compose.yml` file as a template, and fill in the `BOT_TOKEN` variable with your bot token (or in a `.env` file)
+    - You must also set `OSU_CLIENT_ID`, `OSU_CLIENT_SECRET`, `UNSPLASH_API_KEY`, and `SAUCENAO_API_KEY` if you want those commands to work
+
+5. Use `docker compose up -d` to start the bot, and have fun!
+
 ## Hosting guide:
 
 1. Create a bot account in the Discord Dev portal and invite it to your server. - [Guide](https://discordpy.readthedocs.io/en/latest/discord.html)
@@ -22,7 +35,7 @@ This bot runs on the master branch of [discord.py](https://github.com/Rapptz/dis
 
 5. Paste your bot token in `config.yaml`, right after `bot_token: `
 
-    - You must also fill in `osu_client_id`, `osu_client_secret`, and `unsplash_api_key` if you want those commands to work
+    - You must also fill in `osu_client_id`, `osu_client_secret`, `unsplash_api_key`, and `saucenao_api_key` if you want those commands to work
     
 6. Run bot and have fun!
 
