@@ -129,9 +129,13 @@ dmypy.json
 .pyre/
 
 # Other
-data.db
+*.db
 *.db-wal
 *.db-shm
 config.yaml
 .idea/*
-data/*
+
+# Docker
+Dockerfile
+README.md
+example_config.yml

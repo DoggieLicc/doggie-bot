@@ -1,0 +1,19 @@
+services:
+  doggie-bot:
+    image: doggie-bot
+    container_name: doggie-bot
+    restart: unless-stopped
+
+    volumes:
+      - ./data:/data
+
+    env_file: .env
+
+    environment:
+      - DATA_DIR=/data
+
+      #- BOT_TOKEN=...
+      #- OSU_CLIENT_ID=...
+      #- OSU_CLIENT_SECRET=...
+      #- UNSPLASH_API_KEY=...
+      #- SAUCENAO_API_KEY=...

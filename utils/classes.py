@@ -3,6 +3,8 @@ import asyncio
 import yaml
 import asqlite
 import os
+import shutil
+import logging
 
 from discord import TextChannel, ChannelType, Message, User
 from discord.ext import commands, menus
@@ -25,9 +27,10 @@ __all__ = [
     'MissingAPIKey'
 ]
 
-dirname = os.path.dirname(__file__)
-config_file = os.path.join(dirname, '../config.yaml')
-db_file = os.path.join(dirname, '../data.db')
+logger = logging.getLogger(__name__)
+
+dirname = os.getcwd()
+config_file = os.path.join(dirname, 'config.yaml')
 
 class CustomContext(commands.Context):
     def __init__(self, **attrs):
@@ -54,8 +57,26 @@ class CustomBot(commands.Bot):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        with open(config_file, 'r') as file:
-            self.config = yaml.safe_load(file)
+        yaml_config = dict()
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as file:
+                yaml_config = yaml.safe_load(file)
+
+        self.config = dict()
+
+        self.config['bot_token'] = yaml_config.get('bot_token') or os.getenv('BOT_TOKEN')
+        self.config['osu_client_secret'] = yaml_config.get('osu_client_secret') or os.getenv('OSU_CLIENT_SECRET')
+        self.config['osu_client_id'] = yaml_config.get('osu_client_id') or os.getenv('OSU_CLIENT_ID') or 0
+        self.config['unsplash_api_key'] = yaml_config.get('unsplash_api_key') or os.getenv('UNSPLASH_API_KEY')
+        self.config['saucenao_api_key'] = yaml_config.get('saucenao_api_key') or os.getenv('SAUCENAO_API_KEY')
+        self.config['data_dir'] = yaml_config.get('data_dir') or os.getenv('DATA_DIR') or '/data'
+
+        self.db_file = os.path.join(self.config['data_dir'], 'data.db')
+
+        if not os.path.exists(self.db_file):
+            empty_db_file = os.path.join(dirname, f'assets/empty_data.db')
+            shutil.copy(empty_db_file, self.db_file)
+            logger.info('Created empty database')
 
         self.reminders: Dict[int, Reminder] = {}
         self.basic_configs: Dict[int, BasicConfig] = {}
@@ -94,7 +115,7 @@ class CustomBot(commands.Bot):
 
         self.start_time: datetime = datetime.now(timezone.utc)
 
-        self.db: asqlite.Connection = await asqlite.connect(db_file, check_same_thread=False)
+        self.db: asqlite.Connection = await asqlite.connect(self.db_file, check_same_thread=False)
 
         await self.load_reminders()
         await self.load_basic_config()
