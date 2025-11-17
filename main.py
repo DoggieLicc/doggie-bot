@@ -21,7 +21,7 @@ cogs = [
 
 
 headers = {
-    'User-Agent': 'DoggieBot (Doggie#0189); "A Discord bot")'
+    'User-Agent': 'DoggieBot (@doggielicc); "A Discord bot")'
 }
 
 

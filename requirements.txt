@@ -1,9 +1,9 @@
-PyYAML>=6.0.2
-Pillow>=11.0.0
-whois>=1.20240129.2
-mojang>=1.1.0
-discord.py>=2.4.0
-audioop-lts>=0.2.0; python_version>='3.13'
+PyYAML==6.0.3
+pillow==11.3.0
+whoisdomain==1.20250929.1
+mojang==1.1.0
+aiohttp==3.13.2
+discord.py==2.6.4
+wikipya==4.1.2
 
 git+https://github.com/Rapptz/discord-ext-menus@master#egg=discord-ext-menus
-git+https://github.com/Gelbpunkt/aiowiki
