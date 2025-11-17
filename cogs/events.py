@@ -1,12 +1,14 @@
 import asyncio
 import utils
 import discord
+import logging
 
 from discord.ext import commands
 
 from typing import Union, List, Optional
 from datetime import datetime, timedelta, timezone
 
+logger = logging.getLogger(__name__)
 
 async def ban_embed(guild: discord.Guild, punished: discord.User, action):
     mod, reason = None, "Unknown"
@@ -59,7 +61,7 @@ class EventsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_fully_ready(self):
-        print(f'\nLogged in as: {self.bot.user.name} - {self.bot.user.id}\n'
+        logger.info(f'\nLogged in as: {self.bot.user.name} - {self.bot.user.id}\n'
               f'Version: {discord.__version__}\n'
               f'Successfully logged in and booted...!')
 
