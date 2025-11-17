@@ -1,6 +1,6 @@
 services:
   doggie-bot:
-    image: doggie-bot
+    image: git.doggieli.cc/doggie/doggie-bot:latest
     container_name: doggie-bot
     restart: unless-stopped
 
