@@ -142,3 +142,8 @@ README.md
 example_config.yml
 docker-compose.yml
 .gitignore
+.git*
+.github*
+.dockerignore
+**/__pycache__*
+**/*.pyc
