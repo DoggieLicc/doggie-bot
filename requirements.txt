@@ -7,3 +7,4 @@ discord.py==2.6.4
 wikipya==4.1.2
 
 git+https://github.com/Rapptz/discord-ext-menus@master#egg=discord-ext-menus
+git+https://github.com/DoggieLicc/discord.py-ext-prometheus@main#egg=discord-ext-prometheus
