@@ -2,6 +2,11 @@ import discord
 import asyncio
 import aiohttp
 import utils
+import logging
+
+from discord.ext.prometheus import PrometheusCog, PrometheusLoggingHandler
+
+logging.getLogger().addHandler(PrometheusLoggingHandler())
 
 
 cogs = [
@@ -47,6 +52,9 @@ async def startup():
         max_messages=20000,
         intents=intents,
     )
+
+    if bot.config['enable_prometheus']:
+        await bot.add_cog(PrometheusCog(bot, port=bot.config.get('prometheus_port', 8000)))
 
     bot.cogs_list = cogs
     for cog in cogs:

@@ -70,6 +70,14 @@ class CustomBot(commands.Bot):
         self.config['unsplash_api_key'] = yaml_config.get('unsplash_api_key') or os.getenv('UNSPLASH_API_KEY')
         self.config['saucenao_api_key'] = yaml_config.get('saucenao_api_key') or os.getenv('SAUCENAO_API_KEY')
         self.config['data_dir'] = yaml_config.get('data_dir') or os.getenv('DATA_DIR') or '/data'
+        self.config['prometheus_port'] = yaml_config.get('prometheus_port') or os.getenv('PROMETHEUS_PORT') or 8000
+        self.config['enable_prometheus'] = yaml_config.get('enable_prometheus') or os.getenv('ENABLE_PROMETHEUS') or False
+
+        if isinstance(self.config['enable_prometheus'], str):
+            if self.config['enable_prometheus'].lower() == 'true':
+                self.config['enable_prometheus'] = True
+            else:
+                self.config['enable_prometheus'] = False
 
         self.db_file = os.path.join(self.config['data_dir'], 'data.db')
 
