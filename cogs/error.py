@@ -125,6 +125,23 @@ class ErrorHandler(commands.Cog):
                 value=str(error)
             )
 
+        if isinstance(error, commands.UnexpectedQuoteError):
+            embed.add_field(
+                name='Unexpected Quote!',
+                value=str(error)
+            )
+
+        if isinstance(error, commands.InvalidEndOfQuotedStringError):
+            embed.add_field(
+                name='Invalid end of quoted string!',
+                value=str(error)
+            )
+        if isinstance(error, commands.ExpectedClosingQuoteError):
+            embed.add_field(
+                name='Expected closing quote!',
+                value=str(error)
+            )
+
         if isinstance(error, commands.BadArgument):
             if not embed.fields:
                 embed.add_field(
