@@ -1,11 +1,10 @@
 import traceback
 import utils
-import logging
 
 import discord
 from discord.ext import commands
+from loguru import logger
 
-logger = logging.getLogger(__name__)
 
 class ErrorHandler(commands.Cog):
     def __init__(self, bot: utils.CustomBot):

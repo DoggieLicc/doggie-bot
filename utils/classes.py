@@ -4,10 +4,10 @@ import yaml
 import asqlite
 import os
 import shutil
-import logging
 
 from discord import TextChannel, ChannelType, Message, User
 from discord.ext import commands, menus
+from loguru import logger
 
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -27,7 +27,6 @@ __all__ = [
     'MissingAPIKey'
 ]
 
-logger = logging.getLogger(__name__)
 
 dirname = os.getcwd()
 config_file = os.path.join(dirname, 'config.yaml')

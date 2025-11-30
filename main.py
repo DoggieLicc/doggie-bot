@@ -1,12 +1,13 @@
 import discord
 import asyncio
 import aiohttp
-import utils
 import logging
+import inspect
 
+import utils
+
+from loguru import logger
 from discord.ext.prometheus import PrometheusCog, PrometheusLoggingHandler
-
-logging.getLogger().addHandler(PrometheusLoggingHandler())
 
 
 cogs = [
@@ -41,7 +42,27 @@ intents = discord.Intents(
 )
 
 
+class InterceptHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        # Get corresponding Loguru level if it exists.
+        level: str | int
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Find caller from where originated the logged message.
+        frame, depth = inspect.currentframe(), 0
+        while frame and (depth == 0 or frame.f_code.co_filename == logging.__file__):
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+
+
 async def startup():
+    discord.utils.setup_logging(handler=InterceptHandler())
+
     bot = utils.CustomBot(
         activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie."'),
         allowed_mentions=discord.AllowedMentions(replied_user=False),
@@ -54,11 +75,15 @@ async def startup():
     )
 
     if bot.config['enable_prometheus']:
-        await bot.add_cog(PrometheusCog(bot, port=bot.config.get('prometheus_port', 8000)))
+        port = int(bot.config.get('prometheus_port', 8000))
+        logger.info('Prometheus enabled on port %d', port)
+        logger.add(PrometheusLoggingHandler())
+        await bot.add_cog(PrometheusCog(bot, port=port))
 
     bot.cogs_list = cogs
     for cog in cogs:
         await bot.load_extension(cog)
+        logger.debug('Loaded cog: {}', cog)
 
     async with aiohttp.ClientSession(headers=headers) as session:
         bot.session = session
