@@ -1,14 +1,13 @@
 import asyncio
 import utils
 import discord
-import logging
 
 from discord.ext import commands
 
 from typing import Union, List, Optional
 from datetime import datetime, timedelta, timezone
+from loguru import logger
 
-logger = logging.getLogger(__name__)
 
 async def ban_embed(guild: discord.Guild, punished: discord.User, action):
     mod, reason = None, "Unknown"
