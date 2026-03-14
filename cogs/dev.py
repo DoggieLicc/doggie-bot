@@ -244,29 +244,6 @@ class Dev(commands.Cog, command_attrs=dict(hidden=True)):
             files=[await file.to_file() for file in ctx.message.attachments]
         )
 
-    @commands.command(aliases=['gitpull'])
-    async def pull(self, ctx: utils.CustomContext):
-        cmd = 'git pull'
-
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-
-        stdout, _ = await proc.communicate()
-
-        embed = utils.create_embed(
-            ctx.author,
-            title='Pulled from GitHub successfully:',
-            description=f'```wl\n'
-                        f'{stdout.decode()}\n\n'
-                        f'Return code {proc.returncode}'
-                        f'```'
-        )
-
-        await ctx.send(embed=embed)
-
     @commands.command(aliases=['clean'])
     async def cleanup(self, ctx: utils.CustomContext, limit=100):
         messages = await ctx.channel.purge(limit=limit, bulk=False, check=lambda m: m.author == ctx.me)
