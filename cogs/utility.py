@@ -5,7 +5,7 @@ import utils
 import itertools
 
 from discord.ext import commands, menus
-from discord.ext.commands import Greedy
+from discord.ext.commands import Greedy, BotMissingPermissions, MissingPermissions, MissingRequiredArgument
 
 from datetime import timedelta
 from typing import Union, List, Optional, Dict
@@ -141,6 +141,13 @@ class PollSelect(discord.ui.Select):
         await interaction.response.defer()
 
 
+class WebhookSayFlags(commands.FlagConverter):
+    username: Optional[str]
+    avatar_url: Optional[str]
+    content: Optional[str]
+    embeds: List[utils.EmbedConverter] = commands.flag(name='embeds', aliases=['embed'], default=lambda ctx: [])
+
+
 class UtilityCog(commands.Cog, name="Utility"):
     """Utility commands that may be useful to you!"""
 
@@ -273,6 +280,60 @@ class UtilityCog(commands.Cog, name="Utility"):
         pages = utils.CustomMenu(source=HoistersMenu(hoisters, per_page=10), clear_reactions_after=True)
 
         await pages.start(ctx)
+
+    @commands.guild_only()
+    @commands.bot_has_permissions(manage_webhooks=True)
+    @commands.has_permissions(manage_webhooks=True)
+    @commands.command(aliases=['webhook', 'webhooksend'])
+    async def send(self, ctx: utils.CustomContext, channel: discord.TextChannel, *, flags: WebhookSayFlags):
+        """Send a custom webhook message to specified channel, you and this bot need permissions to manage webhooks in that channel
+You can also add files and it'll be sent with the webhook message
+
+**Example:**
+```dog.send #spam 
+username: Mauzy
+avatar_url: https://doggieli.cc/assets/fbimauzy.png
+content: Content 
+
+embed:
+  --title: Title
+  --description: Description 
+  --color: blurple
+  --timestamp: 1633091070
+  --image: https://doggieli.cc/assets/fbimauzy.png
+  --thumbnail: https://doggieli.cc/assets/fbimauzy.png
+
+  --field:
+    ==name: Field Name
+    ==value: Field Value
+
+  --author:
+    ==name: Author Name
+    ==icon_url: https://doggieli.cc/assets/fbimauzy.png```"""
+
+        if not channel.permissions_for(ctx.me).manage_webhooks:
+            raise BotMissingPermissions(['Manage Webhooks'])
+
+        if not channel.permissions_for(ctx.author).manage_webhooks:
+            raise MissingPermissions(['Manage Webhooks'])
+
+        if not flags.content and not flags.embeds:
+            raise MissingRequiredArgument(ctx.command.params['flags'])
+
+        webhooks = await channel.webhooks()
+
+        sending_webhooks = [w for w in webhooks if w.name == 'DoggieBot Sending Webhook']
+
+        if not sending_webhooks:
+            sending_webhook = await channel.create_webhook(name='DoggieBot Sending Webhook')
+        else:
+            sending_webhook = sending_webhooks[0]
+
+        await sending_webhook.send(
+            **dict(flags),
+            allowed_mentions=discord.AllowedMentions.none(),
+            files=[await file.to_file() for file in ctx.message.attachments]
+        )
 
     @commands.guild_only()
     @hoisters.command(aliases=['ids'])
