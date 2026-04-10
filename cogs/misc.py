@@ -16,7 +16,7 @@ class Misc(commands.Cog):
     async def info(self, ctx: utils.CustomContext):
         """Shows information for the bot!"""
 
-        invite_url = discord.utils.oauth_url(ctx.me.id, permissions=discord.Permissions(1375866285270))
+        invite_url = discord.utils.oauth_url(ctx.me.id, permissions=discord.Permissions(4513770781404358))
 
         embed = utils.create_embed(
             ctx.author,
@@ -32,7 +32,7 @@ class Misc(commands.Cog):
 
         embed.add_field(
             name="Join support server!",
-            value="[Support Server](https://discord.gg/fzzeScC6XC)",
+            value="[Support Server](https://discord.gg/d7dgReCnRR)",
             inline=False
         )
 

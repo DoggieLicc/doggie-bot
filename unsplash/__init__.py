@@ -67,7 +67,7 @@ class UserLinks:
     html: str
     photos: str
     likes: str
-    portfolio: str
+    portfolio: Optional[str] = None
     following: Optional[str] = None
     followers: Optional[str] = None
 

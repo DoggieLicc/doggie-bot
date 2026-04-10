@@ -1,4 +1,4 @@
-[![Discord](https://discord.com/api/guilds/815073622213394473/widget.png?style=shield)](https://discord.gg/Uk6fg39cWn)
+[![Discord](https://discord.com/api/guilds/1298552274896949339/widget.png?style=shield)](https://discord.gg/d7dgReCnRR)
 
 # doggie-bot
 A multipurpose bot that combines Info Bot, Mini Mod, and Reminder Friend's commands, and more.
@@ -6,7 +6,7 @@ A multipurpose bot that combines Info Bot, Mini Mod, and Reminder Friend's comma
 This bot runs on the master branch of [discord.py](https://github.com/Rapptz/discord.py)
 
 ## Invite this bot:
-[Invite Link](https://discord.com/oauth2/authorize?client_id=930596365426360421&scope=bot&permissions=1375866285270), it's recommended to not remove any permissions, as some or all commands may stop working
+[Invite Link](https://discord.com/oauth2/authorize?client_id=930596365426360421), it's recommended to not remove any permissions, as some or all commands may stop working
 
 ## Hosting guide (docker compose, recomended):
 
@@ -55,8 +55,6 @@ You will know which arguments to put in a command by looking at its command sign
 ̶c̶o̶m̶m̶a̶n̶d - You can't run this command
 ```
 
-**help - [command]**: Shows this bot's commands, if a command is specified then info for that command is shown! 
-
 ## Information commands:
 
 **server**: Lists info for the current guild
@@ -77,11 +75,17 @@ You will know which arguments to put in a command by looking at its command sign
 
 **message - \<message>**: Gets information for a Discord Message!
 
+**channels**: Lists all the channels in the server! They will be sent to your DMs!
+
+**emotes**: Lists all the emotes in the server! They will be sent to your DMs!
+
 **color - \<color>**: Gets info for a color! You can specify a member, role, or color.
 
 **whois - \<domain>**: Does a WHOIS lookup on a domain!
 
 **wikipedia - \<search>**: Looks up Wikipedia articles by their title!
+
+**snowflake - \<id>**: Gets creation date for a Discord snowflake
 
 ## Moderation commands:
 
@@ -92,6 +96,10 @@ You will know which arguments to put in a command by looking at its command sign
 **softban - \<members>... [reason]**: Bans then unbans the specified users, which deletes their recent messages and 'kicks' them.
 
 **kick - \<members>... [reason]**: Kick members who broke the rules! You can specify multiple members in one command.
+
+**timeout - [members]... [duration]... [reason=No reason specified]**: Puts specified members in timeout! You can specify multiple members in one command.
+
+**untimeout - [members]... [reason=No reason specified]**: Removes timeout from members!
 
 **rename - [members]... \<nickname>**: Renames users to a specified name
 
@@ -121,25 +129,29 @@ You will know which arguments to put in a command by looking at its command sign
 
 **source - [command]**: Look at the code of this bot!
 
-## Game commands:
+## Games commands:
 
 **minecraft - \<account>**: Gets info of minecraft accounts using current username or their UUID
 
-**osu - \<subcommand>**: Gets info for osu! accounts and beatmaps!
+**osu account - \<account> [gamemode=osu]**: Gets info of an osu! account by its name. Can also specify a gamemode to get stats for
+
+**osu beatmap - \<beatmap>**: Gets a beatmap from a beatmap ID! (Not a beatmap set, an individual beatmap)
 
 ## Utility commands:
 
 **recentjoins**: Shows the most recent joins in the current server
 
-**selfbot - [users]...**: Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)
+**selfbot**: Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)
 
 **hoisters - \<subcommand>**: Shows a list of members who have names made to 'hoist' themselves to the top of the member list!
+
+**send - \<channel> \<flags>**: Send a custom webhook message to specified channel, you and this bot need permissions to manage webhooks in that channel
 
 **steal - [emotes]...**: Adds the specified emotes to your server!
 
 **newacc**: Shows the newest accounts in this server!
 
-**poll - [timeout=600] \<question> [options...]**: Makes a poll that anyone can vote on! Use quotes to separate multi-word question and options
+**saucenao - [image]**: Gets the source of an image using SauceNAO, usually for art. Most anime databases are disabled. :3
 
 ## Images commands:
 
@@ -157,11 +169,13 @@ You will know which arguments to put in a command by looking at its command sign
 
 **contrast - [image] [strength=1.25]**: Adds contrast to specified image! Passing in an strength less than 1 will lower it instead
 
+**impact - [image] \<top_text> [bottom_text]**: Adds text with impact font to specified image!
+
 **rotate - [image] [angle=90]**: Rotates an image! Positive number for clockwise, negative for counter-clockwise
 
 **pride - [image] [transparency=50]**: Adds the pride rainbow to image!
 
-**gay - [image] [transparency=50]**: Adds the gay rainbow to image!
+**gay - [image] [transparency=50]**: Adds the gay flag to image!
 
 **transgender - [image] [transparency=50]**: Adds the transgender flag to image!
 
@@ -189,9 +203,11 @@ You will know which arguments to put in a command by looking at its command sign
 
 ## Random commands:
 
-**random - \<subcommand>**: Commands that choose something random!
+**random color**: Shows a random color!
 
-**unsplash - \<subcommand>**: Commands that have to do with the Unsplash API!
+**random member - [include_bots=False]**: Shows a random member from this server!
+
+**unsplash random**: Gets a random photo from the Unsplash API!
 
 **fox**: Gets a random fox from randomfox.ca
 
