@@ -2,7 +2,6 @@ services:
   doggie-bot:
     build: .
     container_name: doggie-bot
-    restart: unless-stopped
 
     volumes:
       - ./data:/data
