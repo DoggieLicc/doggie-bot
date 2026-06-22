@@ -1,10 +1,16 @@
-import discord
 import io
-import utils
+from inspect import Parameter, Signature
+from typing import Callable, Any
+from dataclasses import dataclass, field
 
-from discord.ext import commands
+import discord
+
+from discord import app_commands, Interaction, Attachment, InteractionResponded
+from discord.app_commands import Range, Group, Command
+from discord.ext.commands import GroupCog
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw, ImageFont, ImageSequence
-from typing import Optional, List
+
+import utils
 
 
 def image_to_file(image: Image, extension) -> discord.File:
@@ -16,7 +22,7 @@ def image_to_file(image: Image, extension) -> discord.File:
     return discord.File(img_bytes, f'image.{extension}')
 
 
-def hande_gif_images(func, b: bytes, *args, **kwargs):
+def hande_gif_images(b: bytes, func: Callable, *args, **kwargs) -> bytes:
     im = Image.open(io.BytesIO(b))
     frames = []
     new = io.BytesIO()
@@ -123,33 +129,12 @@ def make_mask(colors, width, height):
     return color_image
 
 
-def make_flag(image: Image, alpha: float, colors: List):
+def make_flag(image: Image, alpha: float, colors: list[int]):
+    alpha /= 100
     mask = make_mask(colors, *image.size)
     blended_image = Image.blend(image, mask, alpha)
 
     return blended_image
-
-
-async def pride_flag(ctx: utils.CustomContext, image: Optional[bytes], transparency: int, colors: List):
-    if not 0 < transparency <= 100:
-        raise commands.BadArgument('Transparency should be in between 0 and 100')
-
-    transparency /= 100
-
-    if not image:
-        image_bytes = await utils.ImageConverter().convert(ctx, image)
-    else:
-        image_bytes = image
-
-    file = await ctx.bot.loop.run_in_executor(None, hande_gif_images, make_flag, image_bytes, transparency, colors)
-
-    embed = utils.create_embed(
-        ctx.author,
-        title=f'Here\'s your {ctx.command.name} image:',
-        image=f'attachment://{file.filename}'
-    )
-
-    await ctx.send(embed=embed, file=file)
 
 
 def add_impact(image: Image, top_text: str, bottom_text: str):
@@ -190,613 +175,167 @@ def add_impact(image: Image, top_text: str, bottom_text: str):
 
     return image
 
+@dataclass
+class CommandArg:
+    arg_index: int
 
-class Images(commands.Cog):
+@dataclass
+class ImageCommand:
+    name: str
+    description: str
+    parameters: tuple[tuple[str, type, Any], ...]
+    func: Callable
+    arguments: list[Any] = field(default_factory=list)
+    descripts: dict[str, str] = field(default_factory=dict)
+
+    def add_param_description(self, callback: Callable):
+        self.descripts['image'] = 'The image you want to modify. If not specified, will use the last selected image, or your avatar'
+        deco = app_commands.describe(**self.descripts)
+        print(self.descripts)
+        return deco(callback)
+
+    def get_callback(self) -> Callable:
+        params = [
+            Parameter(
+                "interaction",
+                Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=Interaction,
+            ),
+            Parameter(
+                "image",
+                Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=Attachment | None,
+                default=None
+            ),
+        ]
+
+        for name, typ, default in self.parameters:
+            params.append(
+                Parameter(
+                    name,
+                    Parameter.POSITIONAL_OR_KEYWORD,
+                    annotation=typ,
+                    default=default,
+                )
+            )
+
+        async def callback(*args, **kwargs):
+            bound = callback.__signature__.bind(*args, **kwargs)
+
+            interaction: Interaction = bound.arguments["interaction"]
+            image: Attachment = bound.arguments["image"]
+
+            if image:
+                if not image.content_type.startswith('image'):
+                    raise utils.DoggieBotException('Attachment is not an image!')
+                image_bytes = await image.read()
+            else:
+                image_bytes = await interaction.user.display_avatar.read()
+
+            command_args = [
+                bound.arguments[name]
+                for name, _, _ in self.parameters
+            ]
+
+            await interaction.response.defer(thinking=True)
+
+            file = await interaction.client.loop.run_in_executor(
+                None,
+                lambda: hande_gif_images(
+                    image_bytes,
+                    self.func,
+                    *command_args,
+                    *self.arguments
+                )
+            )
+
+
+            embed = utils.create_embed(
+                interaction.user,
+                title="Here's your image:",
+                image=f"attachment://{file.filename}",
+            )
+
+            await interaction.edit_original_response(
+                embed=embed,
+                attachments=[file],
+            )
+
+        callback.__name__ = str(self.name)
+        callback.__signature__ = Signature(params)
+        callback = self.add_param_description(callback)
+
+        return callback
+
+@dataclass
+class PrideFlagCommand(ImageCommand):
+    func: Callable | None = field(init=False)
+
+    def __post_init__(self):
+        self.descripts = {'transparency': 'How transparent the flag overlay will be (0-100)'}
+        self.func = make_flag
+
+# pylint: disable=line-too-long
+IMAGE_COMMANDS = [
+    ImageCommand('invert', 'Invert an image\'s colors!', [], invert_image),
+    ImageCommand('grayscale', 'Grayscale an image!', [], greyscale_image),
+    ImageCommand('deepfry', 'Deepfry an image!', [], deepfry_image),
+    ImageCommand('blur', 'Blur an image!', [('strength', Range[int, 0, 100], 5)], deepfry_image, {'strength': 'How strong to make the blur (0-100, default 5)'}),
+    ImageCommand('noise', 'Add a noise filter to an image!', [('strength', Range[int, 0, 100], 50)], noise_image, {'strength': 'How strong to make the noise (0-100, default 50)'}),
+    ImageCommand('brighten', 'Brighten an image!', [('brightness', Range[float, 0, 10], 1.25)], brighten_image, {'brightness': 'How bright to make the image, values under 1 darken it. (0-10, default 1.25)'}),
+    ImageCommand('contrast', 'Add contrast to an image!', [('strength', Range[float, 0, 10], 1.25)], contrast_image, {'contrast': 'How strong to make the contrast, values under 1 lower contrast (0-10, default 1.25)'}),
+    ImageCommand('impact', 'Add impact-font text to an image!', [('top_text', str, 'TOP TEXT'), ('bottom_text', str, '')], add_impact, {'top_text': 'The text to add at the top', 'bottom_text': 'The text to add at the bottom'}),
+    ImageCommand('rotate', 'Rotate an image!', [('angle', float, 90.0)], rotate_image, {'angle': 'How many degrees to rotate the image clockwise (default 90.0)'})
+]
+
+FLAG_COMMANDS = [
+    PrideFlagCommand('pride', 'Overlay the regular pride colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(255, 0, 24), (255, 165, 44), (255, 255, 65), (0, 128, 24), (0, 0, 249), (134, 0, 125)],)),
+    PrideFlagCommand('gay', 'Overlay the toothpaste gay colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(7, 141, 112), (38, 206, 170), (153, 232, 194), (255, 255, 255), (123, 173, 227), (80, 73, 203), (62, 26, 120)],)),
+    PrideFlagCommand('transgender', 'Overlay the transgender colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(91, 206, 250), (245, 169, 184), (255, 255, 255), (245, 169, 184), (91, 206, 250)],)),
+    PrideFlagCommand('bisexual', 'Overlay the bisexual colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(216, 9, 126), (216, 9, 126), (140, 87, 156), (36, 70, 142), (36, 70, 142)],)),
+    PrideFlagCommand('lesbian', 'Overlay the lesbian colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(213, 45, 0), (239, 118, 39), (255, 154, 86), (255, 255, 255), (209, 98, 164), (181, 86, 144), (163, 2, 98)],)),
+    PrideFlagCommand('acesexual', 'Overlay the acesexual colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(0, 0, 0), (164, 164, 164), (255, 255, 255), (129, 0, 129)],)),
+    PrideFlagCommand('pansexual', 'Overlay the pansexual colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(255, 28, 141), (255, 215, 0), (26, 179, 255)],)),
+    PrideFlagCommand('nonbinary', 'Overlay the nonbinary colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(255, 244, 48), (255, 255, 255), (156, 89, 209), (0, 0, 0)],)),
+    PrideFlagCommand('gnc', 'Overlay the gender-nonconforming colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(80, 40, 76), (150, 71, 122), (93, 150, 247), (255, 255, 255), (93, 150, 247), (150, 71, 122), (80, 40, 76)],)),
+    PrideFlagCommand('aromantic', 'Overlay the aromantic colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(58, 166, 63), (168, 212, 122), (255, 255, 255), (170, 170, 170), (0, 0, 0)],)),
+    PrideFlagCommand('genderqueer', 'Overlay the genderqueer colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(181, 126, 220), (255, 255, 255), (73, 128, 34)],)),
+]
+
+class Images(GroupCog, group_name='image'):
     """Commands for image manipulation!"""
 
     def __init__(self, bot):
         self.bot: utils.CustomBot = bot
 
-    @commands.command()
-    async def invert(self, ctx: utils.CustomContext, *, image: Optional[str]):
-        """Inverts the colors of a specified image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        # Use converter here so that it triggers even without given argument
-        image_bytes = await utils.ImageConverter().convert(ctx, image)
-
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, invert_image, image_bytes)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title='Here\'s your inverted image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['grayscale', 'grey', 'gray'])
-    async def greyscale(self, ctx: utils.CustomContext, *, image: Optional[str]):
-        """Greyscale the specified image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        alias = ctx.invoked_with.lower()
-
-        # Use converter here so that it triggers even without given argument
-        image_bytes = await utils.ImageConverter().convert(ctx, image)
-
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, greyscale_image, image_bytes)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your {alias[:4]}scale image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['deep', 'fry'])
-    async def deepfry(self, ctx: utils.CustomContext, *, image: Optional[str]):
-        """Deepfry the specified image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        # Use converter here so that it triggers even without given argument
-        image_bytes = await utils.ImageConverter().convert(ctx, image)
-
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, deepfry_image, image_bytes)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your deepfried image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['blurry'])
-    async def blur(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=5):
-        """Blurs the specified image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, blur_image, image_bytes, abs(strength))
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your blurred image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['noisy'])
-    async def noise(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=50):
-        """Adds noise to specified image! Strength should be in between 0 and 100
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        if not 0 < strength <= 100:
-            raise commands.BadArgument('Strength should be in between 0 and 100')
-
-        strength /= 100
-
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, noise_image, image_bytes, strength)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your noisy image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['bright', 'brightness'])
-    async def brighten(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=1.25):
-        """Brightens specified image! Passing in an strength less than 1 will darken it instead
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        if not 0 < strength:
-            raise commands.BadArgument('Strength should be more than zero!')
-
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, brighten_image, image_bytes, strength)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your brightened image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command()
-    async def contrast(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], strength=1.25):
-        """Adds contrast to specified image! Passing in an strength less than 1 will lower it instead
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        if not 0 < strength:
-            raise commands.BadArgument('Strength should be more than zero!')
-
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, contrast_image, image_bytes, strength)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your modified image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['meme', 'text'])
-    async def impact(
-            self,
-            ctx: utils.CustomContext,
-            image: Optional[utils.ImageConverter],
-            top_text: str,
-            bottom_text: Optional[str]
-    ):
-        """Adds text with impact font to specified image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        file = await self.bot.loop.run_in_executor(
-            None,
-            hande_gif_images,
-            add_impact,
-            image_bytes,
-            top_text,
-            bottom_text
-        )
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your modified image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command()
-    async def rotate(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], angle=90):
-        """Rotates an image! Positive number for clockwise, negative for counter-clockwise
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        if not image:
-            image_bytes = await utils.ImageConverter().convert(ctx, image)
-        else:
-            image_bytes = image
-
-        file = await self.bot.loop.run_in_executor(None, hande_gif_images, rotate_image, image_bytes, angle)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Here\'s your modified image:',
-            image=f'attachment://{file.filename}'
-        )
-
-        await ctx.send(embed=embed, file=file)
-
-    @commands.command(aliases=['rainbow', 'lgbt'])
-    async def pride(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the pride rainbow to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        pride_colors = [(255, 0, 24), (255, 165, 44), (255, 255, 65), (0, 128, 24), (0, 0, 249), (134, 0, 125)]
-
-        await pride_flag(ctx, image, transparency, pride_colors)
-
-    @commands.command(aliases=['homo', 'homosexual'])
-    async def gay(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the gay flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        gay_colors = [
-            (7, 141, 112),
-            (38, 206, 170),
-            (153, 232, 194),
-            (255, 255, 255),
-            (123, 173, 227),
-            (80, 73, 203),
-            (62, 26, 120)
-        ]
-
-        await pride_flag(ctx, image, transparency, gay_colors)
-
-    @commands.command(aliases=['trans'])
-    async def transgender(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the transgender flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        trans_colors = [(91, 206, 250), (245, 169, 184), (255, 255, 255), (245, 169, 184), (91, 206, 250)]
-
-        await pride_flag(ctx, image, transparency, trans_colors)
-
-    @commands.command(aliases=['bi'])
-    async def bisexual(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the bisexual flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        bi_colors = [(216, 9, 126), (216, 9, 126), (140, 87, 156), (36, 70, 142), (36, 70, 142)]
-
-        await pride_flag(ctx, image, transparency, bi_colors)
-
-    @commands.command(aliases=['lesb'])
-    async def lesbian(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the lesbian flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        lesbian_colors = [
-            (213, 45, 0), (239, 118, 39), (255, 154, 86), (255, 255, 255), (209, 98, 164), (181, 86, 144), (163, 2, 98)
-        ]
-
-        await pride_flag(ctx, image, transparency, lesbian_colors)
-
-    @commands.command(aliases=['ace'])
-    async def asexual(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the asexual flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        ace_colors = [(0, 0, 0), (164, 164, 164), (255, 255, 255), (129, 0, 129)]
-
-        await pride_flag(ctx, image, transparency, ace_colors)
-
-    @commands.command(aliases=['pan'])
-    async def pansexual(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the pansexual flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        pan_colors = [(255, 28, 141), (255, 215, 0), (26, 179, 255)]
-
-        await pride_flag(ctx, image, transparency, pan_colors)
-
-    @commands.command(aliases=['nb', 'non-binary', 'non_binary'])
-    async def nonbinary(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the non-binary flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        nb_colors = [(255, 244, 48), (255, 255, 255), (156, 89, 209), (0, 0, 0)]
-
-        await pride_flag(ctx, image, transparency, nb_colors)
-
-    @commands.command(aliases=['nonconforming'])
-    async def gnc(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the gender nonconforming flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        gnc_colors = [
-            (80, 40, 76), (150, 71, 122), (93, 150, 247), (255, 255, 255), (93, 150, 247), (150, 71, 122), (80, 40, 76)
-        ]
-
-        await pride_flag(ctx, image, transparency, gnc_colors)
-
-    @commands.command(aliases=['aro'])
-    async def aromantic(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the aromantic flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        aromantic_colors = [(58, 166, 63), (168, 212, 122), (255, 255, 255), (170, 170, 170), (0, 0, 0)]
-
-        await pride_flag(ctx, image, transparency, aromantic_colors)
-
-    @commands.command(aliases=['gq'])
-    async def genderqueer(self, ctx: utils.CustomContext, image: Optional[utils.ImageConverter], transparency=50):
-        """Adds the genderqueer flag to image!
-
-        **Steps for getting image:**
-        1. Replied message -> Message steps
-        2. Specified message -> Message steps
-        3. Command's message -> Message steps
-        4. Invoker's avatar
-
-        **Message steps:**
-        1. Attachment
-        2. Sticker
-        3. Embed image/thumbnail
-        3. Specified user
-        4. Specified emote
-        5. Specified link
-        """
-
-        genderqueer_colors = [(181, 126, 220), (255, 255, 255), (73, 128, 34)]
-
-        await pride_flag(ctx, image, transparency, genderqueer_colors)
-
-    async def cog_command_error(self, ctx: utils.CustomContext, error: Exception):
+    async def cog_load(self):
+        for image_command in IMAGE_COMMANDS:
+            print(image_command)
+            self.app_command.add_command(
+                Command(
+                    name=image_command.name.lower(),
+                    description=image_command.description,
+                    callback=image_command.get_callback()
+                )
+            )
+
+        pride_group = Group(name='pride', description='Image commands for pride', parent=self.app_command)
+
+        for image_command in FLAG_COMMANDS:
+            pride_group.add_command(
+                Command(
+                    name=image_command.name.lower(),
+                    description=image_command.description,
+                    callback=image_command.get_callback()
+                )
+            )
+
+    async def cog_app_command_error(self, interaction: Interaction, error: Exception):
         embed = None
-
-        if isinstance(error, commands.CommandInvokeError):
-            error = error.original
 
         if isinstance(error, UnidentifiedImageError):
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Error while making image!',
                 description='The bot wasn\'t able to identify the image\'s format\n'
                             '**Note:** Links from sites like Tenor and GIPHY don\'t work, use the direct image url',
@@ -804,9 +343,10 @@ class Images(commands.Cog):
             )
 
         if embed:
-            return await ctx.send(embed=embed)
-
-        ctx.uncaught_error = True
+            try:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            except InteractionResponded:
+                await interaction.edit_original_response(embed=embed)
 
 
 async def setup(bot):

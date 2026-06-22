@@ -1,16 +1,14 @@
-import discord
 import base64
 import datetime
-import utils
-
 from typing import Optional, Union
 
-import whoisdomain as whois
-
+import discord
 from discord import Color, Member, Role, User, app_commands, Interaction, Thread, Invite, PartialEmoji, Message
-from discord.ext import commands
+from discord.ext.commands import Cog
 from discord.app_commands import Transform
 
+import whoisdomain as whois
+import utils
 
 def sync_whois(interaction: Interaction, domain: str):
     if not isinstance(domain, str):
@@ -75,7 +73,7 @@ def sync_whois(interaction: Interaction, domain: str):
     return embed
 
 
-class Info(commands.Cog, name='Information'):
+class Info(Cog, name='Information'):
     """Get info for Discord objects, domains, and more"""
 
     def __init__(self, bot: utils.CustomBot):
@@ -380,7 +378,7 @@ class Info(commands.Cog, name='Information'):
         embed = utils.create_embed(
             interaction.user,
             title=f'Info for custom emote: {utils.Emotes.emoji}',
-            thumbnail=emoji.url
+            thumbnail=emote.url
         )
 
         embed.add_field(name='Emote name:', value=emote.name, inline=False)
@@ -406,12 +404,11 @@ class Info(commands.Cog, name='Information'):
 
             return await interaction.response.send_message(embed=embed)
 
-        # noinspection PyBroadException
+        # pylint: disable=broad-exception-caught
         try:
             user = await self.bot.fetch_user(int(base64.b64decode(token[0])))
             bytes_int = base64.urlsafe_b64decode(token[1] + '==')
             bytes_decoded = int.from_bytes(bytes_int, 'big')
-
         except Exception:
             embed = utils.create_embed(
                 interaction.user,
@@ -457,7 +454,7 @@ class Info(commands.Cog, name='Information'):
         """Gets information for a Discord Message"""
 
         if message.guild != interaction.guild:
-            raise commands.MessageNotFound(message)
+            raise utils.DoggieBotException('Invalid message')
 
         embed = utils.create_embed(
             interaction.user,
@@ -539,16 +536,17 @@ class Info(commands.Cog, name='Information'):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command()
-    @app_commands.describe(id='The Discord ID to get info of')
-    async def snowflake(self, interaction: Interaction, id: str):
+    @app_commands.describe(_id='The Discord ID to get info of')
+    @app_commands.rename(_id='id')
+    async def snowflake(self, interaction: Interaction, _id: str):
         """Gets creation date for a Discord snowflake"""
 
         try:
-            time = discord.utils.snowflake_time(int(id))
+            time = discord.utils.snowflake_time(int(_id))
             embed = utils.create_embed(
                 interaction.user,
                 title='Snowflake info:',
-                description=f'**ID:** {id}\n'
+                description=f'**ID:** {_id}\n'
                             f'**Creation Date:** {utils.user_friendly_dt(time)}'
             )
 

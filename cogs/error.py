@@ -1,189 +1,105 @@
 import traceback
-import utils
 
 import discord
-from discord.ext import commands
+from discord.ext.commands import Cog
+from discord import app_commands
 from loguru import logger
 
+import utils
 
-class ErrorHandler(commands.Cog):
+class ErrorHandler(Cog):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
+        self._old_tree_error = None
 
-    @commands.Cog.listener()
-    async def on_command_error(self, ctx: utils.CustomContext, error):
-        if ctx.command and (ctx.command.has_error_handler() or ctx.command.cog.has_error_handler()) \
-                and not ctx.uncaught_error:
-            return
+    async def cog_load(self):
+        tree = self.bot.tree
+        self._old_tree_error = tree.on_error
+        tree.on_error = self.error_handler
 
-        if isinstance(error, commands.CommandInvokeError):
+    async def cog_unload(self):
+        if self._old_tree_error:
+            tree = self.bot.tree
+            tree.on_error = self._old_tree_error
+
+    async def error_handler(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        error_message = None
+
+        if isinstance(error, app_commands.CommandInvokeError):
             error = error.original
 
-        if isinstance(error, (commands.CommandNotFound, commands.NotOwner)):
-            return
+        if isinstance(error, app_commands.TransformerError):
+            transformer_class = type(error.transformer)
+            transformer_name = transformer_class.__name__.replace('Transformer', '')
+            error_message = f'Invalid option "{error.value}" for {transformer_name}!'
 
-        embed = utils.create_embed(ctx.author, title='Error while running command!', color=discord.Color.red())
+        if isinstance(error, app_commands.CheckFailure):
+            error_message = 'You aren\'t allowed to use that command!'
 
-        if isinstance(error, commands.MissingRequiredArgument):
-            embed.add_field(
-                name='Missing arguments!',
-                value='Some required arguments weren\'t passed in, use the help command to see what to pass in!'
-            )
+        if isinstance(error, app_commands.MissingPermissions):
+            error_message = f'You are missing the following permissions: {error.missing_permissions}'
 
-        if isinstance(error, commands.NoPrivateMessage):
-            embed.add_field(
-                name='Can\'t use this command!',
-                value='This command must be used in a guild!'
-            )
+        if isinstance(error, app_commands.BotMissingPermissions):
+            error_message = f'The bot is missing the following permissions: {error.missing_permissions}'
 
-        if isinstance(error, commands.EmojiNotFound):
-            embed.add_field(
-                name='Emote not found!',
-                value='You can post the emote directly or use its ID'
-            )
+        if isinstance(error, utils.DoggieBotException):
+            error_message = str(error)
 
-        if isinstance(error, commands.RoleNotFound):
-            embed.add_field(
-                name='Role not found!',
-                value='You can use the role mention, ID, or name!'
-            )
+        if not error_message:
+            error_message = f'An unknown error occurred: {error}\n\nError info will be sent to owner'
 
-        if isinstance(error, commands.BadInviteArgument):
-            embed.add_field(
-                name='Invite not found',
-                value='Use the invite URL, or it\'s code!'
-            )
+            etype = type(error)
+            trace = error.__traceback__
+            lines = traceback.format_exception(etype, error, trace)
+            traceback_t: str = ''.join(lines)
 
-        if isinstance(error, commands.NotOwner):
-            embed.add_field(
-                name='You\'re on cooldown!',
-                value=str(error)
-            )
+            logger.exception('{}: {}', etype.__name__, error)
+            file = utils.str_to_file(traceback_t, filename='traceback.py')
 
-        if isinstance(error, commands.BadUnionArgument):
-            embed.add_field(
-                name='Bad argument!',
-                value='The given argument didn\'t match any valid values, use the help command to know what to pass in!'
-            )
+            owner: discord.User = await self.bot.get_owner()
 
-        if isinstance(error, commands.MissingPermissions):
-            perms = [str(p).replace('_', ' ').title() for p in error.missing_permissions]
-
-            embed.add_field(
-                name='You don\'t have enough permissions to run that command!',
-                value='You are missing: ' + ', '.join(perms)
-            )
-
-        if isinstance(error, commands.BotMissingPermissions):
-            perms = [str(p).replace('_', ' ').title() for p in error.missing_permissions]
-            embed.add_field(
-                name='The bot doesn\'t have enough permissions!',
-                value='The bot is missing: ' + ', '.join(perms)
-            )
-
-        if isinstance(error, commands.TooManyFlags):
-            embed.add_field(
-                name='Duplicate flags!',
-                value='You duplicated a flag that wasn\'t meant to be duplicated!'
-            )
-
-        if isinstance(error, (commands.BadFlagArgument, commands.MissingFlagArgument)):
-            embed.add_field(
-                name='Flag argument is wrong or missing!',
-                value='Use the help command to know what to pass in!'
-            )
-
-        if isinstance(error, (commands.UserNotFound, commands.MemberNotFound)):
-            embed.add_field(
-                name='User not found!',
-                value='The bot couldn\'t find that user or member! You should use ID or mention!'
-            )
-
-        if isinstance(error, commands.CommandOnCooldown):
-            embed.add_field(
-                name='You\'re on cooldown!',
-                value=str(error)
-            )
-
-        if isinstance(error, commands.ChannelNotFound):
-            embed.add_field(
-                name='The channel wasn\'t found!',
-                value='You can specify a channel using it\'s name, mention, or ID'
-            )
-
-        if isinstance(error, (commands.MessageNotFound, commands.ChannelNotReadable)):
-            embed.add_field(
-                name='The message wasn\'t found!',
-                value='You can specify a message using the message link or ID, make sure the bot has permissions to '
-                      'read the message channel too'
-            )
-
-        if isinstance(error, commands.MaxConcurrencyReached):
-            embed.add_field(
-                name='Too many people using this command!',
-                value=str(error)
-            )
-
-        if isinstance(error, commands.UnexpectedQuoteError):
-            embed.add_field(
-                name='Unexpected Quote!',
-                value=str(error)
-            )
-
-        if isinstance(error, commands.InvalidEndOfQuotedStringError):
-            embed.add_field(
-                name='Invalid end of quoted string!',
-                value=str(error)
-            )
-        if isinstance(error, commands.ExpectedClosingQuoteError):
-            embed.add_field(
-                name='Expected closing quote!',
-                value=str(error)
-            )
-
-        if isinstance(error, commands.BadArgument):
-            if not embed.fields:
-                embed.add_field(
-                    name='Bad argument!',
-                    value=str(error)
+            if owner:
+                owner_embed = utils.create_embed(
+                    interaction.user,
+                    title='Unhandled error occurred!',
+                    color=discord.Color.red()
                 )
 
-        if embed.fields:
-            embed.add_field(
-                name='Help:',
-                value='If you need help, you can use the `help` command, or join the '
-                      '[**support server**](https://discord.gg/Uk6fg39cWn).',
-                inline=False
-            )
+                owner_embed.add_field(
+                    name='Unhandled Error!:',
+                    value=f"{etype.__name__}: {str(error)[:900]}",
+                    inline=False
+                )
+                owner_embed.add_field(name='Command:', value=str(interaction.data)[:1000], inline=False)
 
-            try:
-                return await ctx.send(embed=embed)
-            except (discord.Forbidden, discord.HTTPException):
-                return
+                owner_embed.add_field(
+                    name='Extra Info:',
+                    value=f'Guild: {interaction.guild}: {getattr(interaction.guild, "id", "None")}\n'
+                          f'Channel: {interaction.channel}:{interaction.channel.id}', inline=False
+                )
 
-        etype = type(error)
-        trace = error.__traceback__
-        lines = traceback.format_exception(etype, error, trace)
-        traceback_t: str = ''.join(lines)
+                await owner.send(embed=owner_embed, files=[file])
 
-        logger.error(traceback_t)
-        file = utils.str_to_file(traceback_t, filename='traceback.py')
-
-        owner: discord.User = await self.bot.get_owner()
-
-        embed.add_field(name='Unhandled Error!:', value=f"Error {error}", inline=False)
-        embed.add_field(name='Message content:', value=ctx.message.content or 'None', inline=False)
-
-        embed.add_field(
-            name='Extra Info:',
-            value=f'Guild: {ctx.guild}: {getattr(ctx.guild, "id", "None")}\n'
-                  f'Channel: {ctx.channel}:', inline=False
+        embed = utils.create_embed(
+            interaction.user,
+            title='Error while running command!',
+            description=error_message[:4000],
+            color=discord.Color.brand_red()
         )
 
         try:
-            await owner.send(file=file, embed=embed)
-        except discord.HTTPException:
-            pass
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except (discord.InteractionResponded, discord.NotFound):
+            try:
+                await interaction.edit_original_response(embed=embed)
+            except (discord.InteractionResponded, discord.NotFound):
+                try:
+                    await interaction.channel.send(embed=embed)
+                except discord.DiscordException:
+                    logger.warning(
+                        'Unable to respond to exception in %s (%s)',
+                        interaction.channel.name, interaction.channel.id
+                    )
 
 
 async def setup(bot):

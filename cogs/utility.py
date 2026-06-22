@@ -4,8 +4,9 @@ import time
 import utils
 import itertools
 
-from discord.ext import commands, menus
-from discord.ext.commands import Greedy, BotMissingPermissions, MissingPermissions, MissingRequiredArgument
+from discord import app_commands, Interaction, Attachment, PartialEmoji
+from discord.app_commands import Transform
+from discord.ext.commands import Greedy, BotMissingPermissions, MissingPermissions, MissingRequiredArgument, Cog
 
 from datetime import timedelta
 from typing import Union, List, Optional, Dict
@@ -21,13 +22,13 @@ def get_hoisters(members: List[discord.Member]):
     return list(itertools.takewhile(check, members))[:200]
 
 
-class RecentJoinsMenu(menus.ListPageSource):
-    async def format_page(self, menu, entries):
-        index = menu.current_page + 1
+class RecentJoinsMenu(utils.EntryMenu):
+    async def get_page_contents(self):
+        entries = self.get_page_items()
         embed = utils.create_embed(
-            menu.ctx.author,
-            title=f'Showing recent joins for {menu.ctx.guild} '
-                  f'({index}/{self._max_pages}):'
+            self.owner,
+            title=f'Showing recent joins for this server'
+                  f'({self.current_index}/{self.max_page}):'
         )
         for member in entries:
             joined_at = utils.user_friendly_dt(member.joined_at)
@@ -39,18 +40,17 @@ class RecentJoinsMenu(menus.ListPageSource):
                       f'Created at: {created_at}', inline=False
             )
 
-        return embed
+        return {"embed": embed}
 
 
-class RecentAccounts(menus.ListPageSource):
-    async def format_page(self, menu, entries):
-        index = menu.current_page + 1
+class RecentAccounts(utils.EntryMenu):
+    async def get_page_contents(self):
         embed = utils.create_embed(
-            menu.ctx.author,
-            title=f'Showing newest accounts in {menu.ctx.guild} '
-                  f'({index}/{self._max_pages}):'
+            self.owner,
+            title=f'Showing newest accounts in this server '
+                  f'({self.current_index}/{self.max_page}):'
         )
-        for member in entries:
+        for member in self.get_page_items():
             joined_at = utils.user_friendly_dt(member.joined_at)
             created_at = utils.user_friendly_dt(member.created_at)
             embed.add_field(
@@ -60,19 +60,18 @@ class RecentAccounts(menus.ListPageSource):
                       f'Created at: {created_at}', inline=False
             )
 
-        return embed
+        return {"embed": embed}
 
 
-class HoistersMenu(menus.ListPageSource):
-    async def format_page(self, menu, entries):
-        index = menu.current_page + 1
+class HoistersMenu(utils.EntryMenu):
+    async def get_page_contents(self):
         embed = utils.create_embed(
-            menu.ctx.author,
-            title=f'Showing potential hoisters for {menu.ctx.guild} '
-                  f'({index}/{self._max_pages}):'
+            self.owner,
+            title=f'Showing potential hoisters for this server '
+                  f'({self.current_index}/{self.max_page}):'
         )
 
-        for member in entries:
+        for member in self.get_page_items():
             embed.add_field(
                 name=f'{member.display_name}',
                 value=f'Username: {member} ({member.mention})\n'
@@ -83,35 +82,26 @@ class HoistersMenu(menus.ListPageSource):
         return embed
 
 
-class HoistersIDMenu(menus.ListPageSource):
-    async def format_page(self, menu, entries):
-        return " ".join(map(str, entries))
+class HoistersIDMenu(utils.EntryMenu):
+    async def get_page_contents(self):
+        return {"content": " ".join(map(str, self.get_page_items())) or 'N/A'}
 
 
-class SauceMenu(menus.ListPageSource):
-    async def format_page(self, menu, result):
-        index = menu.current_page + 1
+class SauceMenu(utils.EntryMenu):
+    async def get_page_contents(self):
+        result = self.get_page_items()[0]
 
-        if menu.ctx.guild and not menu.ctx.channel.is_nsfw() and result['header']['hidden']:
-            embed = utils.create_embed(
-                menu.ctx.author,
-                title=f'Result {index}/{self._max_pages}:',
-                description='Potentially explicit result in channel not marked as NSFW.',
-                color=discord.Color.red()
-            )
+        embed = utils.create_embed(
+            self.owner,
+            title=f'Result {self.current_index}/{self.max_page}:',
+            thumbnail=result['header']['thumbnail']
+        )
 
-        else:
-            embed = utils.create_embed(
-                menu.ctx.author,
-                title=f'Result {index}/{self._max_pages}:',
-                thumbnail=result['header']['thumbnail']
-            )
+        if urls := result['data'].get('ext_urls'):
+            embed.add_field(name='URL:', value=urls[0], inline=False)
 
-            if urls := result['data'].get('ext_urls'):
-                embed.add_field(name='URL:', value=urls[0], inline=False)
-
-            if title := result['data'].get('title'):
-                embed.add_field(name='Title:', value=title, inline=False)
+        if title := result['data'].get('title'):
+            embed.add_field(name='Title:', value=title, inline=False)
 
         if (author_name := result['data'].get('author_name')) or (result['data'].get('author_url')):
             author_url = result['data'].get('author_url')
@@ -128,7 +118,7 @@ class SauceMenu(menus.ListPageSource):
 
         embed.add_field(name='Potentially explicit?', value='Yes' if result['header']['hidden'] else 'No', inline=False)
 
-        return embed
+        return {"embed": embed}
 
 
 class PollSelect(discord.ui.Select):
@@ -141,57 +131,49 @@ class PollSelect(discord.ui.Select):
         await interaction.response.defer()
 
 
-class WebhookSayFlags(commands.FlagConverter):
-    username: Optional[str]
-    avatar_url: Optional[str]
-    content: Optional[str]
-    embeds: List[utils.EmbedConverter] = commands.flag(name='embeds', aliases=['embed'], default=lambda ctx: [])
-
-
-class UtilityCog(commands.Cog, name="Utility"):
+class UtilityCog(Cog, name="Utility"):
     """Utility commands that may be useful to you!"""
 
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    @commands.max_concurrency(5, commands.BucketType.user)
-    @commands.guild_only()
-    @commands.command(aliases=['recentusers', 'recent', 'newjoins', 'newusers', 'rj', 'joins'])
-    async def recentjoins(self, ctx):
+    @app_commands.command()
+    @app_commands.guild_only()
+    async def recentjoins(self, interaction: Interaction):
         """Shows the most recent joins in the current server"""
 
-        async with ctx.channel.typing():
-            members = sorted(ctx.guild.members, key=lambda m: m.joined_at, reverse=True)[:100]
+        await interaction.response.defer(thinking=True, ephemeral=True)
 
-            pages = utils.CustomMenu(source=RecentJoinsMenu(members, per_page=5), clear_reactions_after=True)
+        members = sorted(interaction.guild.members, key=lambda m: m.joined_at, reverse=True)[:100]
+        view = RecentJoinsMenu(interaction.user, members, 10)
 
-        await pages.start(ctx)
-        await self.bot.wait_for('finalize_menu', check=lambda c: c == ctx, timeout=360)
+        await interaction.edit_original_response(view=view, **await view.get_page_contents())
 
-    @commands.max_concurrency(3, commands.BucketType.channel)
-    @commands.guild_only()
-    @commands.command(aliases=['bottest', 'selfbottest', 'bt', 'sbt', 'self'])
-    async def selfbot(self, ctx: utils.CustomContext):
-        """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)
-        When someone reacts with to the message, The user and the time to react will be sent."""
+    @app_commands.guild_only()
+    @app_commands.command()
+    async def selfbot(self, interaction: Interaction):
+        """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)"""
 
         selfbot_embed = discord.Embed(
             color=discord.Color.green(),
             title='Giveaway',
             description=f'**Prize:** Discord Nitro\n'
                         f'**Time left:** Infinity\n'
-                        f'**Hosted by:** {ctx.guild.owner.mention}\n'
+                        f'**Hosted by:** {interaction.guild.owner.mention}\n'
                         f'**React with :tada: to participate!**'
         )
 
         selfbot_embed.set_author(name='Discord Nitro')
 
-        message = await ctx.send(
+        message = await interaction.response.send_message(
             ':tada: **GIVEAWAY** :tada: :yay:',
             embed=selfbot_embed
-        )
+        ).resource
 
-        await message.add_reaction('\N{PARTY POPPER}')
+        try:
+            await message.add_reaction('\N{PARTY POPPER}')
+        except discord.DiscordException:
+            pass
 
         t = time.perf_counter()
         seen_users = set()
@@ -212,113 +194,87 @@ class UtilityCog(commands.Cog, name="Utility"):
 
                 if not seen_users:
                     embed = utils.create_embed(
-                        ctx.author,
+                        interaction.user,
                         title='Test timed out!',
                         description=f'No one reacted within 10 minutes!',
                         color=discord.Color.red()
                     )
 
-                    await message.reply(embed=embed)
+                    await interaction.edit_original_response(embeds=[selfbot_embed, embed])
 
                 return
 
             else:
-                if user == ctx.author:
+                if user == interaction.user:
                     embed = utils.create_embed(
-                        ctx.author,
+                        interaction.user,
                         title='Test canceled!',
                         description=f'You reacted to your own test, so it was canceled.\nAnyways, '
                                     f'your time is {round(time.perf_counter() - t, 2)} seconds.',
                         color=discord.Color.red()
                     )
 
-                    return await message.reply(embed=embed)
+                    return await interaction.edit_original_response(embeds=[selfbot_embed, embed])
 
                 else:
-                    if not users_message:
-
+                    if not len(message.embeds) > 1:
                         embed = utils.create_embed(
-                            ctx.author,
+                            interaction.user,
                             title='Reaction found!',
                             description=f'{user} (ID: {user.id})\nreacted with {reaction} in '
                                         f'{round(time.perf_counter() - t, 2)} seconds'
                         )
 
-                        users_message = await message.reply(embed=embed)
-
+                        message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
                     else:
-
                         new_msg = f'\n\n{user} (ID: {user.id})\nreacted with {reaction} in ' \
                                   f'{round(time.perf_counter() - t, 2)} seconds'
 
                         embed = utils.create_embed(
-                            ctx.author,
+                            interaction.user,
                             title='Reactions found!',
-                            description=users_message.embeds[0].description + new_msg
+                            description=message.embeds[0].description + new_msg
                         )
 
-                        users_message = await users_message.edit(embed=embed)
+                        message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
 
-    @commands.guild_only()
-    @commands.cooldown(5, 60)
-    @commands.group(aliases=['hoist'], invoke_without_command=True)
-    async def hoisters(self, ctx: utils.CustomContext):
+    @app_commands.guild_only()
+    @app_commands.command()
+    async def hoisters(self, interaction: Interaction):
         """Shows a list of members who have names made to 'hoist' themselves to the top of the member list!"""
 
-        hoisters = get_hoisters(ctx.guild.members)
+        hoisters = get_hoisters(interaction.guild.members)
 
         if not hoisters:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title="No hoisters found!",
                 description="There weren't any members with odd characters found!",
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        pages = utils.CustomMenu(source=HoistersMenu(hoisters, per_page=10), clear_reactions_after=True)
+        view = HoistersMenu(interaction.user, hoisters, 10)
 
-        await pages.start(ctx)
+        await interaction.response.send_message(view=view, **await view.get_page_contents(), ephemeral=True)
 
-    @commands.guild_only()
-    @commands.bot_has_permissions(manage_webhooks=True)
-    @commands.has_permissions(manage_webhooks=True)
-    @commands.command(aliases=['webhook', 'webhooksend'])
-    async def send(self, ctx: utils.CustomContext, channel: discord.TextChannel, *, flags: WebhookSayFlags):
-        """Send a custom webhook message to specified channel, you and this bot need permissions to manage webhooks in that channel
-You can also add files and it'll be sent with the webhook message
+    @utils.client_has_permissions(manage_webhooks=True)
+    @app_commands.default_permissions(manage_webhooks=True)
+    @app_commands.guild_only()
+    @app_commands.command()
+    async def send(self, interaction: Interaction):
+        """Send a custom webhook message to specified channel"""
+        ### pylint: disable=all
 
-**Example:**
-```dog.send #spam 
-username: Mauzy
-avatar_url: https://doggieli.cc/assets/fbimauzy.png
-content: Content 
+        response = await interaction.response.send_modal()
+        channel = ...
 
-embed:
-  --title: Title
-  --description: Description 
-  --color: blurple
-  --timestamp: 1633091070
-  --image: https://doggieli.cc/assets/fbimauzy.png
-  --thumbnail: https://doggieli.cc/assets/fbimauzy.png
-
-  --field:
-    ==name: Field Name
-    ==value: Field Value
-
-  --author:
-    ==name: Author Name
-    ==icon_url: https://doggieli.cc/assets/fbimauzy.png```"""
-
-        if not channel.permissions_for(ctx.me).manage_webhooks:
+        if not channel.permissions_for(interaction.guild.me).manage_webhooks:
             raise BotMissingPermissions(['Manage Webhooks'])
 
-        if not channel.permissions_for(ctx.author).manage_webhooks:
+        if not channel.permissions_for(interaction.user).manage_webhooks:
             raise MissingPermissions(['Manage Webhooks'])
-
-        if not flags.content and not flags.embeds:
-            raise MissingRequiredArgument(ctx.command.params['flags'])
 
         webhooks = await channel.webhooks()
 
@@ -330,69 +286,44 @@ embed:
             sending_webhook = sending_webhooks[0]
 
         await sending_webhook.send(
-            **dict(flags),
-            allowed_mentions=discord.AllowedMentions.none(),
-            files=[await file.to_file() for file in ctx.message.attachments]
+            #**dict(flags),
+            #allowed_mentions=discord.AllowedMentions.none(),
+            #files=[await file.to_file() for file in attachments]
         )
 
-    @commands.guild_only()
-    @hoisters.command(aliases=['ids'])
-    async def id(self, ctx):
-        """Like `hoisters`, but only shows the ids to make it easy to use with commands"""
-
-        hoisters: List[int] = [m.id for m in get_hoisters(ctx.guild.members)]
-
-        if not hoisters:
-            embed = utils.create_embed(
-                ctx.author,
-                title="No hoisters found!",
-                description="There weren't any members with odd characters found!",
-                color=discord.Color.red()
-            )
-
-            return await ctx.send(embed=embed)
-
-        pages = utils.CustomMenu(source=HoistersIDMenu(hoisters, per_page=100), clear_reactions_after=True)
-        await pages.start(ctx)
-
-    @commands.guild_only()
-    @commands.has_permissions(manage_emojis=True)
-    @commands.bot_has_permissions(manage_emojis=True)
-    @commands.command(aliases=['steal_emote', 'steal_emoji', 'steal_emotes', 'add_emotes', 'add_emote'])
-    async def steal(
-            self,
-            ctx: utils.CustomContext,
-            emotes: Greedy[Union[discord.Emoji, discord.PartialEmoji, utils.NitrolessEmoteConverter]]):
-        """Adds the specified emotes to your server!
-        If you don\'t have nitro, you can replace the : in the emotes with ;
-
-        Example:
-        `doggie.steal <;botTag;230105988211015680>`
-        """
-
-        if not emotes:
-            raise commands.MissingRequiredArgument(ctx.command.params['emotes'])
+    @app_commands.guild_only()
+    @app_commands.default_permissions(create_expressions=True)
+    @utils.client_has_permissions(create_expressions=True)
+    @app_commands.command()
+    async def stealemote(
+        self,
+        interaction: Interaction,
+        emotes: Transform[list[PartialEmoji], utils.MultiplePartialEmoteTransformer]
+    ):
+        """Adds the specified emotes to your server!"""
 
         added, not_added = [], []
         embed = discord.Embed()
 
+        await interaction.response.defer(thinking=True)
+
         for emote in emotes:
-            if isinstance(emote, discord.Emoji) and emote.guild == ctx.guild:
+            if isinstance(emote, discord.Emoji) and emote.guild == interaction.guild:
                 not_added.append(emote)
                 continue
 
             try:
-                added.append(await ctx.guild.create_custom_emoji(
+                added.append(await interaction.guild.create_custom_emoji(
                     name=emote.name,
                     image=await emote.read(),
-                    reason=f'Added by {ctx.author} ({ctx.author.id})')
-                             )
+                    reason=f'Added by {interaction.user} ({interaction.user.id})')
+                )
             except (discord.DiscordException, discord.HTTPException, discord.NotFound, discord.Forbidden):
                 not_added.append(emote)
 
         if not added:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Couldn\'t add any emotes!',
                 description='Make sure they aren\'t already in this server, and that the bot has permissions!',
                 color=discord.Color.red()
@@ -400,7 +331,7 @@ embed:
 
         if added and not_added:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Some emotes couldn\'t be added!',
                 description='Make sure they aren\'t already in this server, and that the bot has permissions!',
                 color=discord.Color.orange()
@@ -408,7 +339,7 @@ embed:
 
         if added and not not_added:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Emotes successfully added!'
             )
 
@@ -426,59 +357,39 @@ embed:
                 inline=False
             )
 
-        await ctx.send(embed=embed)
+        await interaction.edit_original_response(embed=embed)
 
-    @commands.guild_only()
-    @commands.command(aliases=['newaccount', 'new', 'newaccs', 'new_account', 'new_accounts'])
-    async def newacc(self, ctx: utils.CustomContext):
+    @app_commands.guild_only()
+    @app_commands.command()
+    async def newaccounts(self, interaction: Interaction):
         """Shows the newest accounts in this server!"""
 
-        members = sorted(ctx.guild.members, key=lambda m: m.created_at, reverse=True)[:200]
+        members = sorted(interaction.guild.members, key=lambda m: m.created_at, reverse=True)[:200]
+        view = RecentAccounts(Interaction.user, members, 10)
+        await interaction.response.send_message(view=view, **await view.get_page_contents(), ephemeral=True)
 
-        pages = utils.CustomMenu(source=RecentAccounts(members, per_page=10), clear_reactions_after=True)
-
-        await pages.start(ctx)
-
-    @selfbot.error
-    async def on_command_error(self, ctx, error):
-        if isinstance(error, commands.MaxConcurrencyReached):
-            embed = utils.create_embed(ctx.author, title=f'Error!', color=discord.Color.red())
-            embed.add_field(
-                name='Too many tests running!',
-                value=f'You can only have {error.number} tests running at the same time in this channel!'
-            )
-
-            await ctx.send(embed=embed)
-
-    @recentjoins.error
-    async def on_command_error(self, ctx, error):
-        if isinstance(error, commands.MaxConcurrencyReached):
-            embed = utils.create_embed(ctx.author, title=f'Error!', color=discord.Color.red())
-            embed.add_field(
-                name='Menu already open!',
-                value=f'You can only have {error.number} menu running at once, '
-                      f'use the ⏹ or 🗑 buttons to close the current menu!'
-            )
-
-            await ctx.send(embed=embed)
-
-    @commands.command(aliases=['sauce', 'saucenow'])
-    @commands.cooldown(4, 30, commands.BucketType.default)
-    @commands.cooldown(100, 60 * 60 * 24, commands.BucketType.default)  # api limits
-    async def saucenao(self, ctx: utils.CustomContext, image: Optional[str]):
+    @app_commands.command(nsfw=True)
+    async def saucenao(
+        self,
+        interaction: Interaction,
+        image: Attachment | None = None,
+        image_url: str | None = None
+    ):
         """Gets the source of an image using SauceNAO, usually for art. Most anime databases are disabled. :3"""
 
-        image_url = ctx.message.attachments[0].url if ctx.message.attachments else image
+        if not image_url and not image:
+            raise utils.DoggieBotException('No image was specified!')
 
-        if not image_url:
-            raise commands.MissingRequiredArgument(ctx.command.params['image'])
+        await interaction.response.defer(thinking=True)
+
+        image_url = image_url or image.proxy_url
 
         BASE_URL = 'https://saucenao.com/search.php'
 
         allowed_dbs = [23, 24, 29, 34, 39, 40, 41, 42]
 
         params = {
-            'api_key': ctx.bot.config['saucenao_api_key'],  # key
+            'api_key': self.bot.config['saucenao_api_key'],  # key
             'output_type': 2,
             'numres': 10,
             'hide': 1,
@@ -486,13 +397,13 @@ embed:
             'url': image_url
         }
 
-        async with ctx.bot.session.get(BASE_URL, params=params) as resp:
+        async with self.bot.session.get(BASE_URL, params=params) as resp:
             data = await resp.json()
             results = data['results']
 
-        pages = utils.CustomMenu(source=SauceMenu(results, per_page=1), clear_reactions_after=True)
+        view = SauceMenu(interaction.user, results, 1)
 
-        await pages.start(ctx)
+        await interaction.edit_original_response(view=view, **await view.get_page_contents())
 
 
 async def setup(bot):

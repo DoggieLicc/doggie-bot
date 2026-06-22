@@ -1,21 +1,18 @@
-import discord
 import unicodedata
-import utils
-
-from discord.ext import commands, menus
-from discord.ext.commands import Greedy
-
-from typing import Union, Optional
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from functools import partial
 
+import discord
+from discord import app_commands, Member, User, Interaction
+from discord.ext.commands import GroupCog
+from discord.app_commands import Transform, Range
 
-GREEDY_INTENTIONAL = Greedy[Union[utils.IntentionalMember, utils.IntentionalUser]]
+import utils
 
 
-def maybe_first_snipe_msg(ctx):
+def maybe_first_snipe_msg(interaction: Interaction):
     embed = utils.create_embed(
-        ctx.author,
+        interaction.user,
         title='⚠ Warning!',
         description='That channel seems to be locked, and this channel '
                     'isn\'t. You should move to a private channel to avoid leaking sensitive '
@@ -35,469 +32,471 @@ async def remove_mute(member: discord.Member, role: discord.Role, **kwargs):
     await member.remove_roles(role, **kwargs)
 
 
-class SnipeMenu(menus.ListPageSource):
-    def __init__(self, entries, first_message: discord.Embed = None):
-        if first_message:
-            self.num_offset = 1
-            entries[:0] = [first_message]
-        else:
-            self.num_offset = 0
-        super().__init__(entries, per_page=1)
+class SnipeMenu(utils.EntryMenu):
+    async def get_page_contents(self):
+        entries = self.get_page_items()
+        if isinstance(entries, discord.Embed):
+            return entries
 
-    async def format_page(self, menu, entries):
-        if isinstance(entries, discord.Embed): return entries
-        index = menu.current_page + 1 - self.num_offset
-
-        embed = utils.format_deleted_msg(entries, title=f'Sniped message {index}/{self._max_pages - self.num_offset}:')
+        embed = utils.format_deleted_msg(entries, title=f'Sniped message {self.current_index}/{self.max_page}:')
 
         embed.set_footer(
-            text=f'Command sent by {menu.ctx.author}',
-            icon_url=utils.fix_url(menu.ctx.author.display_avatar)
+            text=f'Command sent by {self.owner}',
+            icon_url=utils.fix_url(self.owner.display_avatar)
         )
 
-        return embed
+        return {"embed": embed}
 
-
-class Moderation(commands.Cog):
-    """Commands to make moderation easier and simpler
-    Note: To prevent accidental punishments, you must specify users using their mention, id, or name#tag"""
+@app_commands.guild_only()
+class Moderation(GroupCog, group_name='mod'):
+    """Commands to make moderation easier and simpler"""
 
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    async def cog_check(self, ctx: utils.CustomContext):
-        if not ctx.guild:
-            raise commands.NoPrivateMessage()
-
-        return True
-
-    @commands.bot_has_permissions(ban_members=True)
-    @commands.has_permissions(ban_members=True)
-    @commands.command(usage='<users>... [reason]')
+    @utils.invoker_has_permissions(ban_members=True)
+    @utils.client_has_permissions(ban_members=True)
+    @app_commands.command()
+    @app_commands.describe(users='Mentions or IDs of one or multiple users, space seperated')
+    @app_commands.describe(reason='The reason for the ban. Shown in the audit log')
     async def ban(
-            self,
-            ctx: utils.CustomContext,
-            users: GREEDY_INTENTIONAL,
-            *,
-            reason: Optional[str] = "No reason specified"):
-
-        """Ban members who broke the rules! You can specify multiple members in one command.
-        You can also ban users not in the guild using their ID!, You and this bot needs the "Ban Members" permission."""
+        self,
+        interaction: Interaction,
+        users: Transform[list[Member | User], utils.GreedyMemberUserTransformer],
+        reason: str | None = "No reason specified"
+    ):
+        """Ban members who broke the rules! You can specify multiple members in one command."""
 
         if not users:
-            raise commands.UserNotFound(reason)
+            raise utils.DoggieBotException('No users were specified!')
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists = await utils.multi_punish(
-                ctx.author,
-                users,
-                ctx.guild.ban,
-                reason=f'{str(ctx.author)}: {reason}'
-            )  # type: ignore
+        await interaction.response.defer(thinking=True)
 
-        embed = utils.punish_embed(ctx.author, 'banned', reason, lists)
+        # noinspection PyTypeChecker
+        lists = await utils.multi_punish(
+            interaction.user,
+            users,
+            interaction.guild.ban,
+            reason=f'{str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-        await ctx.send(embed=embed)
+        embed = utils.punish_embed(interaction.user, 'banned', reason, lists)
 
-    @commands.bot_has_permissions(ban_members=True)
-    @commands.has_permissions(ban_members=True)
-    @commands.command(usage='<users>... [reason]')
+        await interaction.edit_original_response(embed=embed)
+
+    @utils.invoker_has_permissions(ban_members=True)
+    @utils.client_has_permissions(ban_members=True)
+    @app_commands.command()
+    @app_commands.describe(users='Mentions or IDs of one or multiple users, space seperated')
+    @app_commands.describe(reason='The reason for the unban. Shown in the audit log')
     async def unban(
-            self,
-            ctx: utils.CustomContext,
-            users: Greedy[utils.IntentionalUser], *,
-            reason: Optional[str] = "No reason specified"):
-
-        """Unban banned users with their User ID, you can specify multiple people to be unbanned.
-        You and this bot need the "Ban Members" permission!"""
+        self,
+        interaction: Interaction,
+        users: Transform[list[Member | User], utils.GreedyMemberUserTransformer],
+        reason: str | None = "No reason specified"
+    ):
+        """Unban banned users with their User ID, you can specify multiple people to be unbanned"""
 
         if not users:
-            raise commands.UserNotFound(reason)
+            raise utils.DoggieBotException('No users were specified!')
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists = await utils.multi_punish(
-                ctx.author,
-                users,
-                ctx.guild.unban,
-                reason=f'{str(ctx.author)}: {reason}'
-            )  # type: ignore
+        await interaction.response.defer(thinking=True)
+        # noinspection PyTypeChecker
+        lists = await utils.multi_punish(
+            interaction.user,
+            users,
+            interaction.guild.unban,
+            reason=f'{str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-        embed = utils.punish_embed(ctx.author, 'unbanned', reason, lists)
+        embed = utils.punish_embed(interaction.user, 'unbanned', reason, lists)
 
-        await ctx.send(embed=embed)
+        await interaction.edit_original_response(embed=embed)
 
-    @commands.bot_has_permissions(ban_members=True)
-    @commands.has_permissions(ban_members=True)
-    @commands.command(usage='<members>... [reason]')
+    @utils.invoker_has_permissions(ban_members=True)
+    @utils.client_has_permissions(ban_members=True)
+    @app_commands.command()
+    @app_commands.describe(users='Mentions or IDs of one or multiple users, space seperated')
+    @app_commands.describe(reason='The reason for the softban. Shown in the audit log')
     async def softban(
-            self,
-            ctx: utils.CustomContext,
-            members: Greedy[utils.IntentionalMember], *,
-            reason: Optional[str] = "No reason specified"):
+        self,
+        interaction: Interaction,
+        users: Transform[list[Member | User], utils.GreedyMemberUserTransformer],
+        reason: str | None = "No reason specified"
+    ):
+        """Bans then unbans the specified users, which deletes their recent messages and 'kicks' them"""
 
-        """Bans then unbans the specified users, which deletes their recent messages and 'kicks' them.
-        You and this bot needs the "Ban Members" permission!"""
+        if not users:
+            raise utils.DoggieBotException('No users were specified!')
 
-        if not members:
-            raise commands.MemberNotFound(reason)
+        await interaction.response.defer(thinking=True)
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            banned, not_banned = await utils.multi_punish(
-                ctx.author,
-                members,
-                ctx.guild.ban,
-                reason=f'(Softban) {str(ctx.author)}: {reason}'
-            )  # type: ignore
+        # noinspection PyTypeChecker
+        banned, not_banned = await utils.multi_punish(
+            interaction.user,
+            users,
+            interaction.guild.ban,
+            reason=f'(Softban) {str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-            unbanned, _ = await utils.multi_punish(
-                ctx.author,
-                banned,
-                ctx.guild.unban,
-                reason=f'(Softban) {str(ctx.author)}: {reason}'
-            )  # type: ignore
+        unbanned, _ = await utils.multi_punish(
+            interaction.user,
+            banned,
+            interaction.guild.unban,
+            reason=f'(Softban) {str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-        embed = utils.punish_embed(ctx.author, 'softbanned', reason, (unbanned, not_banned))
+        embed = utils.punish_embed(interaction.user, 'softbanned', reason, (unbanned, not_banned))
 
-        await ctx.send(embed=embed)
+        await interaction.edit_original_response(embed=embed)
 
-    @commands.bot_has_permissions(kick_members=True)
-    @commands.has_permissions(kick_members=True)
-    @commands.command(usage='<members>... [reason]')
+    @utils.invoker_has_permissions(kick_members=True)
+    @utils.client_has_permissions(kick_members=True)
+    @app_commands.command()
+    @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
+    @app_commands.describe(reason='The reason for the kick. Shown in the audit log')
     async def kick(
-            self,
-            ctx: utils.CustomContext,
-            members: Greedy[utils.IntentionalMember],
-            *,
-            reason: Optional[str] = "No reason specified"
+        self,
+        interaction: Interaction,
+        members: Transform[list[Member], utils.GreedyMemberTransformer],
+        reason: str | None = "No reason specified"
     ):
-
-        """Kick members who broke the rules! You can specify multiple members in one command.
-        You and this bot needs the "Kick Members" permission!"""
+        """Kick members who broke the rules! You can specify multiple members in one command"""
 
         if not members:
-            raise commands.MemberNotFound(reason)
+            raise utils.DoggieBotException('No members were specified!')
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists = await utils.multi_punish(
-                ctx.author,
-                members,
-                ctx.guild.kick,
-                reason=f'{str(ctx.author)}: {reason}'
-            )  # type: ignore
+        await interaction.response.defer(thinking=True)
 
-        embed = utils.punish_embed(ctx.author, 'kicked', reason, lists)
+        # noinspection PyTypeChecker
+        lists = await utils.multi_punish(
+            interaction.user,
+            members,
+            interaction.guild.kick,
+            reason=f'{str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-        await ctx.send(embed=embed)
+        embed = utils.punish_embed(interaction.user, 'kicked', reason, lists)
 
-    @commands.bot_has_permissions(moderate_members=True)
-    @commands.has_permissions(moderate_members=True)
-    @commands.command()
+        await interaction.edit_original_response(embed=embed)
+
+    @utils.invoker_has_permissions(moderate_members=True)
+    @utils.client_has_permissions(moderate_members=True)
+    @app_commands.command()
+    @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
+    @app_commands.describe(duration='How long to timeout the member for. Can be a Discord-style timestamp, or durations (5h 30min)')
+    @app_commands.describe(reason='The reason for the timeout. Shown in the audit log')
     async def timeout(
-            self,
-            ctx: utils.CustomContext,
-            members: Greedy[utils.IntentionalMember],
-            duration: Greedy[utils.TimeConverter],
-            *,
-            reason: Optional[str] = 'No reason specified'
+        self,
+        interaction: Interaction,
+        members: Transform[list[Member], utils.GreedyMemberTransformer],
+        duration: Transform[datetime, utils.TimeTransformer],
+        reason: str | None = 'No reason specified'
     ):
-        """Puts specified members in timeout! You can specify multiple members in one command.
-        You and this bot needs the "Moderate Members" permission! (called Timeout Members)
-        Discord limits timeouts to 28 days!
-
-        Examples:
-        `dog.timeout @annoying1 @annoying2 1d 12h spam` - Timeout annoying1 and annoying2 for 1 day, 12 hours for "spam"
-        `dog.timeout Doggie#8512 3h` - Timeout Doggie (without specified reason)"""
+        """Puts specified members in timeout! You can specify multiple members in one command"""
 
         if not members:
-            raise commands.MemberNotFound(reason)
+            raise utils.DoggieBotException('No members were specified!')
 
-        durations = [d for d in duration if duration]
-        durations_set = set([duration.unit for duration in durations])
-        total_seconds = sum([t.seconds for t in durations])
-        end_time = datetime.now(timezone.utc) + timedelta(seconds=total_seconds)
+        await interaction.response.defer(thinking=True)
 
-        if total_seconds >= 28*24*60*60:
-            raise commands.BadArgument('You can\'t timeout for more than 28 days! (Discord limit)')
+        # noinspection PyTypeChecker
+        lists = await utils.multi_punish(
+            interaction.user,
+            members,
+            discord.Member.edit,
+            timed_out_until=duration,
+            reason=f'{str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-        if not durations:
-            raise commands.BadArgument('The duration wasn\'t specified or it was invalid!')
+        embed = utils.punish_embed(interaction.user, 'timed out', reason, lists)
 
-        if len(durations) != len(durations_set):
-            raise commands.BadArgument('There were duplicate units in the duration!')
+        await interaction.edit_original_response(embed=embed)
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists = await utils.multi_punish(
-                ctx.author,
-                members,
-                discord.Member.edit,
-                timed_out_until=end_time,
-                reason=f'{str(ctx.author)}: {reason}'
-            )  # type: ignore
-
-        embed = utils.punish_embed(ctx.author, 'timed out', reason, lists)
-
-        await ctx.send(embed=embed)
-
-    @commands.has_permissions(moderate_members=True)
-    @commands.bot_has_permissions(moderate_members=True)
-    @commands.command(aliases=['timein', 'removetimeout'])
+    @utils.invoker_has_permissions(moderate_members=True)
+    @utils.client_has_permissions(moderate_members=True)
+    @app_commands.command()
+    @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
+    @app_commands.describe(reason='The reason for the untimeout. Shown in the audit log')
     async def untimeout(
-            self,
-            ctx: utils.CustomContext,
-            members: Greedy[utils.IntentionalMember],
-            *,
-            reason: Optional[str] = "No reason specified"
+        self,
+        interaction: Interaction,
+        members: Transform[list[Member], utils.GreedyMemberTransformer],
+        reason: str | None = "No reason specified"
     ):
-        """Removes timeout from members!
-        You and this bot needs the "Moderate Members" permission! (called Timeout Members)"""
+        """Removes timeout from members!"""
 
         if not members:
-            raise commands.MemberNotFound(reason)
+            raise utils.DoggieBotException('No members were specified!')
 
         remove_timeout = partial(discord.Member.edit, timed_out_until=None)
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists = await utils.multi_punish(
-                ctx.author,
-                members,
-                remove_timeout,
-                reason=f'{str(ctx.author)}: {reason}'
-            )  # type: ignore
+        # noinspection PyTypeChecker
+        lists = await utils.multi_punish(
+            interaction.user,
+            members,
+            remove_timeout,
+            reason=f'{str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-        embed = utils.punish_embed(ctx.author, 'untimedout', reason, lists)
+        embed = utils.punish_embed(interaction.user, 'untimedout', reason, lists)
 
-        await ctx.send(embed=embed)
+        await interaction.edit_original_response(embed=embed)
 
-    @commands.bot_has_permissions(manage_nicknames=True)
-    @commands.has_permissions(manage_nicknames=True)
-    @commands.command(aliases=['nick', 'nickname'])
-    async def rename(self, ctx: utils.CustomContext, members: Greedy[utils.IntentionalMember], *, nickname):
-        """Renames users to a specified name"""
+    @utils.invoker_has_permissions(manage_nicknames=True)
+    @utils.client_has_permissions(manage_nicknames=True)
+    @app_commands.command()
+    @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
+    @app_commands.describe(nickname='The new nickname to set for the members')
+    async def rename(
+        self,
+        interaction: Interaction,
+        members: Transform[list[Member], utils.GreedyMemberTransformer],
+        nickname: str
+    ):
+        """Renames members to a specified name"""
 
         if not members:
-            raise commands.MemberNotFound(nickname)
+            raise utils.DoggieBotException('No members were specified!')
 
         if len(nickname) > 32:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Nickname too long!',
                 description=f'The nickname {nickname[:100]} is too long! (32 chars max.)',
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed)
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists = await utils.multi_punish(
-                ctx.author,
-                members,
-                discord.Member.edit,
-                nick=nickname,
-                reason=f'Renamed by {ctx.author}'
-            )  # type: ignore
+        await interaction.response.defer(thinking=True)
 
-        embed = utils.punish_embed(ctx.author, 'renamed', nickname, lists)
+        # noinspection PyTypeChecker
+        lists = await utils.multi_punish(
+            interaction.user,
+            members,
+            discord.Member.edit,
+            nick=nickname,
+            reason=f'Renamed by {interaction.user}'
+        )  # type: ignore
 
-        await ctx.send(embed=embed)
+        embed = utils.punish_embed(interaction.user, 'renamed', nickname, lists)
 
-    @commands.has_permissions(manage_roles=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    @commands.command(aliases=['silence'])
+        await interaction.edit_original_response(embed=embed)
+
+    @utils.invoker_has_permissions(manage_roles=True)
+    @utils.client_has_permissions(manage_roles=True)
+    @app_commands.command()
+    @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
+    @app_commands.describe(reason='The reason for the mute. Shown in the audit log')
     async def mute(
-            self,
-            ctx: utils.CustomContext,
-            members: Greedy[utils.IntentionalMember],
-            *,
-            reason: Optional[str] = "No reason specified"):
-
+        self,
+        interaction: Interaction,
+        members: Transform[list[Member], utils.GreedyMemberTransformer],
+        reason: str | None = "No reason specified"
+    ):
         """Gives the configured mute role to members!"""
 
-        if not ctx.basic_config.mute_role:
+        mute_role = interaction.client.get_basic_config(interaction.guild).mute_role
+
+        if not mute_role:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Mute role not set!',
                 description='You need to set a mute role with the command `config mute_role <role>`',
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed)
 
         if not members:
-            raise commands.MemberNotFound(reason)
+            raise utils.DoggieBotException('No members were specified!')
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists: tuple = await utils.multi_punish(
-                ctx.author,
-                members,
-                add_mute,
-                role=ctx.basic_config.mute_role,
-                reason=f'{str(ctx.author)}: {reason}'
-            )  # type: ignore
+        await interaction.response.defer(thinking=True)
 
-        embed = utils.punish_embed(ctx.author, 'muted', reason, lists)
+        # noinspection PyTypeChecker
+        lists: tuple = await utils.multi_punish(
+            interaction.user,
+            members,
+            add_mute,
+            role=mute_role,
+            reason=f'{str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-        await ctx.send(embed=embed)
+        embed = utils.punish_embed(interaction.user, 'muted', reason, lists)
 
-        self.bot.dispatch('mute', ctx, lists[0], reason)
+        await interaction.edit_original_response(embed=embed)
 
-    @commands.has_permissions(manage_roles=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    @commands.command(aliases=['unsilence'])
+        self.bot.dispatch('mute', interaction, lists[0], reason)
+
+    @utils.invoker_has_permissions(manage_roles=True)
+    @utils.client_has_permissions(manage_roles=True)
+    @app_commands.command()
+    @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
+    @app_commands.describe(reason='The reason for the unmute. Shown in the audit log')
     async def unmute(
-            self,
-            ctx: utils.CustomContext,
-            members: Greedy[utils.IntentionalMember],
-            *,
-            reason: Optional[str] = "No reason specified"):
-
+        self,
+        interaction: Interaction,
+        members: Transform[list[Member], utils.GreedyMemberTransformer],
+        reason: str | None = "No reason specified"
+    ):
         """Removes the configured mute role from members!"""
 
-        if not ctx.basic_config.mute_role:
+        mute_role = interaction.client.get_basic_config(interaction.guild).mute_role
+
+        if not mute_role:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Mute role not set!',
                 description='You need to set a mute role with the command `config mute_role <role>`',
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed)
 
         if not members:
-            raise commands.MemberNotFound(reason)
+            raise utils.DoggieBotException('No members were specified!')
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists = await utils.multi_punish(
-                ctx.author,
-                members,
-                remove_mute,
-                role=ctx.basic_config.mute_role,
-                reason=f'{str(ctx.author)}: {reason}'
-            )  # type: ignore
+        await interaction.response.defer(thinking=True)
 
-        embed = utils.punish_embed(ctx.author, 'unmuted', reason, lists)
+        # noinspection PyTypeChecker
+        lists = await utils.multi_punish(
+            interaction.user,
+            members,
+            remove_mute,
+            role=mute_role,
+            reason=f'{str(interaction.user)}: {reason}'
+        )  # type: ignore
 
-        self.bot.dispatch('unmute', ctx, lists[0], reason)
+        embed = utils.punish_embed(interaction.user, 'unmuted', reason, lists)
 
-        await ctx.send(embed=embed)
+        self.bot.dispatch('unmute', interaction, lists[0], reason)
 
-    @commands.bot_has_permissions(manage_messages=True)
-    @commands.has_permissions(manage_messages=True)
-    @commands.max_concurrency(1, per=commands.BucketType.channel, wait=True)
-    @commands.cooldown(5, 60, type=commands.BucketType.guild)
-    @commands.command(aliases=['clear', 'delete'])
-    async def purge(self, ctx: utils.CustomContext, users: GREEDY_INTENTIONAL, amount: Optional[int] = 20):
-        """Deletes multiple messages from the current channel, you can specify users that it will delete messages from.
-        You can also specify the amount of messages to check. You and this bot needs the "Manage Messages" permission"""
+        await interaction.edit_original_response(embed=embed)
+
+    @utils.invoker_has_permissions(manage_messages=True)
+    @utils.client_has_permissions(manage_messages=True)
+    @app_commands.command()
+    @app_commands.describe(users='Mentions or IDs of one or multiple users to delete messages from, space seperated')
+    @app_commands.describe(amount='The amount of messages to check. Max of 200')
+    async def purge(
+        self,
+        interaction: Interaction,
+        users: Transform[list[Member | User], utils.GreedyMemberUserTransformer] | None = None,
+        amount: Range[int, 1, 200] | None = 200
+    ):
+        """Deletes multiple messages from the current channel, you can specify users that it will delete messages from. You can also specify the amount of messages to check."""
 
         amount = 200 if abs(amount) >= 200 else abs(amount) + 1
 
-        async with ctx.channel.typing():
-            messages_deleted = await ctx.channel.purge(limit=amount, check=lambda m: not users or (m.author in users))
+        await interaction.response.defer(thinking=True)
+
+        messages_deleted = await interaction.channel.purge(limit=amount, check=lambda m: not users or (m.author in users))
 
         users = [user.mention for user in users] if users else ['anyone']
         embed = utils.create_embed(
-            ctx.author,
+            interaction.user,
             title=f'{len(messages_deleted)} messages deleted!',
             description='Deleted messages from ' + ', '.join(users)
         )
 
-        await ctx.send(embed=embed, delete_after=10)
+        await interaction.edit_original_response(embed=embed, delete_after=10)
 
-        self.bot.dispatch('purge', ctx, users, len(messages_deleted))
+        self.bot.dispatch('purge', interaction, users, len(messages_deleted))
 
-    @commands.has_permissions(manage_nicknames=True)
-    @commands.bot_has_permissions(manage_nicknames=True)
-    @commands.command(aliases=['ascii'])
-    async def asciify(self, ctx: utils.CustomContext, members: Greedy[discord.Member]):
+    @utils.invoker_has_permissions(manage_nicknames=True)
+    @utils.client_has_permissions(manage_nicknames=True)
+    @app_commands.command()
+    @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
+    async def asciify(
+        self,
+        interaction: Interaction,
+        members: Transform[list[Member], utils.GreedyMemberTransformer],
+    ):
         """Replace weird unicode letters in nicknames with normal ASCII text!"""
 
         if not members:
-            raise commands.MemberNotFound('None')
+            raise utils.DoggieBotException('No members were specified!')
 
         async def rename(member: discord.Member):
             ascii_text = unicodedata.normalize('NFKD', member.display_name).encode('ascii', 'ignore').decode()
-            await member.edit(nick=ascii_text[:31] or 'Unreadable', reason=f'Asciified by {ctx.author}')
+            await member.edit(nick=ascii_text[:31] or 'Unreadable', reason=f'Asciified by {interaction.user}')
 
-        async with ctx.channel.typing():
-            # noinspection PyTypeChecker
-            lists = await utils.multi_punish(
-                ctx.author,
-                members,
-                rename
-            )  # type: ignore
+        await interaction.response.defer(thinking=True)
 
-        embed = utils.punish_embed(ctx.author, 'asciified', 'Asciify strange characters', lists)
+        # noinspection PyTypeChecker
+        lists = await utils.multi_punish(
+            interaction.user,
+            members,
+            rename
+        )  # type: ignore
 
-        await ctx.send(embed=embed)
+        embed = utils.punish_embed(interaction.user, 'asciified', 'Asciify strange characters', lists)
 
-    @commands.max_concurrency(5, commands.BucketType.user)
-    @commands.guild_only()
-    @commands.command(aliases=['snpied', 'deleted'])
-    async def snipe(self, ctx: utils.CustomContext, channel: Optional[discord.TextChannel], *,
-                    user: Optional[discord.User]):
-        """Shows recent deleted messages! You can specify an user to get deleted messages from.
-        If no channel is specified it will get messages from the current channel.
-        You can only snipe messages from channels in which you have `Manage Messages` and `View Channel` in."""
+        await interaction.edit_original_response(embed=embed)
 
-        if not ctx.basic_config.snipe:
+    @app_commands.command()
+    @app_commands.describe(channel='Specify a channel to get deleted messages from it. You can only snipe messages from channels in which you have `Manage Messages` and `View Channel` in.')
+    @app_commands.describe(user='Specify an user to only get deleted messages from that user')
+    async def snipe(
+        self,
+        interaction: Interaction,
+        channel: discord.TextChannel | None,
+        user: discord.User | None
+    ):
+        """Shows recent deleted messages! An administrator must opt-in to message sniping for the bot to store messages."""
+
+        if not interaction.client.get_basic_config(interaction.guild).snipe:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Snipe is disabled in this guild!',
                 description='The snipe command is opt-in only, use `config snipe on` '
                             'to enable sniping in this guild!',
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed)
 
-        channel = channel or ctx.channel
+        channel = channel or interaction.channel
 
-        if not (channel.permissions_for(ctx.author).manage_messages and
-                channel.permissions_for(ctx.author).view_channel):
+        if not (channel.permissions_for(interaction.user).manage_messages and
+                channel.permissions_for(interaction.user).view_channel):
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Can\'t snipe from that channel!',
                 description='You need permissions to view and manage messages of that channel '
                             'before you can snipe messages from it!',
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed)
 
-        async with ctx.channel.typing():
-            filtered = [message for message in self.bot.sniped if (message.guild == ctx.guild)
-                        and (user is None or user == message.author) and (channel == message.channel)][:100]
+        interaction.response.defer(thinking=True)
+
+        filtered = [message for message in self.bot.sniped if (message.guild == interaction.guild)
+                    and (user is None or user == message.author) and (channel == message.channel)][:100]
 
         if not filtered:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='No messages found!',
                 description=f'No sniped messages were found for {user or "this guild"}'
                             f'{f" in {channel.mention}" or ""}',
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.edit_original_response(embed=embed)
 
-        pages = utils.CustomMenu(source=SnipeMenu(filtered), clear_reactions_after=True)
+        view = SnipeMenu(interaction.user, filtered, 1)
+        first_msg = (await view.get_page_contents())['embed']
         if channel.type is discord.ChannelType.text:
-            if (channel.overwrites_for(ctx.guild.default_role).view_channel == False and
-                    ctx.channel.overwrites_for(ctx.guild.default_role).view_channel != False):
-                pages = utils.CustomMenu(source=SnipeMenu(filtered, maybe_first_snipe_msg(ctx)), clear_reactions_after=True)
+            if (
+                not channel.overwrites_for(interaction.guild.default_role).view_channel and
+                interaction.channel.overwrites_for(interaction.guild.default_role).view_channel
+            ):
+                first_msg = maybe_first_snipe_msg(interaction)
 
-        await pages.start(ctx)
-
-        if len(filtered) > 1:
-            await self.bot.wait_for('finalize_menu', check=lambda c: c == ctx, timeout=360)
+        await interaction.edit_original_response(view=view, embed=first_msg)
 
 
 async def setup(bot):

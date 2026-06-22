@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=all
 
 """
 The MIT License (MIT)
