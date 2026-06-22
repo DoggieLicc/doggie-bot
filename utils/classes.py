@@ -508,9 +508,10 @@ class LoggingConfig:
         return config
 
 
-
 class DoggieBotException(Exception):
-    pass
+    def __init__(self, title, description):
+        self.title = str(title)
+        self.description = str(description)
 
 class MissingAPIKey(DoggieBotException):
     pass

@@ -2,8 +2,7 @@ import unicodedata
 from datetime import datetime
 from functools import partial
 
-import discord
-from discord import app_commands, Member, User, Interaction
+from discord import app_commands, Member, User, Interaction, Color, Role, Embed, TextChannel, ChannelType
 from discord.ext.commands import GroupCog
 from discord.app_commands import Transform, Range
 
@@ -18,24 +17,24 @@ def maybe_first_snipe_msg(interaction: Interaction):
                     'isn\'t. You should move to a private channel to avoid leaking sensitive '
                     'information. However, you have permissions to snipe from that channel, '
                     'so you may proceed with caution.',
-        color=discord.Color.orange()
+        color=Color.orange()
     )
 
     return embed
 
 
-async def add_mute(member: discord.Member, role: discord.Role, **kwargs):
+async def add_mute(member: Member, role: Role, **kwargs):
     await member.add_roles(role, **kwargs)
 
 
-async def remove_mute(member: discord.Member, role: discord.Role, **kwargs):
+async def remove_mute(member: Member, role: Role, **kwargs):
     await member.remove_roles(role, **kwargs)
 
 
 class SnipeMenu(utils.EntryMenu):
     async def get_page_contents(self):
         entries = self.get_page_items()
-        if isinstance(entries, discord.Embed):
+        if isinstance(entries, Embed):
             return entries
 
         embed = utils.format_deleted_msg(entries, title=f'Sniped message {self.current_index}/{self.max_page}:')
@@ -67,18 +66,14 @@ class Moderation(GroupCog, group_name='mod'):
     ):
         """Ban members who broke the rules! You can specify multiple members in one command."""
 
-        if not users:
-            raise utils.DoggieBotException('No users were specified!')
-
         await interaction.response.defer(thinking=True)
 
-        # noinspection PyTypeChecker
         lists = await utils.multi_punish(
             interaction.user,
             users,
             interaction.guild.ban,
             reason=f'{str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'banned', reason, lists)
 
@@ -97,17 +92,14 @@ class Moderation(GroupCog, group_name='mod'):
     ):
         """Unban banned users with their User ID, you can specify multiple people to be unbanned"""
 
-        if not users:
-            raise utils.DoggieBotException('No users were specified!')
-
         await interaction.response.defer(thinking=True)
-        # noinspection PyTypeChecker
+
         lists = await utils.multi_punish(
             interaction.user,
             users,
             interaction.guild.unban,
             reason=f'{str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'unbanned', reason, lists)
 
@@ -126,25 +118,21 @@ class Moderation(GroupCog, group_name='mod'):
     ):
         """Bans then unbans the specified users, which deletes their recent messages and 'kicks' them"""
 
-        if not users:
-            raise utils.DoggieBotException('No users were specified!')
-
         await interaction.response.defer(thinking=True)
 
-        # noinspection PyTypeChecker
         banned, not_banned = await utils.multi_punish(
             interaction.user,
             users,
             interaction.guild.ban,
             reason=f'(Softban) {str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         unbanned, _ = await utils.multi_punish(
             interaction.user,
             banned,
             interaction.guild.unban,
             reason=f'(Softban) {str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'softbanned', reason, (unbanned, not_banned))
 
@@ -163,18 +151,14 @@ class Moderation(GroupCog, group_name='mod'):
     ):
         """Kick members who broke the rules! You can specify multiple members in one command"""
 
-        if not members:
-            raise utils.DoggieBotException('No members were specified!')
-
         await interaction.response.defer(thinking=True)
 
-        # noinspection PyTypeChecker
         lists = await utils.multi_punish(
             interaction.user,
             members,
             interaction.guild.kick,
             reason=f'{str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'kicked', reason, lists)
 
@@ -195,19 +179,15 @@ class Moderation(GroupCog, group_name='mod'):
     ):
         """Puts specified members in timeout! You can specify multiple members in one command"""
 
-        if not members:
-            raise utils.DoggieBotException('No members were specified!')
-
         await interaction.response.defer(thinking=True)
 
-        # noinspection PyTypeChecker
         lists = await utils.multi_punish(
             interaction.user,
             members,
-            discord.Member.edit,
+            Member.edit,
             timed_out_until=duration,
             reason=f'{str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'timed out', reason, lists)
 
@@ -226,18 +206,14 @@ class Moderation(GroupCog, group_name='mod'):
     ):
         """Removes timeout from members!"""
 
-        if not members:
-            raise utils.DoggieBotException('No members were specified!')
+        remove_timeout = partial(Member.edit, timed_out_until=None)
 
-        remove_timeout = partial(discord.Member.edit, timed_out_until=None)
-
-        # noinspection PyTypeChecker
         lists = await utils.multi_punish(
             interaction.user,
             members,
             remove_timeout,
             reason=f'{str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'untimedout', reason, lists)
 
@@ -256,29 +232,18 @@ class Moderation(GroupCog, group_name='mod'):
     ):
         """Renames members to a specified name"""
 
-        if not members:
-            raise utils.DoggieBotException('No members were specified!')
-
         if len(nickname) > 32:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Nickname too long!',
-                description=f'The nickname {nickname[:100]} is too long! (32 chars max.)',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed)
+            raise utils.DoggieBotException('Nickname too long!', f'The nickname {nickname[:100]} is too long! (32 chars max.)')
 
         await interaction.response.defer(thinking=True)
 
-        # noinspection PyTypeChecker
         lists = await utils.multi_punish(
             interaction.user,
             members,
-            discord.Member.edit,
+            Member.edit,
             nick=nickname,
             reason=f'Renamed by {interaction.user}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'renamed', nickname, lists)
 
@@ -300,28 +265,17 @@ class Moderation(GroupCog, group_name='mod'):
         mute_role = interaction.client.get_basic_config(interaction.guild).mute_role
 
         if not mute_role:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Mute role not set!',
-                description='You need to set a mute role with the command `config mute_role <role>`',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed)
-
-        if not members:
-            raise utils.DoggieBotException('No members were specified!')
+            raise utils.DoggieBotException('Mute role not configured!', 'A server admin must use `/config edit` and set a mute role for this server')
 
         await interaction.response.defer(thinking=True)
 
-        # noinspection PyTypeChecker
         lists: tuple = await utils.multi_punish(
             interaction.user,
             members,
             add_mute,
             role=mute_role,
             reason=f'{str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'muted', reason, lists)
 
@@ -345,28 +299,17 @@ class Moderation(GroupCog, group_name='mod'):
         mute_role = interaction.client.get_basic_config(interaction.guild).mute_role
 
         if not mute_role:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Mute role not set!',
-                description='You need to set a mute role with the command `config mute_role <role>`',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed)
-
-        if not members:
-            raise utils.DoggieBotException('No members were specified!')
+            raise utils.DoggieBotException('Mute role not configured!', 'A server admin must use `/config edit` and set a mute role for this server')
 
         await interaction.response.defer(thinking=True)
 
-        # noinspection PyTypeChecker
         lists = await utils.multi_punish(
             interaction.user,
             members,
             remove_mute,
             role=mute_role,
             reason=f'{str(interaction.user)}: {reason}'
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'unmuted', reason, lists)
 
@@ -415,21 +358,17 @@ class Moderation(GroupCog, group_name='mod'):
     ):
         """Replace weird unicode letters in nicknames with normal ASCII text!"""
 
-        if not members:
-            raise utils.DoggieBotException('No members were specified!')
-
-        async def rename(member: discord.Member):
+        async def rename(member: Member):
             ascii_text = unicodedata.normalize('NFKD', member.display_name).encode('ascii', 'ignore').decode()
             await member.edit(nick=ascii_text[:31] or 'Unreadable', reason=f'Asciified by {interaction.user}')
 
         await interaction.response.defer(thinking=True)
 
-        # noinspection PyTypeChecker
         lists = await utils.multi_punish(
             interaction.user,
             members,
             rename
-        )  # type: ignore
+        )
 
         embed = utils.punish_embed(interaction.user, 'asciified', 'Asciify strange characters', lists)
 
@@ -441,35 +380,18 @@ class Moderation(GroupCog, group_name='mod'):
     async def snipe(
         self,
         interaction: Interaction,
-        channel: discord.TextChannel | None,
-        user: discord.User | None
+        channel: TextChannel | None,
+        user: User | None
     ):
         """Shows recent deleted messages! An administrator must opt-in to message sniping for the bot to store messages."""
 
         if not interaction.client.get_basic_config(interaction.guild).snipe:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Snipe is disabled in this guild!',
-                description='The snipe command is opt-in only, use `config snipe on` '
-                            'to enable sniping in this guild!',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed)
+            raise utils.DoggieBotException('Snipe not enabled!', 'A server admin must use `/config edit` and enable message snipes for this server')
 
         channel = channel or interaction.channel
 
-        if not (channel.permissions_for(interaction.user).manage_messages and
-                channel.permissions_for(interaction.user).view_channel):
-            embed = utils.create_embed(
-                interaction.user,
-                title='Can\'t snipe from that channel!',
-                description='You need permissions to view and manage messages of that channel '
-                            'before you can snipe messages from it!',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed)
+        if not (channel.permissions_for(interaction.user).manage_messages and channel.permissions_for(interaction.user).view_channel):
+            raise utils.DoggieBotException('Can\'t snipe from that channel!', 'You need permissions to view and manage messages of that channel before you can snipe messages from it!')
 
         interaction.response.defer(thinking=True)
 
@@ -477,19 +399,11 @@ class Moderation(GroupCog, group_name='mod'):
                     and (user is None or user == message.author) and (channel == message.channel)][:100]
 
         if not filtered:
-            embed = utils.create_embed(
-                interaction.user,
-                title='No messages found!',
-                description=f'No sniped messages were found for {user or "this guild"}'
-                            f'{f" in {channel.mention}" or ""}',
-                color=discord.Color.red()
-            )
-
-            return await interaction.edit_original_response(embed=embed)
+            raise utils.DoggieBotException('No messages found!', 'There is no recently deleted messages in this channel that fit the criteria')
 
         view = SnipeMenu(interaction.user, filtered, 1)
         first_msg = (await view.get_page_contents())['embed']
-        if channel.type is discord.ChannelType.text:
+        if channel.type is ChannelType.text:
             if (
                 not channel.overwrites_for(interaction.guild.default_role).view_channel and
                 interaction.channel.overwrites_for(interaction.guild.default_role).view_channel

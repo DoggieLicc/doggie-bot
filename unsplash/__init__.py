@@ -11,6 +11,8 @@ import aiohttp
 logger = logging.getLogger(__name__)
 
 API_BASE_URL = 'https://api.unsplash.com/'
+
+# pylint: disable=invalid-name
 ORIENTATION_LITERAL = Literal['landscape', 'portrait', 'squarish']
 CONTENT_FILTER_LITERAL = Literal['low', 'high']
 

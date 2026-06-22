@@ -3,7 +3,7 @@ import textwrap
 import traceback
 from contextlib import redirect_stdout
 
-import discord
+from discord import User, Color, Embed, File, Asset
 from discord.ext import commands
 import utils
 
@@ -14,13 +14,13 @@ def cleanup_code(content):
     return content.strip('` \n')
 
 
-def format_error(author: discord.User, error: Exception) -> discord.Embed:
+def format_error(author: User, error: Exception) -> Embed:
     error_lines = traceback.format_exception(type(error), error, error.__traceback__)
     embed = utils.create_embed(
         author,
         title="Error!",
         description=f'```py\n{"".join(error_lines)}\n```',
-        color=discord.Color.red()
+        color=Color.red()
     )
 
     return embed
@@ -50,7 +50,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
             ctx.author,
             title='Success!',
             description=f'Cogs ``{", ".join(cogs)}`` has been loaded!',
-            color=discord.Color.green()
+            color=Color.green()
         )
 
         await ctx.send(embed=embed)
@@ -69,7 +69,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
             ctx.author,
             title='Success!',
             description=f'Cogs ``{", ".join(cogs)}`` has been unloaded!',
-            color=discord.Color.green()
+            color=Color.green()
         )
 
         await ctx.send(embed=embed)
@@ -93,7 +93,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
             ctx.author,
             title='Success!',
             description=f'Cogs ``{", ".join(cogs)}`` has been reloaded!',
-            color=discord.Color.green()
+            color=Color.green()
         )
 
         await ctx.send(embed=embed)
@@ -117,7 +117,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
             ctx.author,
             title='Success!',
             description=f'Cogs ``{", ".join(self.bot.cogs_list)}`` has been reloaded!',
-            color=discord.Color.green()
+            color=Color.green()
         )
 
         await ctx.send(embed=embed)
@@ -128,7 +128,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
             ctx.author,
             title='Showing all loaded cogs...',
             description='\n'.join(self.bot.cogs),
-            color=discord.Color.green()
+            color=Color.green()
         )
 
         embed.add_field(name='Number of cogs loaded:', value=f'{len(self.bot.cogs)} cogs', inline=False)
@@ -188,13 +188,13 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
             embed = utils.create_embed(ctx.author, title="Eval code executed!")
             return await ctx.send(embed=embed)
 
-        if isinstance(ret, discord.Embed):
+        if isinstance(ret, Embed):
             return await ctx.send(embed=ret)
 
-        if isinstance(ret, discord.File):
+        if isinstance(ret, File):
             return await ctx.send(file=ret)
 
-        if isinstance(ret, discord.Asset):
+        if isinstance(ret, Asset):
             embed = utils.create_embed(ctx.author, image=ret)
             return await ctx.send(embed=embed)
 

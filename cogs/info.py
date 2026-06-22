@@ -3,49 +3,26 @@ import datetime
 from typing import Optional, Union
 
 import discord
-from discord import Color, Member, Role, User, app_commands, Interaction, Thread, Invite, PartialEmoji, Message
+from discord import Color, Member, Role, User, app_commands, File, Interaction, Thread, Invite, PartialEmoji, Message, TextChannel, VoiceChannel, StageChannel, NotFound, Forbidden, HTTPException
 from discord.ext.commands import Cog
 from discord.app_commands import Transform
+from discord.utils import oauth_url, snowflake_time
 
 import whoisdomain as whois
 import utils
 
 def sync_whois(interaction: Interaction, domain: str):
-    if not isinstance(domain, str):
-        return utils.create_embed(
-            interaction.user,
-            title='Error!',
-            description='It seems that you confused this command with ``user``, '
-                        'this command is for [WHOIS](https://www.whois.net) lookup only.',
-            color=discord.Color.red()
-        )
-
     try:
         query = whois.query(domain, ignore_returncode=True)
 
-    except whois.exceptions.FailedParsingWhoisOutput:
-        return utils.create_embed(
-            interaction.user,
-            title='Error!',
-            description='Can\'t get WHOIS lookup! (Server down?)',
-            color=discord.Color.red()
-        )
+    except whois.exceptions.FailedParsingWhoisOutput as e:
+        raise utils.DoggieBotException('Lookup failed!', 'Can\'t get WHOIS lookup! (Server down?)') from e
 
-    except whois.exceptions.UnknownTld:
-        return utils.create_embed(
-            interaction.user,
-            title='Error!',
-            description='Sorry, can\'t get domains from that TLD!',
-            color=discord.Color.red()
-        )
+    except whois.exceptions.UnknownTld as e:
+        raise utils.DoggieBotException('Unsupported TLD', 'Sorry, can\'t get domains from that TLD!') from e
 
     if not query:
-        return utils.create_embed(
-            interaction.user,
-            title='Error!',
-            description='Domain not found! (This command is for website domains, not discord users)',
-            color=discord.Color.red()
-        )
+        raise utils.DoggieBotException('Domain not found!', 'That domain wasn\'t found.')
 
     embed = utils.create_embed(interaction.user, title=f'WHOIS Lookup for {domain}')
 
@@ -84,7 +61,7 @@ class Info(Cog, name='Information'):
     async def server(self, interaction: Interaction):
         """Lists info for this server"""
 
-        guild: discord.Guild = interaction.guild
+        guild = interaction.guild
 
         bot_count = sum(member.bot for member in guild.members)
 
@@ -152,7 +129,7 @@ class Info(Cog, name='Information'):
     async def user(self, interaction: Interaction, user: Optional[Union[Member, User]]):
         """Shows information about the user specified, if no user specified then it returns info for you"""
 
-        user: Union[discord.Member, discord.User, str] = user or interaction.user
+        user: Union[Member, User] = user or interaction.user
 
         fetched = user if user.banner else await self.bot.fetch_user(user.id)
 
@@ -169,7 +146,7 @@ class Info(Cog, name='Information'):
         embed.add_field(
             name=f'Is bot? {utils.Emotes.bot_tag}',
             value=f'Yes\n'
-                  f'[Invite This Bot]({discord.utils.oauth_url(user.id)})' if user.bot else 'No',
+                  f'[Invite This Bot]({oauth_url(user.id)})' if user.bot else 'No',
             inline=False
         )
 
@@ -181,7 +158,7 @@ class Info(Cog, name='Information'):
             inline=False
         )
 
-        if isinstance(user, discord.Member) and user.guild == interaction.guild:
+        if isinstance(user, Member) and user.guild == interaction.guild:
             role_mentions = utils.shorten_below_number(
                 [role.mention for role in reversed(user.roles)][:-1],
                 separator=' ',
@@ -211,7 +188,7 @@ class Info(Cog, name='Information'):
     async def avatar(self, interaction: Interaction, user: Optional[Union[Member, User]]):
         """Shows the avatar of the specified user, if no user specified then it returns info for you"""
 
-        user: discord.User = user or interaction.user
+        user: User = user or interaction.user
 
         avatar = user.display_avatar
 
@@ -284,12 +261,12 @@ class Info(Cog, name='Information'):
             thumbnail=interaction.guild.icon
         )
 
-        if isinstance(channel, (discord.TextChannel, discord.Thread)):
+        if isinstance(channel, (TextChannel, Thread)):
             slowmode = 'Disabled' if not channel.slowmode_delay else f'{channel.slowmode_delay} seconds'
             embed.add_field(name=f'Slowmode: {utils.Emotes.slowmode}', value=slowmode, inline=False)
             embed.add_field(name='NSFW?:', value=('Yes' if channel.is_nsfw() else 'No'), inline=False)
 
-            if not isinstance(channel, discord.Thread):
+            if not isinstance(channel, Thread):
                 embed.add_field(name='Topic:', value=(channel.topic or 'No topic set'), inline=False)
 
             else:
@@ -304,7 +281,7 @@ class Info(Cog, name='Information'):
                     inline=False
                 )
 
-        if isinstance(channel, discord.VoiceChannel):
+        if isinstance(channel, VoiceChannel):
             embed.add_field(
                 name='Voice Channel Info:',
                 value=f'**Bitrate:** {round(channel.bitrate / 1000)}kbps\n'
@@ -314,7 +291,7 @@ class Info(Cog, name='Information'):
                 inline=False
             )
 
-        if isinstance(channel, discord.StageChannel):
+        if isinstance(channel, StageChannel):
             embed.add_field(name='Connected:', value=f'{len(channel.members)} connected')
             embed.add_field(name='Region:', value=str((channel.rtc_region or 'Automatic')).title())
 
@@ -395,29 +372,15 @@ class Info(Cog, name='Information'):
 
         token = token.split('.', 2)
         if len(token) != 3:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Error!',
-                description='Invalid token!',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed)
+            raise utils.DoggieBotException('Invalid token!', 'The specified token is not a valid Discord token')
 
         # pylint: disable=broad-exception-caught
         try:
             user = await self.bot.fetch_user(int(base64.b64decode(token[0])))
             bytes_int = base64.urlsafe_b64decode(token[1] + '==')
             bytes_decoded = int.from_bytes(bytes_int, 'big')
-        except Exception:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Error!',
-                description='Invalid token!',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as e:
+            raise utils.DoggieBotException('Invalid token!', 'The specified token is not a valid Discord token') from e
 
         time = datetime.datetime.utcfromtimestamp(bytes_decoded)
 
@@ -453,8 +416,8 @@ class Info(Cog, name='Information'):
     async def message(self, interaction: Interaction, message: Transform[Message, utils.MessageTransformer]):
         """Gets information for a Discord Message"""
 
-        if message.guild != interaction.guild:
-            raise utils.DoggieBotException('Invalid message')
+        if message.guild != interaction.guild or (message.guild is None and (message.channel != interaction.channel)):
+            raise utils.DoggieBotException('Invalid message!', 'Can\'t get a message from a different server!')
 
         embed = utils.create_embed(
             interaction.user,
@@ -474,7 +437,7 @@ class Info(Cog, name='Information'):
         if message.reference:
             try:
                 replied = await message.channel.fetch_message(message.reference.message_id)
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            except (NotFound, Forbidden, HTTPException):
                 replied = None
 
             if replied:
@@ -511,7 +474,7 @@ class Info(Cog, name='Information'):
 
         for i, color in enumerate(colors):
             buffer = await self.bot.loop.run_in_executor(None, utils.solid_color_image, color.to_rgb())
-            files.append(discord.File(filename=f'color{i+1}.png', fp=buffer))
+            files.append(File(filename=f'color{i+1}.png', fp=buffer))
 
             embed = utils.create_embed(
                 interaction.user,
@@ -542,7 +505,7 @@ class Info(Cog, name='Information'):
         """Gets creation date for a Discord snowflake"""
 
         try:
-            time = discord.utils.snowflake_time(int(_id))
+            time = snowflake_time(int(_id))
             embed = utils.create_embed(
                 interaction.user,
                 title='Snowflake info:',
@@ -550,13 +513,8 @@ class Info(Cog, name='Information'):
                             f'**Creation Date:** {utils.user_friendly_dt(time)}'
             )
 
-        except OSError:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Invalid ID!',
-                description='The snowflake ID was invalid.',
-                color=discord.Color.red()
-            )
+        except OSError as e:
+            raise utils.DoggieBotException('Invalid ID!', 'The snowflake ID was invalid.') from e
 
         await interaction.response.send_message(embed=embed)
 

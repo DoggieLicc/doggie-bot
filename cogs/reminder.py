@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 from typing import cast
 
-import discord
-from discord.ext import commands
 from discord import app_commands, Interaction, TextChannel
+from discord.ext import commands
+from discord.utils import escape_markdown
 from discord.app_commands import Transform, Range
 import utils
 
@@ -48,33 +48,17 @@ class ReminderCog(commands.GroupCog, name="reminder"):
     ):
         """Add a reminder to be sent to you or a channel after a specified duration!"""
 
-        channel: discord.TextChannel = cast(discord.TextChannel, channel)
+        channel: TextChannel = cast(TextChannel, channel)
 
         if time < datetime.now(tz=timezone.utc):
-            embed = utils.create_embed(
-                interaction.user,
-                title='Invalid time!',
-                description='Can\'t set a reminder in the past!',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
+            raise utils.DoggieBotException('Invalid time!', 'Can\'t set a reminder in the past!')
 
         if channel:
             bot_perms = channel.permissions_for(interaction.guild.me)
             author_perms = channel.permissions_for(interaction.user)
 
-            if channel.guild != interaction.guild or \
-                    not (bot_perms.view_channel and bot_perms.send_messages) or \
-                    not (author_perms.view_channel and author_perms.send_messages):
-                embed = utils.create_embed(
-                    interaction.user,
-                    title='Missing Permissions!',
-                    description='You or this bot don\'t have permissions to talk in that channel!',
-                    color=discord.Color.red()
-                )
-
-                return await interaction.response.send_message(embed=embed, ephemeral=True)
+            if channel.guild != interaction.guild or not (bot_perms.view_channel and bot_perms.send_messages) or not (author_perms.view_channel and author_perms.send_messages):
+                raise utils.DoggieBotException('Missing Permissions', 'You or this bot don\'t have permissions to talk in that channel!')
 
         destination = channel or interaction.user
 
@@ -96,15 +80,7 @@ class ReminderCog(commands.GroupCog, name="reminder"):
                               if reminder is not None and reminder.user == interaction.user]
 
         if not filtered_reminders:
-            embed = utils.create_embed(
-                interaction.user,
-                title='No reminders!',
-                description='You don\'t have any reminders set yet, '
-                            'use the `reminder` command to add one!',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
+            raise utils.DoggieBotException('No reminders!', 'You don\'t have any reminders set yet, use the `/reminder add` command to add one!')
 
         menu = ReminderList(owner=interaction.user, items=filtered_reminders, items_per_page=10)
         contents = await menu.get_page_contents()
@@ -117,20 +93,10 @@ class ReminderCog(commands.GroupCog, name="reminder"):
 
         reminder = self.bot.reminders.get(reminder_id)
 
-        if reminder is None:
-            raise utils.DoggieBotException('A reminder with that ID wasn\'t found!')
+        if reminder is None or reminder.user != interaction.user:
+            raise utils.DoggieBotException('Reminder not found!', 'A reminder with that ID wasn\'t found, or it is not your reminder!')
 
-        if reminder.user != interaction.user:
-            embed = utils.create_embed(
-                interaction.user,
-                title='You didn\'t make this reminder!',
-                description='Someone else made this reminder, so you can\'t delete it!',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
-
-        reminder_str = discord.utils.escape_markdown(reminder.reminder)
+        reminder_str = escape_markdown(reminder.reminder)
 
         await reminder.remove()
 

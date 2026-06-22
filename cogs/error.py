@@ -1,11 +1,12 @@
 import traceback
 
-import discord
 from discord.ext.commands import Cog
-from discord import app_commands
+from discord import app_commands, Interaction, User, Color, InteractionResponded, NotFound, DiscordException
 from loguru import logger
 
 import utils
+from osu import OsuApiException
+from unsplash import UnsplashException
 
 class ErrorHandler(Cog):
     def __init__(self, bot: utils.CustomBot):
@@ -22,8 +23,9 @@ class ErrorHandler(Cog):
             tree = self.bot.tree
             tree.on_error = self._old_tree_error
 
-    async def error_handler(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+    async def error_handler(self, interaction: Interaction, error: app_commands.AppCommandError):
         error_message = None
+        error_title = 'Error while running command!'
 
         if isinstance(error, app_commands.CommandInvokeError):
             error = error.original
@@ -32,18 +34,26 @@ class ErrorHandler(Cog):
             transformer_class = type(error.transformer)
             transformer_name = transformer_class.__name__.replace('Transformer', '')
             error_message = f'Invalid option "{error.value}" for {transformer_name}!'
+            error_title = 'Invalid option!'
 
         if isinstance(error, app_commands.CheckFailure):
             error_message = 'You aren\'t allowed to use that command!'
 
         if isinstance(error, app_commands.MissingPermissions):
             error_message = f'You are missing the following permissions: {error.missing_permissions}'
+            error_title = 'Missing Permissions!'
 
         if isinstance(error, app_commands.BotMissingPermissions):
             error_message = f'The bot is missing the following permissions: {error.missing_permissions}'
+            error_title = 'Bot Missing Permissions!'
 
         if isinstance(error, utils.DoggieBotException):
-            error_message = str(error)
+            error_message = error.description
+            error_title = error.title
+
+        if isinstance(error, (OsuApiException, UnsplashException)):
+            error_message = f'Error when doing API lookup! The API may be down, or the searched resource wasn\'t found: {str(error)}'
+            error_title = 'API Error!'
 
         if not error_message:
             error_message = f'An unknown error occurred: {error}\n\nError info will be sent to owner'
@@ -56,13 +66,13 @@ class ErrorHandler(Cog):
             logger.exception('{}: {}', etype.__name__, error)
             file = utils.str_to_file(traceback_t, filename='traceback.py')
 
-            owner: discord.User = await self.bot.get_owner()
+            owner: User = await self.bot.get_owner()
 
             if owner:
                 owner_embed = utils.create_embed(
                     interaction.user,
                     title='Unhandled error occurred!',
-                    color=discord.Color.red()
+                    color=Color.red()
                 )
 
                 owner_embed.add_field(
@@ -82,20 +92,20 @@ class ErrorHandler(Cog):
 
         embed = utils.create_embed(
             interaction.user,
-            title='Error while running command!',
+            title=error_title,
             description=error_message[:4000],
-            color=discord.Color.brand_red()
+            color=Color.brand_red()
         )
 
         try:
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        except (discord.InteractionResponded, discord.NotFound):
+        except (InteractionResponded, NotFound):
             try:
                 await interaction.edit_original_response(embed=embed)
-            except (discord.InteractionResponded, discord.NotFound):
+            except (InteractionResponded, NotFound):
                 try:
                     await interaction.channel.send(embed=embed)
-                except discord.DiscordException:
+                except DiscordException:
                     logger.warning(
                         'Unable to respond to exception in %s (%s)',
                         interaction.channel.name, interaction.channel.id

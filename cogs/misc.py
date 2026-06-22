@@ -1,9 +1,9 @@
 import inspect
 from io import StringIO
 
-import discord
-from discord import app_commands, Interaction
+from discord import app_commands, Interaction, Permissions, User, File
 from discord.ext.commands import Cog
+from discord.utils import oauth_url
 
 import utils
 
@@ -17,7 +17,7 @@ class Misc(Cog):
     async def info(self, interaction: Interaction):
         """Shows information for the bot!"""
 
-        invite_url = discord.utils.oauth_url(self.bot.application_id, permissions=discord.Permissions(4513770781404358))
+        invite_url = oauth_url(self.bot.application_id, permissions=Permissions(4513770781404358))
 
         embed = utils.create_embed(
             interaction.user,
@@ -66,7 +66,7 @@ class Misc(Cog):
     async def suggest(self, interaction: Interaction, suggestion: str):
         """Send a suggestion or bug report to the bot owner!"""
 
-        owner: discord.User = await self.bot.get_owner()
+        owner: User = await self.bot.get_owner()
 
         owner_embed = utils.create_embed(
             interaction.user,
@@ -108,24 +108,10 @@ class Misc(Cog):
                 obj = obj.get_command(commands[2])
 
         if obj is None:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Command not found!',
-                description='This command wasn\'t found in this bot.',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed)
+            raise utils.DoggieBotException('Command not found!', f'The command `{command}` wasn\'t found in this bot.')
 
         if getattr(obj, 'callback', None) is None:
-            embed = utils.create_embed(
-                interaction.user,
-                title='Not a command!',
-                description=f'`/{obj.qualified_name}` is a command group, and can\'t be used as a command!',
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed)
+            raise utils.DoggieBotException('Not a command!', f'`/{obj.qualified_name}` is a command group, and doesn\'t have source code!')
 
         src = obj.callback.__code__
 
@@ -137,7 +123,7 @@ class Misc(Cog):
 
         buffer = StringIO(src_code)
 
-        file = discord.File(fp=buffer, filename=f'{command.replace(" ", "_").lower()}.py')
+        file = File(fp=buffer, filename=f'{command.replace(" ", "_").lower()}.py')
 
         await interaction.response.send_message(f'Here you go, {interaction.user.mention}. (You should view this on a PC)', file=file)
 
