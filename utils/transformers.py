@@ -4,12 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 import discord
 from discord import app_commands, Interaction, Message
-from discord import PartialEmoji, Asset, StickerFormatType, Emoji
-from discord import DiscordException, HTTPException, NotFound, Forbidden
 from discord.utils import cached_property
 from discord.app_commands import Timestamp, TransformerError
-from discord.ext.commands import BadArgument, RoleNotFound, UserNotFound, CommandError, MemberNotFound, MessageNotFound
-from discord.ext.commands import MessageConverter, MemberConverter, RoleConverter, InviteConverter, ColorConverter, UserConverter, Converter, EmojiConverter, PartialEmojiConverter
+from discord.ext.commands import BadArgument, RoleNotFound, UserNotFound, CommandError, MemberNotFound
+from discord.ext.commands import MessageConverter, MemberConverter, RoleConverter, InviteConverter, ColorConverter, UserConverter
 
 
 __all__ = [
@@ -289,4 +287,3 @@ class TimeTransformer(app_commands.Transformer):
             raise BadArgument(f'Duration for {value} is 0 or less!')
 
         return datetime.now(tz=timezone.utc) + timedelta(seconds=seconds)
-

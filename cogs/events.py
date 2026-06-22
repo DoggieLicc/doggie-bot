@@ -2,14 +2,14 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 import discord
-from discord import Embed, User, Member, Color
+from discord import Embed, User, Member, Color, Guild, AuditLogAction, Forbidden, NotFound, HTTPException, Message
 from discord.ext.commands import Cog
 from loguru import logger
 
 import utils
 
 
-async def ban_embed(guild: discord.Guild, punished: User, action) -> Embed:
+async def ban_embed(guild: Guild, punished: User, action) -> Embed:
     mod, reason = None, "Unknown"
     emote = utils.Emotes.ban_create if action.name == 'ban' else utils.Emotes.ban_delete
 
@@ -21,7 +21,7 @@ async def ban_embed(guild: discord.Guild, punished: User, action) -> Embed:
                 mod = entry.user
                 reason = entry.reason
 
-    except discord.Forbidden:
+    except Forbidden:
         reason = '*Bot is missing Audit Log Permissions!*'
 
     embed = utils.create_embed(
@@ -69,35 +69,35 @@ class EventsCog(Cog):
         await ctx.typing()
 
     @Cog.listener()
-    async def on_member_ban(self, guild: discord.Guild, banned: discord.Member | discord.User):
+    async def on_member_ban(self, guild: Guild, banned: Member | User):
         config = self.bot.logging_configs.get(guild.id)
 
         if not config or not config.ban_channel:
             return
 
-        embed = await ban_embed(guild, banned, discord.AuditLogAction.ban)
+        embed = await ban_embed(guild, banned, AuditLogAction.ban)
 
         try:
             await config.ban_channel.send(embed=embed)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+        except (Forbidden, NotFound, HTTPException):
             pass
 
     @Cog.listener()
-    async def on_member_unban(self, guild: discord.Guild, unbanned: discord.User):
+    async def on_member_unban(self, guild: Guild, unbanned: User):
         config = self.bot.logging_configs.get(guild.id)
 
         if not config or not config.ban_channel:
             return
 
-        embed = await ban_embed(guild, unbanned, discord.AuditLogAction.unban)
+        embed = await ban_embed(guild, unbanned, AuditLogAction.unban)
 
         try:
             await config.ban_channel.send(embed=embed)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+        except (Forbidden, NotFound, HTTPException):
             pass
 
     @Cog.listener()
-    async def on_member_remove(self, kicked: discord.Member):
+    async def on_member_remove(self, kicked: Member):
         config = self.bot.logging_configs.get(kicked.guild.id)
 
         if not config or not config.kick_channel:
@@ -107,13 +107,13 @@ class EventsCog(Cog):
         await asyncio.sleep(5)
         d = datetime.now(timezone.utc) - timedelta(seconds=5)
         try:
-            async for entry in kicked.guild.audit_logs(after=d, limit=10, action=discord.AuditLogAction.kick):
+            async for entry in kicked.guild.audit_logs(after=d, limit=10, action=AuditLogAction.kick):
                 if entry.target == kicked:
                     mod = entry.user
                     reason = entry.reason
                     break
 
-        except discord.Forbidden:
+        except Forbidden:
             return
         if not mod:
             return
@@ -123,15 +123,15 @@ class EventsCog(Cog):
             title=f'{utils.Emotes.member_leave} {kicked} has been kicked! ({kicked.id})',
             description=f'Kicked by: {mod.mention if mod else "Unknown"}\n\nReason: {reason or "No reason specified"}',
             thumbnail=kicked.display_avatar,
-            color=discord.Color.red())
+            color=Color.red())
 
         try:
             await config.kick_channel.send(embed=embed)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+        except (Forbidden, NotFound, HTTPException):
             pass
 
     @Cog.listener()
-    async def on_message_delete(self, message: discord.Message):
+    async def on_message_delete(self, message: Message):
         if message.author.bot or not message.guild:
             return
 
@@ -149,11 +149,11 @@ class EventsCog(Cog):
 
         try:
             await log_config.delete_channel.send(embed=embed)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+        except (Forbidden, NotFound, HTTPException):
             pass
 
     @Cog.listener()
-    async def on_mute(self, ctx: utils.CustomContext, muted: list[discord.Member], reason: str):
+    async def on_mute(self, ctx: utils.CustomContext, muted: list[Member], reason: str):
         if not ctx.logging_config.mute_channel:
             return
 
@@ -161,11 +161,11 @@ class EventsCog(Cog):
 
         try:
             await ctx.logging_config.mute_channel.send(embed=embed)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+        except (Forbidden, NotFound, HTTPException):
             pass
 
     @Cog.listener()
-    async def on_unmute(self, ctx: utils.CustomContext, unmuted: list[discord.Member], reason: str):
+    async def on_unmute(self, ctx: utils.CustomContext, unmuted: list[Member], reason: str):
         if not ctx.logging_config.mute_channel:
             return
 
@@ -173,25 +173,25 @@ class EventsCog(Cog):
 
         try:
             await ctx.logging_config.mute_channel.send(embed=embed)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+        except (Forbidden, NotFound, HTTPException):
             pass
 
     @Cog.listener()
-    async def on_purge(self, ctx: utils.CustomContext, users: list[discord.User], amount: int):
+    async def on_purge(self, ctx: utils.CustomContext, users: list[User], amount: int):
         if not ctx.logging_config.purge_channel:
             return
 
-        embed = discord.Embed(
+        embed = Embed(
             title=f'{amount} messages deleted!',
             description=f'{ctx.author.mention} deleted {amount} messages in {ctx.channel.mention}\n\n'
                         f'Deleted messages from:\n' +
                         ', '.join(map(str, users)),
-            color=discord.Color.red()
+            color=Color.red()
         )
 
         try:
             await ctx.logging_config.purge_channel.send(embed=embed)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+        except (Forbidden, NotFound, HTTPException):
             pass
 
 

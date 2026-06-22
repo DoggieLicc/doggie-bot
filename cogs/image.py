@@ -3,9 +3,7 @@ from inspect import Parameter, Signature
 from typing import Callable, Any
 from dataclasses import dataclass, field
 
-import discord
-
-from discord import app_commands, Interaction, Attachment, InteractionResponded
+from discord import app_commands, Interaction, Attachment, File
 from discord.app_commands import Range, Group, Command
 from discord.ext.commands import GroupCog
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw, ImageFont, ImageSequence
@@ -13,13 +11,13 @@ from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageErr
 import utils
 
 
-def image_to_file(image: Image, extension) -> discord.File:
+def image_to_file(image: Image, extension) -> File:
     img_bytes = io.BytesIO()
     image.save(img_bytes, extension, optimize=True)
 
     img_bytes.seek(0)
 
-    return discord.File(img_bytes, f'image.{extension}')
+    return File(img_bytes, f'image.{extension}')
 
 
 def hande_gif_images(b: bytes, func: Callable, *args, **kwargs) -> bytes:
@@ -38,7 +36,7 @@ def hande_gif_images(b: bytes, func: Callable, *args, **kwargs) -> bytes:
     frames[0].save(new, 'gif', append_images=frames[1:], save_all=True)
     new.seek(0)
 
-    return discord.File(new, 'image.gif')
+    return File(new, 'image.gif')
 
 
 def invert_image(image: Image):
@@ -227,7 +225,7 @@ class ImageCommand:
 
             if image:
                 if not image.content_type.startswith('image'):
-                    raise utils.DoggieBotException('Attachment is not an image!')
+                    raise utils.DoggieBotException('Attachment is not an image!', f'The specifed attachment is an `{image.content_type}`, which is not an image type.')
                 image_bytes = await image.read()
             else:
                 image_bytes = await interaction.user.display_avatar.read()
@@ -248,7 +246,6 @@ class ImageCommand:
                     *self.arguments
                 )
             )
-
 
             embed = utils.create_embed(
                 interaction.user,
@@ -331,23 +328,10 @@ class Images(GroupCog, group_name='image'):
             )
 
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
-        embed = None
-
         if isinstance(error, UnidentifiedImageError):
-            embed = utils.create_embed(
-                interaction.user,
-                title='Error while making image!',
-                description='The bot wasn\'t able to identify the image\'s format\n'
-                            '**Note:** Links from sites like Tenor and GIPHY don\'t work, use the direct image url',
-                color=discord.Color.red()
-            )
+            raise utils.DoggieBotException('Error while making image!', 'The bot wasn\'t able to identify the image\'s format\n **Note:** Links from sites like Tenor and GIPHY don\'t work, use the direct image url') from error
 
-        if embed:
-            try:
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-            except InteractionResponded:
-                await interaction.edit_original_response(embed=embed)
-
+        raise error
 
 async def setup(bot):
     await bot.add_cog(Images(bot))

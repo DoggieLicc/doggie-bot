@@ -1,12 +1,12 @@
 from typing import Optional, Union
 
-import discord
+from discord import TextChannel, Color, Role
 from discord.ext import commands
 
 import utils
 
 
-T = Optional[Union[discord.TextChannel, bool]]
+T = Optional[Union[TextChannel, bool]]
 
 
 class LoggingConverter(commands.FlagConverter):
@@ -61,7 +61,7 @@ class Configuration(commands.Cog):
                 ctx.author,
                 title='Prefix too long!',
                 description='The prefix can\'t be longer than 100 characters!',
-                color=discord.Color.red()
+                color=Color.red()
             )
 
             return await ctx.send(embed=embed)
@@ -77,7 +77,7 @@ class Configuration(commands.Cog):
         await ctx.send(embed=embed)
 
     @config.command(aliases=['mute', 'muterole'])
-    async def mute_role(self, ctx: utils.CustomContext, role: Union[discord.Role, bool]):
+    async def mute_role(self, ctx: utils.CustomContext, role: Union[Role, bool]):
         """Sets a role that will be given to members when the `mute` command is used!
         You can also remove the mute role by passing "off" or "disbaled"!"""
 
@@ -95,7 +95,7 @@ class Configuration(commands.Cog):
                                 f'highest role, is the {ctx.guild.default_role} role, is a bot or integration specific '
                                 f'role, or is the Nitro Booster role, or the bot is missing the '
                                 f'"Manage Roles" permission.',
-                    color=discord.Color.red()
+                    color=Color.red()
                 )
 
             else:

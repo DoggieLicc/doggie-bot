@@ -1,19 +1,20 @@
 import discord
 import asyncio
 import time
-import utils
 import itertools
-
-from discord import app_commands, Interaction, Attachment, PartialEmoji
-from discord.app_commands import Transform
-from discord.ext.commands import Greedy, BotMissingPermissions, MissingPermissions, MissingRequiredArgument, Cog
-
 from datetime import timedelta
-from typing import Union, List, Optional, Dict
 from collections import Counter
 
+from discord import app_commands, Interaction, Attachment, PartialEmoji, Message, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden
+from discord.app_commands import Transform
+from discord.ext.commands import Greedy, BotMissingPermissions, MissingPermissions, MissingRequiredArgument, Cog
+from discord.ui import Select
+from loguru import logger
 
-def get_hoisters(members: List[discord.Member]):
+import utils
+
+
+def get_hoisters(members: list[Member]):
     def check(member):
         value = ord(member.display_name[0])
         return 0 <= value <= 47 or 58 <= value <= 64
@@ -82,11 +83,6 @@ class HoistersMenu(utils.EntryMenu):
         return embed
 
 
-class HoistersIDMenu(utils.EntryMenu):
-    async def get_page_contents(self):
-        return {"content": " ".join(map(str, self.get_page_items())) or 'N/A'}
-
-
 class SauceMenu(utils.EntryMenu):
     async def get_page_contents(self):
         result = self.get_page_items()[0]
@@ -121,12 +117,12 @@ class SauceMenu(utils.EntryMenu):
         return {"embed": embed}
 
 
-class PollSelect(discord.ui.Select):
+class PollSelect(Select):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.selected_options: Dict[int, str] = {}
+        self.selected_options: dict[int, str] = {}
 
-    async def callback(self, interaction: discord.Interaction):
+    async def callback(self, interaction: Interaction):
         self.selected_options[interaction.user.id] = self.values[0]
         await interaction.response.defer()
 
@@ -136,6 +132,18 @@ class UtilityCog(Cog, name="Utility"):
 
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
+
+        if self.bot.config['saucenao_api_key']:
+            self.bot.tree.add_command(
+                app_commands.Command(
+                    name=self.saucenao.__name__,
+                    description=self.saucenao.__doc__,
+                    callback=self.saucenao,
+                    nsfw=True
+                )
+            )
+        else:
+            logger.warning('SAUCENAO_API_KEY Environment variable missing. /saucenao will not be registered')
 
     @app_commands.command()
     @app_commands.guild_only()
@@ -154,8 +162,8 @@ class UtilityCog(Cog, name="Utility"):
     async def selfbot(self, interaction: Interaction):
         """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)"""
 
-        selfbot_embed = discord.Embed(
-            color=discord.Color.green(),
+        selfbot_embed = Embed(
+            color=Color.green(),
             title='Giveaway',
             description=f'**Prize:** Discord Nitro\n'
                         f'**Time left:** Infinity\n'
@@ -172,12 +180,12 @@ class UtilityCog(Cog, name="Utility"):
 
         try:
             await message.add_reaction('\N{PARTY POPPER}')
-        except discord.DiscordException:
+        except DiscordException:
             pass
 
         t = time.perf_counter()
         seen_users = set()
-        users_message: Optional[discord.Message] = None
+        users_message: Message | None = None
 
         def check(_reaction, _user):
             if _reaction.message == message and str(_reaction.emoji) == '\N{PARTY POPPER}' \
@@ -191,13 +199,12 @@ class UtilityCog(Cog, name="Utility"):
             try:
                 reaction, user = await self.bot.wait_for("reaction_add", timeout=600, check=check)
             except asyncio.TimeoutError:
-
                 if not seen_users:
                     embed = utils.create_embed(
                         interaction.user,
                         title='Test timed out!',
                         description=f'No one reacted within 10 minutes!',
-                        color=discord.Color.red()
+                        color=Color.red()
                     )
 
                     await interaction.edit_original_response(embeds=[selfbot_embed, embed])
@@ -211,7 +218,7 @@ class UtilityCog(Cog, name="Utility"):
                         title='Test canceled!',
                         description=f'You reacted to your own test, so it was canceled.\nAnyways, '
                                     f'your time is {round(time.perf_counter() - t, 2)} seconds.',
-                        color=discord.Color.red()
+                        color=Color.red()
                     )
 
                     return await interaction.edit_original_response(embeds=[selfbot_embed, embed])
@@ -246,14 +253,7 @@ class UtilityCog(Cog, name="Utility"):
         hoisters = get_hoisters(interaction.guild.members)
 
         if not hoisters:
-            embed = utils.create_embed(
-                interaction.user,
-                title="No hoisters found!",
-                description="There weren't any members with odd characters found!",
-                color=discord.Color.red()
-            )
-
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
+            raise utils.DoggieBotException('No hoisters found!', 'There weren\'t any members with odd starting characters found!')
 
         view = HoistersMenu(interaction.user, hoisters, 10)
 
@@ -303,12 +303,12 @@ class UtilityCog(Cog, name="Utility"):
         """Adds the specified emotes to your server!"""
 
         added, not_added = [], []
-        embed = discord.Embed()
+        embed = Embed()
 
         await interaction.response.defer(thinking=True)
 
         for emote in emotes:
-            if isinstance(emote, discord.Emoji) and emote.guild == interaction.guild:
+            if isinstance(emote, Emoji) and emote.guild == interaction.guild:
                 not_added.append(emote)
                 continue
 
@@ -318,7 +318,7 @@ class UtilityCog(Cog, name="Utility"):
                     image=await emote.read(),
                     reason=f'Added by {interaction.user} ({interaction.user.id})')
                 )
-            except (discord.DiscordException, discord.HTTPException, discord.NotFound, discord.Forbidden):
+            except (DiscordException, HTTPException, NotFound, Forbidden):
                 not_added.append(emote)
 
         if not added:
@@ -326,7 +326,7 @@ class UtilityCog(Cog, name="Utility"):
                 interaction.user,
                 title='Couldn\'t add any emotes!',
                 description='Make sure they aren\'t already in this server, and that the bot has permissions!',
-                color=discord.Color.red()
+                color=Color.red()
             )
 
         if added and not_added:
@@ -334,7 +334,7 @@ class UtilityCog(Cog, name="Utility"):
                 interaction.user,
                 title='Some emotes couldn\'t be added!',
                 description='Make sure they aren\'t already in this server, and that the bot has permissions!',
-                color=discord.Color.orange()
+                color=Color.orange()
             )
 
         if added and not not_added:
@@ -368,7 +368,6 @@ class UtilityCog(Cog, name="Utility"):
         view = RecentAccounts(Interaction.user, members, 10)
         await interaction.response.send_message(view=view, **await view.get_page_contents(), ephemeral=True)
 
-    @app_commands.command(nsfw=True)
     async def saucenao(
         self,
         interaction: Interaction,
