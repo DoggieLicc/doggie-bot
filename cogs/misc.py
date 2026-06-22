@@ -1,25 +1,26 @@
-import discord
-import utils
 import inspect
-
-from discord.ext import commands
 from io import StringIO
 
+import discord
+from discord import app_commands, Interaction
+from discord.ext.commands import Cog
 
-class Misc(commands.Cog):
+import utils
+
+class Misc(Cog):
     """Commands that show info about the bot"""
 
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    @commands.command(aliases=['i', 'ping'])
-    async def info(self, ctx: utils.CustomContext):
+    @app_commands.command()
+    async def info(self, interaction: Interaction):
         """Shows information for the bot!"""
 
-        invite_url = discord.utils.oauth_url(ctx.me.id, permissions=discord.Permissions(4513770781404358))
+        invite_url = discord.utils.oauth_url(self.bot.application_id, permissions=discord.Permissions(4513770781404358))
 
         embed = utils.create_embed(
-            ctx.author,
+            interaction.user,
             title='Info for Doggie Bot!',
             description='This bot is a multi-purpose bot!'
         )
@@ -55,21 +56,20 @@ class Misc(commands.Cog):
 
         embed.add_field(
             name='Ping:',
-            value='{} ms'.format(round(1000 * self.bot.latency)),
+            value=f'{round(1000 * self.bot.latency)} ms',
             inline=False
         )
 
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.cooldown(3, 86_400, commands.BucketType.user)
-    @commands.command(aliases=['report', 'bug'])
-    async def suggest(self, ctx: utils.CustomContext, *, suggestion):
+    @app_commands.command()
+    async def suggest(self, interaction: Interaction, suggestion: str):
         """Send a suggestion or bug report to the bot owner!"""
 
         owner: discord.User = await self.bot.get_owner()
 
         owner_embed = utils.create_embed(
-            ctx.author,
+            interaction.user,
             title='New suggestion!:',
             description=suggestion
         )
@@ -77,49 +77,69 @@ class Misc(commands.Cog):
         await owner.send(embed=owner_embed)
 
         user_embed = utils.create_embed(
-            ctx.author,
+            interaction.user,
             title=f'👍 Suggestion has been sent to {owner}! 💖'
         )
 
-        await ctx.send(embed=user_embed)
+        await interaction.response.send_message(embed=user_embed)
 
-    @commands.command(aliases=['code'])
-    async def source(self, ctx, *, command: str = None):
+    @app_commands.command()
+    @app_commands.describe(command='Specify a command to get the source code of that command')
+    async def source(self, interaction: Interaction, command: str | None = None):
         """Look at the code of this bot!"""
 
         if command is None:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Source Code:',
                 description='[Github for **Doggie Bot**](https://github.com/DoggieLicc/doggie-bot)'
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed)
 
-        if command == 'help':
-            src = type(self.bot.help_command)
-        else:
-            obj = self.bot.get_command(command.replace('.', ' ').lower())
-            if obj is None:
-                embed = utils.create_embed(
-                    ctx.author,
-                    title='Command not found!',
-                    description='This command wasn\'t found in this bot.',
-                    color=discord.Color.red()
-                )
+        commands = command.lower().strip('/').split(maxsplit=2)
 
-                return await ctx.send(embed=embed)
+        obj = self.bot.tree.get_command(commands[0])
 
-            src = obj.callback.__code__
+        if isinstance(obj, app_commands.Group) and len(commands) > 1:
+            obj = obj.get_command(commands[1])
+
+            if isinstance(obj, app_commands.Group) and len(commands) > 2:
+                obj = obj.get_command(commands[2])
+
+        if obj is None:
+            embed = utils.create_embed(
+                interaction.user,
+                title='Command not found!',
+                description='This command wasn\'t found in this bot.',
+                color=discord.Color.red()
+            )
+
+            return await interaction.response.send_message(embed=embed)
+
+        if getattr(obj, 'callback', None) is None:
+            embed = utils.create_embed(
+                interaction.user,
+                title='Not a command!',
+                description=f'`/{obj.qualified_name}` is a command group, and can\'t be used as a command!',
+                color=discord.Color.red()
+            )
+
+            return await interaction.response.send_message(embed=embed)
+
+        src = obj.callback.__code__
 
         lines, _ = inspect.getsourcelines(src)
-        src_code = ''.join(lines)
+        if lines[0].startswith(' '*4):
+            src_code = ''.join([l[4:] if l.startswith(' '*4) else l for l in lines])
+        else:
+            src_code = ''.join(lines)
 
         buffer = StringIO(src_code)
 
         file = discord.File(fp=buffer, filename=f'{command.replace(" ", "_").lower()}.py')
 
-        await ctx.send(f'Here you go, {ctx.author.mention}. (You should view this on a PC)', file=file)
+        await interaction.response.send_message(f'Here you go, {interaction.user.mention}. (You should view this on a PC)', file=file)
 
 
 async def setup(bot):

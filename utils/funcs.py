@@ -1,11 +1,12 @@
 import io
 from datetime import datetime
-from typing import Union, Any, Callable, Tuple, List, Coroutine, Optional
+from typing import Any, Callable, Coroutine
 from uuid import UUID
 
 import discord
 from PIL import Image
-from discord import Embed, User, Member, Permissions
+from discord import Embed, User, Member, Permissions, app_commands, Interaction
+from discord.ext.commands import BotMissingPermissions
 
 __all__ = [
     'create_embed',
@@ -20,11 +21,13 @@ __all__ = [
     'format_deleted_msg',
     'str_to_file',
     'fix_url',
-    'solid_color_image'
+    'solid_color_image',
+    'client_has_permissions',
+    'invoker_has_permissions'
 ]
 
 
-def create_embed(user: Optional[Union[Member, User]], *, image=None, thumbnail=None, **kwargs) -> Embed:
+def create_embed(user: Member | User | None, *, image=None, thumbnail=None, **kwargs) -> Embed:
     """Makes a discord.Embed with options for image and thumbnail URLs, and adds a footer with author name"""
 
     kwargs['color'] = kwargs.get('color', discord.Color.green())
@@ -39,11 +42,11 @@ def create_embed(user: Optional[Union[Member, User]], *, image=None, thumbnail=N
     return embed
 
 
-def guess_user_nitro_status(user: Union[User, Member]) -> bool:
+def guess_user_nitro_status(user: Member | User) -> bool:
     """Guess if an user or member has Discord Nitro"""
 
     if isinstance(user, Member):
-        has_emote_status = any([a.emoji.is_custom_emoji() for a in user.activities if getattr(a, 'emoji', None)])
+        has_emote_status = any(a.emoji.is_custom_emoji() for a in user.activities if getattr(a, 'emoji', None))
 
         return any([user.display_avatar.is_animated(), has_emote_status, user.premium_since])
 
@@ -60,15 +63,16 @@ def format_perms(permissions: Permissions) -> str:
     return '\n'.join(perms_list)
 
 
-def hierarchy_check(mod: Member, user: Union[Member, User]) -> bool:
+def hierarchy_check(mod: Member, user: Member | User) -> bool:
     """Check if a moderator and the bot can punish an user/member"""
 
-    if isinstance(user, User): return True
+    if isinstance(user, User):
+        return True
 
     return mod.top_role > user.top_role and mod.guild.me.top_role > user.top_role and not user == mod.guild.owner
 
 
-def shorten_below_number(_list: List[Any], *, separator: str = '\n', number: int = 1000):
+def shorten_below_number(_list: list[Any], *, separator: str = '\n', number: int = 1000):
     shortened = ''
 
     while _list and len(shortened) + len(str(_list[0])) <= number:
@@ -76,16 +80,12 @@ def shorten_below_number(_list: List[Any], *, separator: str = '\n', number: int
 
     return shortened[:-len(separator)]
 
-
-USER_LIST = List[Union[Member, User]]
-
-
 async def multi_punish(
         mod: Member,
-        users: USER_LIST,
-        func: Callable[[Union[Member, User], Any], Coroutine[Any, Any, Any]],
+        users: list[Member | User],
+        func: Callable[[Member | User, Any], Coroutine[Any, Any, Any]],
         **kwargs
-) -> Tuple[USER_LIST, USER_LIST]:
+) -> tuple[list[Member | User], list[Member | User]]:
     punished = []
     not_punished = [user for user in users if not hierarchy_check(mod, user)]
 
@@ -100,7 +100,12 @@ async def multi_punish(
     return punished, not_punished
 
 
-def punish_embed(mod: Member, punishment: str, reason: str, punish_lists: Tuple[USER_LIST, USER_LIST]) -> Embed:
+def punish_embed(
+    mod: Member,
+    punishment: str,
+    reason: str,
+    punish_lists: tuple[list[Member | User], list[Member | User]]
+) -> Embed:
     punished, not_punished = punish_lists
     punished, not_punished = punished.copy(), not_punished.copy()
 
@@ -150,11 +155,13 @@ def str_to_file(string: str, *, filename: str = 'file.txt', encoding: str = 'utf
     return file
 
 
-def format_deleted_msg(message: discord.Message, title: Optional[str] = None) -> discord.Embed:
+def format_deleted_msg(message: discord.Message, title: str | None = None) -> discord.Embed:
     emote = '<:messagedelete:941816371401064490>'
     reply = message.reference
 
-    if reply: reply = reply.resolved
+    if reply:
+        reply = reply.resolved
+
     reply_deleted = isinstance(reply, discord.DeletedReferencedMessage)
 
     embed = discord.Embed(
@@ -170,10 +177,10 @@ def format_deleted_msg(message: discord.Message, title: Optional[str] = None) ->
             embed.set_image(url=fix_url(message.attachments[0].proxy_url))
 
         file_urls = [f'[{file.filename}]({file.proxy_url})' for file in message.attachments]
-        embed.add_field(name='Deleted files:', value=f'\n'.join(file_urls))
+        embed.add_field(name='Deleted files:', value='\n'.join(file_urls))
 
     embed.add_field(
-        name=f'Message created at:',
+        name='Message created at:',
         value=user_friendly_dt(message.created_at),
         inline=False
     )
@@ -205,3 +212,37 @@ def solid_color_image(color: tuple):
     buffer.seek(0)
 
     return buffer
+
+def client_has_permissions(**perms: [*discord.permissions._PermissionsKwargs]):
+    invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
+    if invalid:
+        raise TypeError(f'Invalid permission(s): {", ".join(invalid)}')
+
+    def predicate(interaction: Interaction) -> bool:
+        permissions = interaction.app_permissions
+
+        missing = [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
+
+        if not missing:
+            return True
+
+        raise BotMissingPermissions(missing)
+
+    return app_commands.check(predicate)
+
+def invoker_has_permissions(**perms: [*discord.permissions._PermissionsKwargs]):
+    invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
+    if invalid:
+        raise TypeError(f'Invalid permission(s): {", ".join(invalid)}')
+
+    def predicate(interaction: Interaction) -> bool:
+        permissions = interaction.user.guild_permissions
+
+        missing = [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
+
+        if not missing:
+            return True
+
+        raise BotMissingPermissions(missing)
+
+    return app_commands.check(predicate)

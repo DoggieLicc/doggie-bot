@@ -1,11 +1,12 @@
 import dataclasses
 import inspect
-import aiohttp
 import logging
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Optional, Union, List, TypedDict, no_type_check
+
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -199,10 +200,10 @@ class Unsplash:
         Keyword Arguments
         ----------
         collections: Optional[List[str]]
-            Public collection ID(‘s) to filter selection.
+            Public collection ID('s) to filter selection.
 
         topics: Optional[List[str]]
-            Public topic ID(‘s) to filter selection.
+            Public topic ID('s) to filter selection.
 
         username: Optional[str]
             Limit selection to a single user.
@@ -258,7 +259,7 @@ class Unsplash:
             How to sort the photos. (Default: "relevant"). Valid values are "latest" and "relevant".
 
         collections: Optional[List[str]]
-            Collection ID(‘s) to narrow search.
+            Collection ID('s) to narrow search.
 
         content_filter: Optional[CONTENT_FILTER_LITERAL]
             Limit results by content safety. (Default: "low"). Valid values are "low" and "high".
@@ -291,7 +292,6 @@ class Unsplash:
 
     async def _request(self, endpoint: str, *, method: str = 'get', **kwargs) -> Union[dict, list]:
         try:
-
             async with aiohttp.ClientSession(headers=self.headers) as session:
                 async with session.request(method, API_BASE_URL + endpoint, params=kwargs) as response:
                     data: dict = await response.json()
@@ -303,5 +303,6 @@ class Unsplash:
                 return data
 
         except Exception as e:
-            if isinstance(e, UnsplashException): raise
-            raise UnsplashException(f'{type(e)}: {e}')
+            if isinstance(e, UnsplashException):
+                raise
+            raise UnsplashException(f'{type(e)}: {e}') from e

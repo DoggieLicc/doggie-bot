@@ -1,13 +1,12 @@
-import discord
-import utils
-
 from typing import Optional
-
-from discord.ext import commands
-
-from mojang import API as Mojang
-from osu import OsuApi, OsuApiException
 from datetime import timedelta
+
+import discord
+from discord.ext import commands
+from mojang import API as Mojang
+
+from osu import OsuApi, OsuApiException
+import utils
 
 mojang_api = Mojang()
 
@@ -27,6 +26,7 @@ def sync_minecraft(ctx, account):
                 color=discord.Color.red()
             )
 
+    # pylint: disable=broad-exception-caught
     except Exception as e:
         return utils.create_embed(
             ctx.author,
@@ -46,7 +46,7 @@ def sync_minecraft(ctx, account):
 
     embed.add_field(
         name='Skin:',
-        value=f'[Download Skin ({"Steve Type" if not profile.skin_variant == "slim" else "Alex Type"})]'
+        value=f'[Download Skin ({"Steve Type" if profile.skin_variant != "slim" else "Alex Type"})]'
               f'({profile.skin_url})' if profile.skin_url else 'No skin',
         inline=False
     )
@@ -63,21 +63,20 @@ def sync_minecraft(ctx, account):
 
 
 class ModeConverter(commands.Converter):
-    async def convert(self, ctx: commands.Context, mode: str):
-        if not mode:
+    async def convert(self, _, argument: str):
+        if not argument:
             return 'osu'
 
-        mode = mode.lower()
-        if mode in ['s', 'standard', 'osu', 'osu!', 'std', '0']:
+        argument = argument.lower()
+        if argument in ['s', 'standard', 'osu', 'osu!', 'std', '0']:
             return 'osu'
-        elif mode in ['taiko', 't', 'osu!taiko', '1']:
+        if argument in ['taiko', 't', 'osu!taiko', '1']:
             return 'taiko'
-        elif mode in ['c', 'catch', 'ctb', 'osu!catch', '2']:
+        if argument in ['c', 'catch', 'ctb', 'osu!catch', '2']:
             return 'fruits'
-        elif mode in ['m', 'mania', 'osu!mania', '3']:
+        if argument in ['m', 'mania', 'osu!mania', '3']:
             return 'mania'
-        else:
-            return 'osu'
+        return 'osu'
 
 
 def check_osu():
@@ -187,7 +186,7 @@ class Games(commands.Cog, name="Games"):
             ctx.author,
             image=beatmap_set.covers['cover'] or None,
             url=beatmap.url,
-            title=f'Showing info for osu! beatmap set!:',
+            title='Showing info for osu! beatmap set!:',
             description=f'**Title:** {beatmap_set.title}\n'
                         f'**Description:** {beatmap_set.description or "No description"}\n'
                         f'**Beatmap set ID:** {beatmap_set.id}\n'

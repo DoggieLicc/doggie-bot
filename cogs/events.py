@@ -1,15 +1,15 @@
 import asyncio
-import utils
-import discord
-
-from discord.ext import commands
-
-from typing import Union, List, Optional
 from datetime import datetime, timedelta, timezone
+
+import discord
+from discord import Embed, User, Member, Color
+from discord.ext.commands import Cog
 from loguru import logger
 
+import utils
 
-async def ban_embed(guild: discord.Guild, punished: discord.User, action):
+
+async def ban_embed(guild: discord.Guild, punished: User, action) -> Embed:
     mod, reason = None, "Unknown"
     emote = utils.Emotes.ban_create if action.name == 'ban' else utils.Emotes.ban_delete
 
@@ -30,20 +30,20 @@ async def ban_embed(guild: discord.Guild, punished: discord.User, action):
         description=f'{action.name.title()}ned by: {mod.mention if mod else "Unknown"}'
                     f'\n\nReason: {reason or "No reason specified"}',
         thumbnail=punished.display_avatar,
-        color=discord.Color.red()
+        color=Color.red()
     )
 
     return embed
 
 
-def format_log(ctx: utils.CustomContext, _list: List[discord.Member], reason: str, punishment: str):
+def format_log(ctx: utils.CustomContext, _list: list[Member], reason: str, punishment: str) -> Embed | None:
     if not ctx.logging_config.mute_channel:
-        return
+        return None
 
-    embed = discord.Embed(
+    embed = Embed(
         title=f'{len(_list)} members {punishment}!',
         description=f'They were {punishment} by {ctx.author.mention} for "{reason}"',
-        color=discord.Color.red()
+        color=Color.red()
     )
 
     embed.add_field(
@@ -54,23 +54,22 @@ def format_log(ctx: utils.CustomContext, _list: List[discord.Member], reason: st
     return embed
 
 
-class EventsCog(commands.Cog):
+class EventsCog(Cog):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    @commands.Cog.listener()
+    @Cog.listener()
     async def on_fully_ready(self):
         logger.info(f'\nLogged in as: {self.bot.user.name} - {self.bot.user.id}\n'
               f'Version: {discord.__version__}\n'
               f'Successfully logged in and booted...!')
 
-    @commands.Cog.listener()
+    @Cog.listener()
     async def on_command(self, ctx: utils.CustomContext):
         await ctx.typing()
 
-    @commands.Cog.listener()
-    async def on_member_ban(self, guild: discord.Guild, banned: Union[discord.Member, discord.User]):
-
+    @Cog.listener()
+    async def on_member_ban(self, guild: discord.Guild, banned: discord.Member | discord.User):
         config = self.bot.logging_configs.get(guild.id)
 
         if not config or not config.ban_channel:
@@ -83,7 +82,7 @@ class EventsCog(commands.Cog):
         except (discord.Forbidden, discord.NotFound, discord.HTTPException):
             pass
 
-    @commands.Cog.listener()
+    @Cog.listener()
     async def on_member_unban(self, guild: discord.Guild, unbanned: discord.User):
         config = self.bot.logging_configs.get(guild.id)
 
@@ -97,7 +96,7 @@ class EventsCog(commands.Cog):
         except (discord.Forbidden, discord.NotFound, discord.HTTPException):
             pass
 
-    @commands.Cog.listener()
+    @Cog.listener()
     async def on_member_remove(self, kicked: discord.Member):
         config = self.bot.logging_configs.get(kicked.guild.id)
 
@@ -131,7 +130,7 @@ class EventsCog(commands.Cog):
         except (discord.Forbidden, discord.NotFound, discord.HTTPException):
             pass
 
-    @commands.Cog.listener()
+    @Cog.listener()
     async def on_message_delete(self, message: discord.Message):
         if message.author.bot or not message.guild:
             return
@@ -153,8 +152,8 @@ class EventsCog(commands.Cog):
         except (discord.Forbidden, discord.NotFound, discord.HTTPException):
             pass
 
-    @commands.Cog.listener()
-    async def on_mute(self, ctx: utils.CustomContext, muted: List[discord.Member], reason: str):
+    @Cog.listener()
+    async def on_mute(self, ctx: utils.CustomContext, muted: list[discord.Member], reason: str):
         if not ctx.logging_config.mute_channel:
             return
 
@@ -165,8 +164,8 @@ class EventsCog(commands.Cog):
         except (discord.Forbidden, discord.NotFound, discord.HTTPException):
             pass
 
-    @commands.Cog.listener()
-    async def on_unmute(self, ctx: utils.CustomContext, unmuted: List[discord.Member], reason: str):
+    @Cog.listener()
+    async def on_unmute(self, ctx: utils.CustomContext, unmuted: list[discord.Member], reason: str):
         if not ctx.logging_config.mute_channel:
             return
 
@@ -177,8 +176,8 @@ class EventsCog(commands.Cog):
         except (discord.Forbidden, discord.NotFound, discord.HTTPException):
             pass
 
-    @commands.Cog.listener()
-    async def on_purge(self, ctx: utils.CustomContext, users: Optional[List[discord.User]], amount: int):
+    @Cog.listener()
+    async def on_purge(self, ctx: utils.CustomContext, users: list[discord.User], amount: int):
         if not ctx.logging_config.purge_channel:
             return
 

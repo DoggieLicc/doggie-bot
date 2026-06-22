@@ -1,37 +1,18 @@
-import discord
 import random
-import utils
 
+import discord
+from discord import app_commands, Interaction
 from discord.ext import commands
-from unsplash import Unsplash, Photo, UnsplashException
-from typing import Optional, List
 from aiohttp import ClientError
 
-utm_params = '?utm_source=discord_bot_doggie_bot&utm_medium=referral'
+from unsplash import Unsplash, Photo, UnsplashException
+import utils
 
-
-async def get_pic(url: str, ctx: utils.CustomContext, key: str) -> str:
-    async with ctx.bot.session.get(url) as resp:
-        data = await resp.json()
-
-    return data[key]
-
-
-async def furry_image(ctx, user: Optional[discord.User], endpoint: str, action: str, a2: str = None):
-    if not user or user == ctx.author:
-        msg = f'{ctx.author.mention} has no one to {action} :('
-    elif user.bot:
-        msg = f'{ctx.author.mention} tries to {action} a bot... sad :('
-    else:
-        msg = f'{ctx.author.mention} {action + "s" if not a2 else a2} {user.mention}!'
-
-    url = await get_pic(f'https://v2.yiff.rest/furry/{endpoint}', ctx, key='images')
-    return utils.create_embed(ctx.author, title=f'Furry {action}!', description=msg, image=url[0]['url'])
-
+UTM_PARAMS = '?utm_source=discord_bot_doggie_bot&utm_medium=referral'
 
 def check_unsplash():
-    def predicate(ctx):
-        if ctx.bot.config['unsplash_api_key']:
+    def predicate(interaction):
+        if interaction.client.config['unsplash_api_key']:
             return True
 
         raise utils.MissingAPIKey(
@@ -39,10 +20,10 @@ def check_unsplash():
             'The owner of this bot can add an API key in `config.yaml`'
         )
 
-    return commands.check(predicate)
+    return app_commands.check(predicate)
 
 
-class Random(commands.Cog):
+class RandomCog(commands.GroupCog, group_name='random'):
     """Commands to get something random, like colors or images!"""
 
     def __init__(self, bot):
@@ -53,40 +34,35 @@ class Random(commands.Cog):
         else:
             self.unsplash = None
 
-        self.cached_random_photos: List[Photo] = []
+        self.cached_random_photos: list[Photo] = []
 
-    @commands.group(invoke_without_command=True)
-    async def random(self, ctx: utils.CustomContext):
-        await ctx.send_help(ctx.command)
-
-    @random.command(aliases=['user'])
-    async def member(self, ctx: utils.CustomContext, include_bots=False):
+    @app_commands.command()
+    @app_commands.describe(include_bots='Whether or not to include bots (Default: False)')
+    async def member(self, interaction: Interaction, include_bots: bool = False):
         """Shows a random member from this server!"""
 
-        member = random.choice([m for m in ctx.guild.members if not m.bot or m.bot == include_bots])
+        member = random.choice([m for m in interaction.guild.members if not m.bot or m.bot == include_bots])
 
         embed = utils.create_embed(
-            ctx.author,
+            interaction.user,
             title='Random member from server!',
             description=f'{member.mention} - (ID: {member.id})',
             thumbnail=member.display_avatar
         )
 
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @random.command(aliases=['colour'])
-    async def color(self, ctx: utils.CustomContext):
+    @app_commands.command()
+    async def color(self, interaction: Interaction):
         """Shows a random color!"""
-
-        alias = ctx.invoked_with.lower()
         color = discord.Color.random()
 
         buffer = await self.bot.loop.run_in_executor(None, utils.solid_color_image, color.to_rgb())
         file = discord.File(filename="color.png", fp=buffer)
 
         embed = utils.create_embed(
-            ctx.author,
-            title=f'Showing random {alias}:',
+            interaction.user,
+            title='Showing random color:',
             color=color,
             thumbnail="attachment://color.png"
         )
@@ -95,16 +71,11 @@ class Random(commands.Cog):
         embed.add_field(name='Int:', value=f'`{str(color.value).zfill(8)}`')
         embed.add_field(name='RGB:', value=f'`{color.to_rgb()}`')
 
-        await ctx.send(file=file, embed=embed)
+        await interaction.response.send_message(file=file, embed=embed)
 
-    @commands.group(invoke_without_command=True)
-    async def unsplash(self, ctx: utils.CustomContext):
-        await ctx.send_help(ctx.command)
-
+    @app_commands.command(name='unsplash')
     @check_unsplash()
-    @unsplash.command(name='random', aliases=['rdm'])
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def rdm(self, ctx: utils.CustomContext):
+    async def unsplash_cmd(self, interaction: Interaction):
         """Gets a random photo from the Unsplash API!"""
 
         if not self.cached_random_photos:
@@ -113,11 +84,11 @@ class Random(commands.Cog):
         image: Photo = self.cached_random_photos.pop(0)
 
         description = f'"{image.description or image.alt_description}"\n\n' \
-                      f'*Photo by [{image.user.name}](https://unsplash.com/@{image.user.username}{utm_params}) on ' \
-                      f'[Unsplash](https://unsplash.com/{utm_params})*'
+                      f'*Photo by [{image.user.name}](https://unsplash.com/@{image.user.username}{UTM_PARAMS}) on ' \
+                      f'[Unsplash](https://unsplash.com/{UTM_PARAMS})*'
 
         embed = utils.create_embed(
-            ctx.author,
+            interaction.user,
             title='Unsplash Image',
             description=description,
             image=image.urls.regular,
@@ -125,84 +96,9 @@ class Random(commands.Cog):
             timestamp=image.created_at
         )
 
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.command()
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def fox(self, ctx: utils.CustomContext):
-        """Gets a random fox from randomfox.ca"""
-
-        url = await get_pic('https://randomfox.ca/floof/', ctx, key='image')
-        embed = utils.create_embed(ctx.author, title=f'Random fox picture!:', image=url)
-
-        await ctx.send(embed=embed)
-
-    @commands.command()
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def duck(self, ctx: utils.CustomContext):
-        """Gets a random duck from random-d.uk"""
-
-        url = await get_pic('https://random-d.uk/api/v2/quack', ctx, key='url')
-        embed = utils.create_embed(ctx.author, title=f'Random duck picture!:', image=url)
-
-        await ctx.send(embed=embed)
-
-    @commands.command()
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def dog(self, ctx: utils.CustomContext):
-        """Gets a random dog from random.dog"""
-
-        url = await get_pic('https://random.dog/woof.json?filter=mp4', ctx, key='url')
-        embed = utils.create_embed(ctx.author, title=f'Random dog picture!:', image=url)
-
-        await ctx.send(embed=embed)
-
-    @commands.command()
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def hug(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
-        """Get picture of furries hugging, because why not?"""
-
-        embed = await furry_image(ctx, user, 'hug', 'hug')
-
-        await ctx.send(embed=embed)
-
-    @commands.command()
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def boop(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
-        """Get picture of furries booping eachother, because why not?"""
-
-        embed = await furry_image(ctx, user, 'boop', 'boop')
-
-        await ctx.send(embed=embed)
-
-    @commands.command()
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def hold(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
-        """Get picture of furries holding eachother, because why not?"""
-
-        embed = await furry_image(ctx, user, 'hold', 'hold')
-
-        await ctx.send(embed=embed)
-
-    @commands.command()
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def kiss(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
-        """Get picture of furries kissing, because why not?"""
-
-        embed = await furry_image(ctx, user, 'kiss', 'kiss', 'kisses')
-
-        await ctx.send(embed=embed)
-
-    @commands.command(aliases=['licc'])
-    @commands.cooldown(10, 60, commands.BucketType.user)
-    async def lick(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
-        """Get picture of furries licking eachother, because why not?"""
-
-        embed = await furry_image(ctx, user, 'lick', 'lick')
-
-        await ctx.send(embed=embed)
-
-    async def cog_command_error(self, ctx: utils.CustomContext, error: Exception) -> None:
+    async def cog_app_command_error(self, interaction: Interaction, error: Exception) -> None:
         embed = None
 
         if isinstance(error, commands.CommandInvokeError):
@@ -210,7 +106,7 @@ class Random(commands.Cog):
 
         if isinstance(error, utils.MissingAPIKey):
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Bot missing API key!',
                 description=str(error),
                 color=discord.Color.red()
@@ -218,18 +114,17 @@ class Random(commands.Cog):
 
         if isinstance(error, (UnsplashException, ClientError)):
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='Error while using api!',
                 description='For some reason an error happened, maybe the API is down?',
                 color=discord.Color.red()
             )
 
         if embed:
-            await ctx.send(embed=embed)
+            await interaction.response.send_message(embed=embed)
             return
 
-        ctx.uncaught_error = True
-
+        await interaction.client.tree.on_error(interaction, error)
 
 async def setup(bot):
-    await bot.add_cog(Random(bot))
+    await bot.add_cog(RandomCog(bot))

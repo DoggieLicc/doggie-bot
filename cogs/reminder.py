@@ -1,179 +1,146 @@
+from datetime import datetime, timezone
+from typing import cast
+
 import discord
+from discord.ext import commands
+from discord import app_commands, Interaction, TextChannel
+from discord.app_commands import Transform, Range
 import utils
 
-from discord.ext import commands
-from discord.ext.commands import Greedy
+class ReminderList(utils.EntryMenu):
+    async def get_page_contents(self):
+        entries = self.get_page_items()
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional, cast
+        embed = utils.create_embed(
+            self.owner,
+            title=f'Showing active reminders for {self.owner} ({self.current_index}/{self.max_page}):'
+        )
 
+        for reminder in entries:
+            channel = reminder.destination if isinstance(reminder.destination, TextChannel) else None
 
-class ReminderCog(commands.Cog, name="Reminder"):
+            embed.add_field(
+                name=f'ID: {reminder.id}',
+                value=f'**Reminder:** {str(reminder)[:1100]}\n'
+                        f'**Ends at:** {utils.user_friendly_dt(reminder.end_time)}\n'
+                        f'**Destination:** {channel.mention if channel else "Your DMS!"}\n',
+                inline=False
+            )
+
+        return {"embed": embed}
+
+class ReminderCog(commands.GroupCog, name="reminder"):
     """Create and manage your reminders"""
 
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    @commands.command(aliases=['r', 'rm', 'remindme', 'reminder'],
-                      usage='<duration> [channel] <reminder>')
-    async def remind(
-            self,
-            ctx,
-            durations: Greedy[utils.TimeConverter], channel: Optional[utils.MentionedTextChannel],
-            *,
-            reminder: str):
-        """Add a reminder to be sent to you or a channel after a specified duration!
-        You can specify a channel for the reminder to be sent to, otherwise it will be sent to your DMS
-
-        **Examples**:
-        *remind 10mins #general code discord bot*
-        *remind 1hr 30m do stuff*"""
+    @app_commands.command()
+    @app_commands.describe(reminder='For what you want to be reminded for')
+    @app_commands.describe(time='When you want to be reminded. Can be a Discord-style timestamp, or durations (5h 30min)')
+    @app_commands.describe(channel='A channel to send the reminder to. If not specified, it will be sent to your DMs')
+    async def add(
+        self,
+        interaction: Interaction,
+        reminder: str,
+        time: Transform[datetime, utils.TimeTransformer],
+        channel: TextChannel | None
+    ):
+        """Add a reminder to be sent to you or a channel after a specified duration!"""
 
         channel: discord.TextChannel = cast(discord.TextChannel, channel)
 
-        durations = [duration for duration in durations if duration]
-        durations_set = set([duration.unit for duration in durations])
+        if time < datetime.now(tz=timezone.utc):
+            embed = utils.create_embed(
+                interaction.user,
+                title='Invalid time!',
+                description='Can\'t set a reminder in the past!',
+                color=discord.Color.red()
+            )
 
-        if not durations:
-            raise commands.BadArgument('The duration wasn\'t specified or it was invalid!')
-
-        if len(durations) != len(durations_set):
-            raise commands.BadArgument('There were duplicate units in the duration!')
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
 
         if channel:
-            bot_perms = channel.permissions_for(ctx.guild.me)
-            author_perms = channel.permissions_for(ctx.author)
+            bot_perms = channel.permissions_for(interaction.guild.me)
+            author_perms = channel.permissions_for(interaction.user)
 
-            if channel.guild != ctx.guild or \
+            if channel.guild != interaction.guild or \
                     not (bot_perms.view_channel and bot_perms.send_messages) or \
                     not (author_perms.view_channel and author_perms.send_messages):
                 embed = utils.create_embed(
-                    ctx.author,
+                    interaction.user,
                     title='Missing Permissions!',
                     description='You or this bot don\'t have permissions to talk in that channel!',
                     color=discord.Color.red()
                 )
 
-                return await ctx.send(embed=embed)
+                return await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        total_seconds = sum([t.seconds for t in durations])
-        end_time = datetime.now(timezone.utc) + timedelta(seconds=total_seconds)
+        destination = channel or interaction.user
 
-        destination = channel or ctx.author
-
-        rem = utils.Reminder(ctx.message.id, ctx.author, reminder, destination, end_time, self.bot)
+        rem = utils.Reminder(interaction.id, interaction.user, reminder, destination, time, self.bot)
 
         embed = utils.create_embed(
-            ctx.author,
+            interaction.user,
             title=f'Reminder added! (**ID**: {rem.id})',
-            description=f'Reminder "{reminder}" has been added for ' + ', '.join(
-                map(str, durations)) + ' to be sent to ' + (channel.mention if channel else 'you') + '!'
+            description=f'Reminder "{reminder}" has been added for {utils.user_friendly_dt(time)} to be sent to ' + (channel.mention if channel else 'you') + '!'
         )
 
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @remind.error
-    async def remind_error(self, ctx, error):
-
-        embed = utils.create_embed(
-            ctx.author,
-            title='Error while making reminder!',
-            color=discord.Color.red()
-        )
-
-        if isinstance(error, commands.BadArgument):
-            embed.add_field(
-                name='Invalid duration!',
-                value=f'{error}\n'
-                      f'Usage example: `remind 5hr 30min make toast`'
-            )
-
-        if isinstance(error, commands.MissingRequiredArgument):
-            embed.add_field(
-                name='Missing reminder!',
-                value='You need to specify a reminder!'
-            )
-
-        await ctx.send(embed=embed)
-
-    @commands.command(aliases=['list', 'list_reminders', 'listreminders', 'all', 'all_reminders'])
-    async def reminders(self, ctx):
-        """Shows your active reminders that you made!
-        It will show what the reminders are, when they end, and their ID"""
+    @app_commands.command()
+    async def list(self, interaction: Interaction):
+        """Shows your active reminders that you made!"""
 
         filtered_reminders = [reminder for reminder in self.bot.reminders.values()
-                              if reminder is not None and reminder.user == ctx.author]
+                              if reminder is not None and reminder.user == interaction.user]
 
         if not filtered_reminders:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='No reminders!',
                 description='You don\'t have any reminders set yet, '
                             'use the `reminder` command to add one!',
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        menu = utils.CustomMenu(source=utils.ReminderList(filtered_reminders, per_page=5), clear_reactions_after=True)
-        await menu.start(ctx)
+        menu = ReminderList(owner=interaction.user, items=filtered_reminders, items_per_page=10)
+        contents = await menu.get_page_contents()
+        await interaction.response.send_message(view=menu, ephemeral=True, **contents)
 
-    @commands.command(aliases=['deletereminder', 'cancelreminder', 'del'])
-    async def cancel(self, ctx, reminder_id: int):
-        """Cancels and deletes a reminder using its ID!
-        You can get the IDs for your reminders by using the `reminders` command"""
+    @app_commands.command()
+    @app_commands.describe(reminder_id='The ID of the reminder that you want to cancel, can be seen in /reminders list')
+    async def cancel(self, interaction: Interaction, reminder_id: Range[int, 1, 9999]):
+        """Cancels and deletes a reminder using its ID!"""
 
         reminder = self.bot.reminders.get(reminder_id)
 
         if reminder is None:
-            raise commands.BadArgument('A reminder with that ID wasn\'t found!')
+            raise utils.DoggieBotException('A reminder with that ID wasn\'t found!')
 
-        if reminder.user != ctx.author:
+        if reminder.user != interaction.user:
             embed = utils.create_embed(
-                ctx.author,
+                interaction.user,
                 title='You didn\'t make this reminder!',
                 description='Someone else made this reminder, so you can\'t delete it!',
                 color=discord.Color.red()
             )
 
-            return await ctx.send(embed=embed)
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
 
         reminder_str = discord.utils.escape_markdown(reminder.reminder)
 
         await reminder.remove()
 
         embed = utils.create_embed(
-            ctx.author,
+            interaction.user,
             title=f'Reminder successfully removed! (ID: {reminder_id})',
             description=f'Reminder "{reminder_str}" has been canceled and deleted!'
         )
 
-        await ctx.send(embed=embed)
-
-    @cancel.error
-    async def delete_error(self, ctx, error):
-
-        embed = utils.create_embed(
-            ctx.author,
-            title='Error while deleting reminder!',
-            color=discord.Color.red()
-        )
-
-        if isinstance(error, commands.MissingRequiredArgument):
-            embed.add_field(
-                name='No reminder ID specified!',
-                value='You need to specify a reminder ID to delete!\n'
-                      'Use the command `reminders` to see your active reminders!'
-            )
-
-        if isinstance(error, commands.BadArgument):
-            embed.add_field(
-                name='Reminder not found!',
-                value=f'{error}\n'
-                      f'Use the command `reminders` to see your active reminders!'
-            )
-
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 async def setup(bot):

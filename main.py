@@ -1,14 +1,14 @@
-import discord
 import asyncio
-import aiohttp
 import logging
 import inspect
 
-import utils
-
-from loguru import logger
+import discord
+import aiohttp
 from discord.ext.prometheus import PrometheusCog, PrometheusLoggingHandler
+from discord.ext.commands import when_mentioned
+from loguru import logger
 
+import utils
 
 cogs = [
     'cogs.info',
@@ -65,8 +65,8 @@ async def startup():
 
     bot = utils.CustomBot(
         activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie."'),
-        allowed_mentions=discord.AllowedMentions(replied_user=False),
-        command_prefix=utils.CustomBot.get_custom_prefix,
+        allowed_mentions=discord.AllowedMentions.none(),
+        command_prefix=when_mentioned,
         help_command=utils.CustomHelp(),
         strip_after_prefix=True,
         case_insensitive=True,

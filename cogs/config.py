@@ -1,8 +1,9 @@
-import discord
-import utils
-
-from discord.ext import commands
 from typing import Optional, Union
+
+import discord
+from discord.ext import commands
+
+import utils
 
 
 T = Optional[Union[discord.TextChannel, bool]]
@@ -22,15 +23,6 @@ class Configuration(commands.Cog):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    async def cog_check(self, ctx: utils.CustomContext):
-        if not ctx.guild:
-            raise commands.NoPrivateMessage()
-
-        if not ctx.author.guild_permissions.manage_guild:
-            raise commands.MissingPermissions(['manage_guild'])
-
-        return True
-
     @commands.group(invoke_without_command=True, aliases=['configs', 'configuration', 'configurations'])
     async def config(self, ctx: utils.CustomContext):
         """Shows the current configuration for this server!"""
@@ -38,7 +30,8 @@ class Configuration(commands.Cog):
         basic_config = ctx.basic_config
         logging_config = ctx.logging_config
 
-        def maybe_mention(channel): return channel.mention if channel else "Not set"
+        def maybe_mention(channel):
+            return channel.mention if channel else "Not set"
 
         embed = utils.create_embed(
             ctx.author,
@@ -131,8 +124,8 @@ class Configuration(commands.Cog):
         embed = utils.create_embed(
             ctx.author,
             title="Snipe command " + ("enabled!" if option else "disabled!"),
-            description=f"The snipe feature has been " + ("enabled!" if option else "disabled!") +
-                        f" This will " + ("enable" if option else "disable") + " the `snipe` command!"
+            description="The snipe feature has been " + ("enabled!" if option else "disabled!") +
+                        " This will " + ("enable" if option else "disable") + " the `snipe` command!"
         )
 
         if not option:
@@ -166,7 +159,7 @@ class Configuration(commands.Cog):
         `doggie.logging ban: #logs delete: #deletes`
         """
 
-        if any([v for _, v in config if v is True]):
+        if any(v for _, v in config if v is True):
             raise commands.BadFlagArgument(config.get_flags()['ban_channel'], '.', '.')
 
         options = {k: v for k, v in config if v is not None}
