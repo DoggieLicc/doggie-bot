@@ -3,7 +3,7 @@ from typing import Any
 from collections.abc import Iterable
 
 import discord
-from discord import Interaction
+from discord import Interaction, User, ButtonStyle
 from discord.ui import View, Button, Item
 from discord.ext.commands import Paginator
 
@@ -17,7 +17,7 @@ __all__ = [
 
 
 class CustomView(View):
-    def __init__(self, owner: discord.User):
+    def __init__(self, owner: User):
         self.owner = owner
         self.message = None
         super().__init__(timeout=6000)
@@ -49,14 +49,14 @@ class CustomView(View):
 
 
 class PageView(CustomView):
-    def __init__(self, owner: discord.User):
+    def __init__(self, owner: User):
         super().__init__(owner)
         self.current_index = 1
 
     async def get_page_contents(self) -> dict:
         raise NotImplementedError()
 
-    async def update_page(self, interaction: discord.Interaction):
+    async def update_page(self, interaction: Interaction):
         contents = await self.get_page_contents()
         await interaction.response.edit_message(view=self, **contents)
 
@@ -68,20 +68,20 @@ class PageView(CustomView):
         if self.max_page == 1:
             self.clear_items()
 
-    @discord.ui.button(emoji='\U000023EA', style=discord.ButtonStyle.blurple)
-    async def far_left(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000023EA', style=ButtonStyle.blurple)
+    async def far_left(self, interaction: Interaction, _: Button):
         self.current_index = 1
         await self.update_page(interaction)
 
-    @discord.ui.button(emoji='\U000025C0', style=discord.ButtonStyle.blurple)
-    async def left(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000025C0', style=ButtonStyle.blurple)
+    async def left(self, interaction: Interaction, _: Button):
         self.current_index -= 1
         self.current_index = max(self.current_index, 1)
 
         await self.update_page(interaction)
 
-    @discord.ui.button(emoji='\U000023F9', style=discord.ButtonStyle.red)
-    async def stop_button(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000023F9', style=ButtonStyle.red)
+    async def stop_button(self, interaction: Interaction, _: Button):
         children = self.children
         for child in children:
             child.disabled = True
@@ -89,21 +89,21 @@ class PageView(CustomView):
 
         await interaction.response.edit_message(view=self)
 
-    @discord.ui.button(emoji='\U000025B6', style=discord.ButtonStyle.blurple)
-    async def right(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000025B6', style=ButtonStyle.blurple)
+    async def right(self, interaction: Interaction, _: Button):
         self.current_index += 1
         self.current_index = min(self.current_index, self.max_page)
 
         await self.update_page(interaction)
 
-    @discord.ui.button(emoji='\U000023E9', style=discord.ButtonStyle.blurple)
-    async def far_right(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000023E9', style=ButtonStyle.blurple)
+    async def far_right(self, interaction: Interaction, _: Button):
         self.current_index = self.max_page
         await self.update_page(interaction)
 
 
-class EntryMenu(PageView):
-    def __init__(self, owner: discord.User, items: Iterable, items_per_page: int):
+class EntryMenu[T](PageView):
+    def __init__(self, owner: User, items: Iterable[T], items_per_page: int):
         super().__init__(owner)
         self.items = items
         self.items_per_page = items_per_page
@@ -112,7 +112,7 @@ class EntryMenu(PageView):
     async def get_page_contents(self) -> dict:
         raise NotImplementedError()
 
-    def get_page_items(self) -> Iterable:
+    def get_page_items(self) -> Iterable[T]:
         return self.items[(self.current_index - 1) * self.items_per_page:self.current_index * self.items_per_page]
 
     @property
@@ -120,8 +120,8 @@ class EntryMenu(PageView):
         return math.ceil(len(self.items) / self.items_per_page) or 1
 
 
-class PaginatedMenu(PageView):
-    def __init__(self, owner: discord.User, items: Iterable):
+class PaginatedMenu[T](PageView):
+    def __init__(self, owner: User, items: Iterable[T]):
         super().__init__(owner)
 
         self.paginator = self.get_paginator(items)
@@ -144,7 +144,7 @@ class PaginatedMenu(PageView):
     async def get_page_contents(self) -> dict:
         raise NotImplementedError()
 
-    async def update_page(self, interaction: discord.Interaction):
+    async def update_page(self, interaction: Interaction):
         contents = await self.get_page_contents()
         await interaction.edit_original_response(view=self, **contents)
 
@@ -152,20 +152,20 @@ class PaginatedMenu(PageView):
     def current_page(self) -> str:
         return self.paginator.pages[self.current_index - 1]
 
-    @discord.ui.button(emoji='\U000023EA', style=discord.ButtonStyle.blurple)
-    async def far_left(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000023EA', style=ButtonStyle.blurple)
+    async def far_left(self, interaction: Interaction, _: Button):
         self.current_index = 1
         await self.update_page(interaction)
 
-    @discord.ui.button(emoji='\U000025C0', style=discord.ButtonStyle.blurple)
-    async def left(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000025C0', style=ButtonStyle.blurple)
+    async def left(self, interaction: Interaction, _: Button):
         self.current_index -= 1
         self.current_index = max(self.current_index, 1)
 
         await self.update_page(interaction)
 
-    @discord.ui.button(emoji='\U000023F9', style=discord.ButtonStyle.red)
-    async def stop_button(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000023F9', style=ButtonStyle.red)
+    async def stop_button(self, interaction: Interaction, _: Button):
         children = self.children
         for child in children:
             child.disabled = True
@@ -173,14 +173,14 @@ class PaginatedMenu(PageView):
 
         await interaction.edit_original_response(view=self)
 
-    @discord.ui.button(emoji='\U000025B6', style=discord.ButtonStyle.blurple)
-    async def right(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000025B6', style=ButtonStyle.blurple)
+    async def right(self, interaction: Interaction, _: Button):
         self.current_index += 1
         self.current_index = min(self.current_index, self.max_page)
 
         await self.update_page(interaction)
 
-    @discord.ui.button(emoji='\U000023E9', style=discord.ButtonStyle.blurple)
-    async def far_right(self, interaction: discord.Interaction, _: Button):
+    @discord.ui.button(emoji='\U000023E9', style=ButtonStyle.blurple)
+    async def far_right(self, interaction: Interaction, _: Button):
         self.current_index = self.max_page
         await self.update_page(interaction)

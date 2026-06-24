@@ -5,14 +5,14 @@ from datetime import datetime, timezone
 
 import yaml
 import discord
-from discord import TextChannel, ChannelType, Message, User, Guild, Role
+from discord import TextChannel, ChannelType, Message, User, Guild, Role, app_commands
 from discord.ext import commands
+from loguru import logger
 
 from utils.funcs import guess_user_nitro_status, create_embed, fix_url
 from utils.db_helper import *
 
 __all__ = [
-    'CustomContext',
     'CustomBot',
     'Emotes',
     'Reminder',
@@ -21,7 +21,6 @@ __all__ = [
     'MissingAPIKey',
     'DoggieBotException'
 ]
-
 
 dirname = os.getcwd()
 config_file = os.path.join(dirname, 'config.yaml')
@@ -110,9 +109,6 @@ RemindersTable = BaseTable(
 
 ALL_DB_TABLES = [BasicConfigTable, LoggingConfigTable, RemindersTable]
 
-class CustomContext(commands.Context):
-    ...
-
 
 class CustomBot(commands.Bot):
     # noinspection PyTypeChecker
@@ -190,6 +186,7 @@ class CustomBot(commands.Bot):
         await self.load_basic_config()
         await self.load_logging_config()
 
+        logger.info('All configurations loaded!')
         self.fully_ready = True
         self.dispatch('fully_ready')
 
@@ -232,7 +229,6 @@ class CustomBot(commands.Bot):
             async with conn.cursor() as cursor:
                 for row in await cursor.execute('SELECT * FROM basic_config'):
                     guild = self.get_guild(row['guild_id'])
-                    prefix = row['prefix']
                     snipe = bool(row['snipe'])
                     mute_role = guild.get_role(row['mute_role']) if guild else None
 
@@ -241,7 +237,6 @@ class CustomBot(commands.Bot):
 
                     config = BasicConfig(
                         guild=guild,
-                        prefix=prefix,
                         snipe=snipe,
                         mute_role=mute_role
                     )
@@ -283,7 +278,27 @@ class CustomBot(commands.Bot):
         return self.basic_configs.get(guild.id, BasicConfig(guild))
 
     def get_logging_config(self, guild: Guild) -> 'LoggingConfig':
-        return self.basic_configs.get(guild.id, LoggingConfig(guild))
+        return self.logging_configs.get(guild.id, LoggingConfig(guild))
+
+    def check_commands(self, cmds: app_commands.ContextMenu | app_commands.Command | app_commands.Group):
+        for command in cmds:
+            if isinstance(command, app_commands.Group):
+                self.check_commands(command.commands)
+                continue
+
+            if isinstance(command, app_commands.ContextMenu):
+                continue
+
+            if command.description == '…':
+                logger.warning('App command "{}" missing description!', command.qualified_name)
+
+            for parameter in command.parameters:
+                if parameter.description == '…':
+                    logger.warning('Parameter "{}" of App command "{}" missing description!', parameter.name, command.qualified_name)
+
+    def check_all_commands(self):
+        cmds = list(c for c in self.tree.walk_commands())
+        self.check_commands(cmds)
 
 class Emotes:
     # Emotes available in https://discord.gg/Uk6fg39cWn
@@ -331,6 +346,7 @@ class Emotes:
     member_leave = '<:memberleave:941816365772341298>'
     message_delete = '<:messagedelete:941816371401064490>'
     emote_create = '<:emotecreate:941816361561243700>'
+    timeout = '<:timeout:1519145193335427185>'
 
     @staticmethod
     def channel(chann: discord.abc.GuildChannel):
@@ -459,7 +475,6 @@ class Reminder:
 @dataclass(frozen=True)
 class BasicConfig:
     guild: discord.Guild
-    prefix: str | None = None
     snipe: bool | None = None
     mute_role: Role | None = None
 
@@ -470,7 +485,7 @@ class BasicConfig:
             'REPLACE INTO basic_config VALUES(?, ?, ?, ?)',
             (
                 config.guild.id,
-                config.prefix,
+                None,  # Unused prefix config
                 config.snipe,
                 config.mute_role.id if config.mute_role else None
             )

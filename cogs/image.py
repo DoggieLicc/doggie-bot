@@ -77,7 +77,7 @@ def deepfry_image(image: Image):
 def noise_image(image: Image, alpha: float):
     noise = Image.effect_noise(image.size, 20).convert('RGBA')
 
-    image = Image.blend(image, noise, alpha)
+    image = Image.blend(image, noise, alpha/100)
 
     return image
 
@@ -189,7 +189,6 @@ class ImageCommand:
     def add_param_description(self, callback: Callable):
         self.descripts['image'] = 'The image you want to modify. If not specified, will use the last selected image, or your avatar'
         deco = app_commands.describe(**self.descripts)
-        print(self.descripts)
         return deco(callback)
 
     def get_callback(self) -> Callable:
@@ -277,12 +276,12 @@ IMAGE_COMMANDS = [
     ImageCommand('invert', 'Invert an image\'s colors!', [], invert_image),
     ImageCommand('grayscale', 'Grayscale an image!', [], greyscale_image),
     ImageCommand('deepfry', 'Deepfry an image!', [], deepfry_image),
-    ImageCommand('blur', 'Blur an image!', [('strength', Range[int, 0, 100], 5)], deepfry_image, {'strength': 'How strong to make the blur (0-100, default 5)'}),
-    ImageCommand('noise', 'Add a noise filter to an image!', [('strength', Range[int, 0, 100], 50)], noise_image, {'strength': 'How strong to make the noise (0-100, default 50)'}),
-    ImageCommand('brighten', 'Brighten an image!', [('brightness', Range[float, 0, 10], 1.25)], brighten_image, {'brightness': 'How bright to make the image, values under 1 darken it. (0-10, default 1.25)'}),
-    ImageCommand('contrast', 'Add contrast to an image!', [('strength', Range[float, 0, 10], 1.25)], contrast_image, {'contrast': 'How strong to make the contrast, values under 1 lower contrast (0-10, default 1.25)'}),
-    ImageCommand('impact', 'Add impact-font text to an image!', [('top_text', str, 'TOP TEXT'), ('bottom_text', str, '')], add_impact, {'top_text': 'The text to add at the top', 'bottom_text': 'The text to add at the bottom'}),
-    ImageCommand('rotate', 'Rotate an image!', [('angle', float, 90.0)], rotate_image, {'angle': 'How many degrees to rotate the image clockwise (default 90.0)'})
+    ImageCommand('blur', 'Blur an image!', [('strength', Range[int, 0, 100], 5)], blur_image, [], {'strength': 'How strong to make the blur (0-100, default 5)'}),
+    ImageCommand('noise', 'Add a noise filter to an image!', [('strength', Range[int, 0, 100], 50)], noise_image, [], {'strength': 'How strong to make the noise (0-100, default 50)'}),
+    ImageCommand('brighten', 'Brighten an image!', [('brightness', Range[float, 0, 10], 1.25)], brighten_image, [], {'brightness': 'How bright to make the image, values under 1 darken it. (0-10, default 1.25)'}),
+    ImageCommand('contrast', 'Add contrast to an image!', [('contrast', Range[float, 0, 10], 1.25)], contrast_image, [], {'contrast': 'How strong to make the contrast, values under 1 lower contrast (0-10, default 1.25)'}),
+    ImageCommand('impact', 'Add impact-font text to an image!', [('top_text', str, 'TOP TEXT'), ('bottom_text', str, '')], add_impact, [], {'top_text': 'The text to add at the top', 'bottom_text': 'The text to add at the bottom'}),
+    ImageCommand('rotate', 'Rotate an image!', [('angle', float, 90.0)], rotate_image, [], {'angle': 'How many degrees to rotate the image clockwise (default 90.0)'})
 ]
 
 FLAG_COMMANDS = [
@@ -307,7 +306,6 @@ class Images(GroupCog, group_name='image'):
 
     async def cog_load(self):
         for image_command in IMAGE_COMMANDS:
-            print(image_command)
             self.app_command.add_command(
                 Command(
                     name=image_command.name.lower(),

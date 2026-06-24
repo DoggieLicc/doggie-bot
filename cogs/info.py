@@ -1,11 +1,10 @@
 import base64
 import datetime
-from typing import Optional, Union
 
-import discord
 from discord import Color, Member, Role, User, app_commands, File, Interaction, Thread, Invite, PartialEmoji, Message, TextChannel, VoiceChannel, StageChannel, NotFound, Forbidden, HTTPException
 from discord.ext.commands import Cog
 from discord.app_commands import Transform
+from discord.abc import GuildChannel
 from discord.utils import oauth_url, snowflake_time
 
 import whoisdomain as whois
@@ -126,10 +125,10 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(user='The user to get info about.')
-    async def user(self, interaction: Interaction, user: Optional[Union[Member, User]]):
+    async def user(self, interaction: Interaction, user: Member | User | None):
         """Shows information about the user specified, if no user specified then it returns info for you"""
 
-        user: Union[Member, User] = user or interaction.user
+        user: Member | User = user or interaction.user
 
         fetched = user if user.banner else await self.bot.fetch_user(user.id)
 
@@ -185,7 +184,7 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(user='The user to get info about.')
-    async def avatar(self, interaction: Interaction, user: Optional[Union[Member, User]]):
+    async def avatar(self, interaction: Interaction, user: Member |  User | None):
         """Shows the avatar of the specified user, if no user specified then it returns info for you"""
 
         user: User = user or interaction.user
@@ -252,7 +251,7 @@ class Info(Cog, name='Information'):
     @app_commands.command()
     @app_commands.guild_only()
     @app_commands.describe(channel='The channel to get info for')
-    async def channel(self, interaction: Interaction, channel: Union[discord.abc.GuildChannel, Thread]):
+    async def channel(self, interaction: Interaction, channel: GuildChannel | Thread):
         """Shows info for the channel specified"""
 
         embed = utils.create_embed(

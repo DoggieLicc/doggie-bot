@@ -5,6 +5,7 @@ from contextlib import redirect_stdout
 
 from discord import User, Color, Embed, File, Asset
 from discord.ext import commands
+from discord.ext.commands import Context
 import utils
 
 
@@ -29,7 +30,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
-    async def cog_check(self, ctx: utils.CustomContext):
+    async def cog_check(self, ctx: Context):
         # pylint: disable=invalid-overridden-method
         if not await self.bot.is_owner(ctx.author):
             raise commands.NotOwner()
@@ -37,7 +38,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         return True
 
     @commands.command()
-    async def load(self, ctx: utils.CustomContext, *cogs: str):
+    async def load(self, ctx: Context, *cogs: str):
         # pylint: disable=broad-exception-caught
         for cog in cogs:
             try:
@@ -56,7 +57,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def unload(self, ctx: utils.CustomContext, *cogs: str):
+    async def unload(self, ctx: Context, *cogs: str):
         # pylint: disable=broad-exception-caught
         for cog in cogs:
             try:
@@ -75,7 +76,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def reload(self, ctx: utils.CustomContext, *cogs: str):
+    async def reload(self, ctx: Context, *cogs: str):
         for cog in cogs:
             try:
                 await self.bot.reload_extension(f'cogs.{cog}')
@@ -123,7 +124,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def list_cogs(self, ctx: utils.CustomContext):
+    async def list_cogs(self, ctx: Context):
         embed = utils.create_embed(
             ctx.author,
             title='Showing all loaded cogs...',
@@ -214,7 +215,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         return await ctx.send(embed=embed)
 
     @commands.command(aliases=['clean'])
-    async def cleanup(self, ctx: utils.CustomContext, limit=100):
+    async def cleanup(self, ctx: Context, limit=100):
         messages = await ctx.channel.purge(limit=limit, bulk=False, check=lambda m: m.author == ctx.me)
         await ctx.send(f'Deleted {len(messages)} message(s)', delete_after=3, reference=ctx.message)
 
