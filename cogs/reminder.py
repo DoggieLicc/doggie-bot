@@ -31,7 +31,6 @@ class ReminderList(utils.EntryMenu):
 
 class ReminderCog(commands.GroupCog, name="reminder"):
     """Create and manage your reminders"""
-
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
@@ -56,6 +55,9 @@ class ReminderCog(commands.GroupCog, name="reminder"):
         if channel:
             bot_perms = channel.permissions_for(interaction.guild.me)
             author_perms = channel.permissions_for(interaction.user)
+
+            if interaction.is_user_integration():
+                raise utils.DoggieBotException('Invalid option:', 'Can\'t specify a channel to send to when bot is installed as only an user app')
 
             if channel.guild != interaction.guild or not (bot_perms.view_channel and bot_perms.send_messages) or not (author_perms.view_channel and author_perms.send_messages):
                 raise utils.DoggieBotException('Missing Permissions', 'You or this bot don\'t have permissions to talk in that channel!')

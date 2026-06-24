@@ -63,6 +63,7 @@ class Misc(Cog):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command()
+    @app_commands.describe(suggestion='What you want to suggest!')
     async def suggest(self, interaction: Interaction, suggestion: str):
         """Send a suggestion or bug report to the bot owner!"""
 

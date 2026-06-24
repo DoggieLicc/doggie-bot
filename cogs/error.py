@@ -37,7 +37,12 @@ class ErrorHandler(Cog):
             error_title = 'Invalid option!'
 
         if isinstance(error, app_commands.CheckFailure):
-            error_message = 'You aren\'t allowed to use that command!'
+            error_title = 'Checks failed!'
+            error_message = 'Some checks failed... either you or this bot are missing permissions here.'
+            check_names = [c.__qualname__ for c in interaction.command.checks]
+            if 'not_user_integration.<locals>.predicate' in check_names and interaction.is_user_integration():
+                error_title = 'Invalid install!'
+                error_message = 'Can\'t use this command as an user install. Get someone to install me to this server!'
 
         if isinstance(error, app_commands.MissingPermissions):
             error_message = f'You are missing the following permissions: {error.missing_permissions}'
@@ -107,7 +112,7 @@ class ErrorHandler(Cog):
                     await interaction.channel.send(embed=embed)
                 except DiscordException:
                     logger.warning(
-                        'Unable to respond to exception in %s (%s)',
+                        'Unable to respond to exception in {} ({})',
                         interaction.channel.name, interaction.channel.id
                     )
 

@@ -33,11 +33,11 @@ async def remove_mute(member: Member, role: Role, **kwargs):
 
 class SnipeMenu(utils.EntryMenu):
     async def get_page_contents(self):
-        entries = self.get_page_items()
-        if isinstance(entries, Embed):
-            return entries
+        message = self.get_page_items()[0]
+        if isinstance(message, Embed):
+            return message
 
-        embed = utils.format_deleted_msg(entries, title=f'Sniped message {self.current_index}/{self.max_page}:')
+        embed = utils.format_deleted_msg(message, title=f'Sniped message {self.current_index}/{self.max_page}:')
 
         embed.set_footer(
             text=f'Command sent by {self.owner}',
@@ -47,6 +47,7 @@ class SnipeMenu(utils.EntryMenu):
         return {"embed": embed}
 
 @app_commands.guild_only()
+@app_commands.allowed_installs(users=False)
 class Moderation(GroupCog, group_name='mod'):
     """Commands to make moderation easier and simpler"""
 
@@ -332,9 +333,9 @@ class Moderation(GroupCog, group_name='mod'):
 
         amount = 200 if abs(amount) >= 200 else abs(amount) + 1
 
-        await interaction.response.defer(thinking=True)
+        await interaction.response.defer(thinking=True, ephemeral=True)
 
-        messages_deleted = await interaction.channel.purge(limit=amount, check=lambda m: not users or (m.author in users))
+        messages_deleted = await interaction.channel.purge(limit=amount, check=lambda m: not users or (m.author in users), bulk=True)
 
         users = [user.mention for user in users] if users else ['anyone']
         embed = utils.create_embed(
@@ -343,7 +344,7 @@ class Moderation(GroupCog, group_name='mod'):
             description='Deleted messages from ' + ', '.join(users)
         )
 
-        await interaction.edit_original_response(embed=embed, delete_after=10)
+        await interaction.edit_original_response(embed=embed)
 
         self.bot.dispatch('purge', interaction, users, len(messages_deleted))
 
@@ -393,7 +394,7 @@ class Moderation(GroupCog, group_name='mod'):
         if not (channel.permissions_for(interaction.user).manage_messages and channel.permissions_for(interaction.user).view_channel):
             raise utils.DoggieBotException('Can\'t snipe from that channel!', 'You need permissions to view and manage messages of that channel before you can snipe messages from it!')
 
-        interaction.response.defer(thinking=True)
+        await interaction.response.defer(thinking=True)
 
         filtered = [message for message in self.bot.sniped if (message.guild == interaction.guild)
                     and (user is None or user == message.author) and (channel == message.channel)][:100]

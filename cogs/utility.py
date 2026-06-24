@@ -1,13 +1,10 @@
-import discord
 import asyncio
 import time
 import itertools
-from datetime import timedelta
-from collections import Counter
 
-from discord import app_commands, Interaction, Attachment, PartialEmoji, Message, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden
+from discord import app_commands, Interaction, Attachment, PartialEmoji, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden, Emoji
 from discord.app_commands import Transform
-from discord.ext.commands import Greedy, BotMissingPermissions, MissingPermissions, MissingRequiredArgument, Cog
+from discord.ext.commands import Cog
 from discord.ui import Select
 from loguru import logger
 
@@ -146,6 +143,7 @@ class UtilityCog(Cog, name="Utility"):
             logger.warning('SAUCENAO_API_KEY Environment variable missing. /saucenao will not be registered')
 
     @app_commands.command()
+    @utils.not_user_integration()
     @app_commands.guild_only()
     async def recentjoins(self, interaction: Interaction):
         """Shows the most recent joins in the current server"""
@@ -185,7 +183,6 @@ class UtilityCog(Cog, name="Utility"):
 
         t = time.perf_counter()
         seen_users = set()
-        users_message: Message | None = None
 
         def check(_reaction, _user):
             if _reaction.message == message and str(_reaction.emoji) == '\N{PARTY POPPER}' \
@@ -203,7 +200,7 @@ class UtilityCog(Cog, name="Utility"):
                     embed = utils.create_embed(
                         interaction.user,
                         title='Test timed out!',
-                        description=f'No one reacted within 10 minutes!',
+                        description='No one reacted within 10 minutes!',
                         color=Color.red()
                     )
 
@@ -211,41 +208,40 @@ class UtilityCog(Cog, name="Utility"):
 
                 return
 
+            if user == interaction.user:
+                embed = utils.create_embed(
+                    interaction.user,
+                    title='Test canceled!',
+                    description=f'You reacted to your own test, so it was canceled.\nAnyways, '
+                                f'your time is {round(time.perf_counter() - t, 2)} seconds.',
+                    color=Color.red()
+                )
+
+                return await interaction.edit_original_response(embeds=[selfbot_embed, embed])
+
+            if not len(message.embeds) > 1:
+                embed = utils.create_embed(
+                    interaction.user,
+                    title='Reaction found!',
+                    description=f'{user} (ID: {user.id})\nreacted with {reaction} in '
+                                f'{round(time.perf_counter() - t, 2)} seconds'
+                )
+
+                message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
             else:
-                if user == interaction.user:
-                    embed = utils.create_embed(
-                        interaction.user,
-                        title='Test canceled!',
-                        description=f'You reacted to your own test, so it was canceled.\nAnyways, '
-                                    f'your time is {round(time.perf_counter() - t, 2)} seconds.',
-                        color=Color.red()
-                    )
+                new_msg = f'\n\n{user} (ID: {user.id})\nreacted with {reaction} in ' \
+                            f'{round(time.perf_counter() - t, 2)} seconds'
 
-                    return await interaction.edit_original_response(embeds=[selfbot_embed, embed])
+                embed = utils.create_embed(
+                    interaction.user,
+                    title='Reactions found!',
+                    description=message.embeds[0].description + new_msg
+                )
 
-                else:
-                    if not len(message.embeds) > 1:
-                        embed = utils.create_embed(
-                            interaction.user,
-                            title='Reaction found!',
-                            description=f'{user} (ID: {user.id})\nreacted with {reaction} in '
-                                        f'{round(time.perf_counter() - t, 2)} seconds'
-                        )
-
-                        message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
-                    else:
-                        new_msg = f'\n\n{user} (ID: {user.id})\nreacted with {reaction} in ' \
-                                  f'{round(time.perf_counter() - t, 2)} seconds'
-
-                        embed = utils.create_embed(
-                            interaction.user,
-                            title='Reactions found!',
-                            description=message.embeds[0].description + new_msg
-                        )
-
-                        message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
+                message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
 
     @app_commands.guild_only()
+    @utils.not_user_integration()
     @app_commands.command()
     async def hoisters(self, interaction: Interaction):
         """Shows a list of members who have names made to 'hoist' themselves to the top of the member list!"""
@@ -259,41 +255,12 @@ class UtilityCog(Cog, name="Utility"):
 
         await interaction.response.send_message(view=view, **await view.get_page_contents(), ephemeral=True)
 
-    @utils.client_has_permissions(manage_webhooks=True)
-    @app_commands.default_permissions(manage_webhooks=True)
-    @app_commands.guild_only()
-    @app_commands.command()
-    async def send(self, interaction: Interaction):
-        """Send a custom webhook message to specified channel"""
-        ### pylint: disable=all
-
-        response = await interaction.response.send_modal()
-        channel = ...
-
-        if not channel.permissions_for(interaction.guild.me).manage_webhooks:
-            raise BotMissingPermissions(['Manage Webhooks'])
-
-        if not channel.permissions_for(interaction.user).manage_webhooks:
-            raise MissingPermissions(['Manage Webhooks'])
-
-        webhooks = await channel.webhooks()
-
-        sending_webhooks = [w for w in webhooks if w.name == 'DoggieBot Sending Webhook']
-
-        if not sending_webhooks:
-            sending_webhook = await channel.create_webhook(name='DoggieBot Sending Webhook')
-        else:
-            sending_webhook = sending_webhooks[0]
-
-        await sending_webhook.send(
-            #**dict(flags),
-            #allowed_mentions=discord.AllowedMentions.none(),
-            #files=[await file.to_file() for file in attachments]
-        )
 
     @app_commands.guild_only()
     @app_commands.default_permissions(create_expressions=True)
     @utils.client_has_permissions(create_expressions=True)
+    @utils.not_user_integration()
+    @app_commands.describe(emotes='The custom emotes you want to add to this server')
     @app_commands.command()
     async def stealemote(
         self,
@@ -361,13 +328,16 @@ class UtilityCog(Cog, name="Utility"):
 
     @app_commands.guild_only()
     @app_commands.command()
+    @utils.not_user_integration()
     async def newaccounts(self, interaction: Interaction):
         """Shows the newest accounts in this server!"""
 
         members = sorted(interaction.guild.members, key=lambda m: m.created_at, reverse=True)[:200]
-        view = RecentAccounts(Interaction.user, members, 10)
+        view = RecentAccounts(interaction.user, members, 10)
         await interaction.response.send_message(view=view, **await view.get_page_contents(), ephemeral=True)
 
+    @app_commands.describe(image='Attach an image to get its source...')
+    @app_commands.describe(image_url='... or the URL of the image to get the source of')
     async def saucenao(
         self,
         interaction: Interaction,
@@ -377,7 +347,7 @@ class UtilityCog(Cog, name="Utility"):
         """Gets the source of an image using SauceNAO, usually for art. Most anime databases are disabled. :3"""
 
         if not image_url and not image:
-            raise utils.DoggieBotException('No image was specified!')
+            raise utils.DoggieBotException('No image Specified!', 'You must specify either `image` or `image_url`')
 
         await interaction.response.defer(thinking=True)
 

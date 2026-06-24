@@ -2,8 +2,8 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 import discord
-from discord import Embed, User, Member, Color, Guild, AuditLogAction, Forbidden, NotFound, HTTPException, Message
-from discord.ext.commands import Cog
+from discord import Embed, User, Member, Color, Guild, AuditLogAction, Forbidden, NotFound, HTTPException, Message, Interaction
+from discord.ext.commands import Cog, Context
 from loguru import logger
 
 import utils
@@ -26,8 +26,9 @@ async def ban_embed(guild: Guild, punished: User, action) -> Embed:
 
     embed = utils.create_embed(
         None,
-        title=f'{emote} {punished} has been {action.name}ned! ({punished.id})',
-        description=f'{action.name.title()}ned by: {mod.mention if mod else "Unknown"}'
+        title=f'{emote} An user has been {action.name}ned!',
+        description=f'{punished.mention} (@{punished}) was {action.name}ned from this server.\n'
+                    f'{action.name.title()}ned by: {mod.mention if mod else "Unknown"}'
                     f'\n\nReason: {reason or "No reason specified"}',
         thumbnail=punished.display_avatar,
         color=Color.red()
@@ -36,13 +37,10 @@ async def ban_embed(guild: Guild, punished: User, action) -> Embed:
     return embed
 
 
-def format_log(ctx: utils.CustomContext, _list: list[Member], reason: str, punishment: str) -> Embed | None:
-    if not ctx.logging_config.mute_channel:
-        return None
-
+def format_log(interaction: Interaction, _list: list[Member], reason: str, punishment: str) -> Embed | None:
     embed = Embed(
         title=f'{len(_list)} members {punishment}!',
-        description=f'They were {punishment} by {ctx.author.mention} for "{reason}"',
+        description=f'They were {punishment} by {interaction.user.mention} (@{interaction.user}) for "{reason}"',
         color=Color.red()
     )
 
@@ -60,17 +58,17 @@ class EventsCog(Cog):
 
     @Cog.listener()
     async def on_fully_ready(self):
-        logger.info(f'\nLogged in as: {self.bot.user.name} - {self.bot.user.id}\n'
-              f'Version: {discord.__version__}\n'
-              f'Successfully logged in and booted...!')
+        logger.info(f'Logged in as: {self.bot.user.name} - {self.bot.user.id}')
+        logger.info(f'Version: {discord.__version__}')
+        logger.info('Successfully logged in and booted...!')
 
     @Cog.listener()
-    async def on_command(self, ctx: utils.CustomContext):
+    async def on_command(self, ctx: Context):
         await ctx.typing()
 
     @Cog.listener()
     async def on_member_ban(self, guild: Guild, banned: Member | User):
-        config = self.bot.logging_configs.get(guild.id)
+        config = self.bot.get_logging_config(guild)
 
         if not config or not config.ban_channel:
             return
@@ -83,8 +81,57 @@ class EventsCog(Cog):
             pass
 
     @Cog.listener()
+    async def on_member_update(self, before: Member, after: Member):
+        config = self.bot.get_logging_config(before.guild)
+
+        if not config or not config.mute_channel:
+            return
+
+        if not after.timed_out_until or before.timed_out_until:
+            return
+
+        if before.timed_out_until == after.timed_out_until:
+            return
+
+        mod, reason = None, "Unknown"
+        audit_failed = False
+
+        await asyncio.sleep(5)
+        d = datetime.now(timezone.utc) - timedelta(seconds=6)
+        try:
+            async for entry in before.guild.audit_logs(after=d, limit=10, action=AuditLogAction.member_update):
+                if entry.target == before and entry.after.timed_out_until == after.timed_out_until:
+                    mod = entry.user
+                    reason = entry.reason or 'No reason specified'
+                    break
+
+        except Forbidden:
+            audit_failed = True
+
+        if mod is None:
+            addit_desc = '\n\n**Moderator:** Unknown\n**Reason:** Unknown'
+        else:
+            addit_desc = f'\n\n**Moderator:** {mod.mention}\n**Reason:** {reason}'
+
+        if audit_failed:
+            addit_desc += '\n\n**Bot is missing Audit Log permissions! Some data will be unavailable**'
+
+        embed = utils.create_embed(
+            None,
+            title=utils.Emotes.timeout + ' Member put in timeout!',
+            description=f'Member {after.mention} (@{after}) was timed-out until {utils.user_friendly_dt(after.timed_out_until)}' + addit_desc,
+            thumbnail=after.display_avatar,
+            color=discord.Color.red()
+        )
+
+        try:
+            await config.mute_channel.send(embed=embed)
+        except (Forbidden, NotFound, HTTPException):
+            pass
+
+    @Cog.listener()
     async def on_member_unban(self, guild: Guild, unbanned: User):
-        config = self.bot.logging_configs.get(guild.id)
+        config = self.bot.get_logging_config(guild)
 
         if not config or not config.ban_channel:
             return
@@ -98,14 +145,15 @@ class EventsCog(Cog):
 
     @Cog.listener()
     async def on_member_remove(self, kicked: Member):
-        config = self.bot.logging_configs.get(kicked.guild.id)
+        config = self.bot.get_logging_config(kicked.guild)
 
         if not config or not config.kick_channel:
             return
 
         mod, reason = None, "Unknown"
+        audit_failed = False
         await asyncio.sleep(5)
-        d = datetime.now(timezone.utc) - timedelta(seconds=5)
+        d = datetime.now(timezone.utc) - timedelta(seconds=6)
         try:
             async for entry in kicked.guild.audit_logs(after=d, limit=10, action=AuditLogAction.kick):
                 if entry.target == kicked:
@@ -114,16 +162,23 @@ class EventsCog(Cog):
                     break
 
         except Forbidden:
-            return
-        if not mod:
-            return
+            audit_failed = True
+
+        if mod is None:
+            addit_desc = '\n\n**Moderator:** Unknown\n**Reason:** Unknown'
+        else:
+            addit_desc = f'\n\n**Moderator:** {mod.mention}\n**Reason:** {reason}'
+
+        if audit_failed:
+            addit_desc += '\n\n**Bot is missing Audit Log permissions! Some data will be unavailable**'
 
         embed = utils.create_embed(
             None,
-            title=f'{utils.Emotes.member_leave} {kicked} has been kicked! ({kicked.id})',
-            description=f'Kicked by: {mod.mention if mod else "Unknown"}\n\nReason: {reason or "No reason specified"}',
+            title=utils.Emotes.member_leave + ' Member kicked!',
+            description=f'Member {kicked.mention} (@{kicked}) was kicked from this server.' + addit_desc,
             thumbnail=kicked.display_avatar,
-            color=Color.red())
+            color=Color.red()
+        )
 
         try:
             await config.kick_channel.send(embed=embed)
@@ -135,8 +190,8 @@ class EventsCog(Cog):
         if message.author.bot or not message.guild:
             return
 
-        config = self.bot.basic_configs.get(message.guild.id)
-        log_config = self.bot.logging_configs.get(message.guild.id)
+        config = self.bot.get_basic_config(message.guild)
+        log_config = self.bot.get_logging_config(message.guild)
 
         if config and config.snipe:
             self.bot.sniped[:0] = [message]
@@ -153,47 +208,90 @@ class EventsCog(Cog):
             pass
 
     @Cog.listener()
-    async def on_mute(self, ctx: utils.CustomContext, muted: list[Member], reason: str):
-        if not ctx.logging_config.mute_channel:
+    async def on_mute(self, interaction: Interaction, muted: list[Member], reason: str):
+        config = self.bot.get_logging_config(interaction.guild)
+        if not config.mute_channel:
             return
 
-        embed = format_log(ctx, muted, reason, 'muted')
+        embed = format_log(interaction, muted, reason, 'muted')
 
         try:
-            await ctx.logging_config.mute_channel.send(embed=embed)
+            await config.mute_channel.send(embed=embed)
         except (Forbidden, NotFound, HTTPException):
             pass
 
     @Cog.listener()
-    async def on_unmute(self, ctx: utils.CustomContext, unmuted: list[Member], reason: str):
-        if not ctx.logging_config.mute_channel:
+    async def on_unmute(self, interaction: Interaction, unmuted: list[Member], reason: str):
+        config = self.bot.get_logging_config(interaction.guild)
+        if not config.mute_channel:
             return
 
-        embed = format_log(ctx, unmuted, reason, 'unmuted')
+        embed = format_log(interaction, unmuted, reason, 'unmuted')
 
         try:
-            await ctx.logging_config.mute_channel.send(embed=embed)
+            await config.mute_channel.send(embed=embed)
         except (Forbidden, NotFound, HTTPException):
             pass
 
     @Cog.listener()
-    async def on_purge(self, ctx: utils.CustomContext, users: list[User], amount: int):
-        if not ctx.logging_config.purge_channel:
+    async def on_purge(self, interaction: Interaction, users: list[User], amount: int):
+        config = self.bot.get_logging_config(interaction.guild)
+        if not config.purge_channel:
             return
 
         embed = Embed(
             title=f'{amount} messages deleted!',
-            description=f'{ctx.author.mention} deleted {amount} messages in {ctx.channel.mention}\n\n'
+            description=f'{interaction.user.mention} deleted {amount} messages in {interaction.channel.mention}\n\n'
                         f'Deleted messages from:\n' +
                         ', '.join(map(str, users)),
             color=Color.red()
         )
 
         try:
-            await ctx.logging_config.purge_channel.send(embed=embed)
+            await config.purge_channel.send(embed=embed)
         except (Forbidden, NotFound, HTTPException):
             pass
 
+    @Cog.listener()
+    async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent):
+        guild = self.bot.get_guild(payload.guild_id)
+
+        if not guild:
+            return
+
+        config = self.bot.get_logging_config(guild)
+        if not config.purge_channel:
+            return
+
+        mod = None
+        channel = None
+        count = 0
+        await asyncio.sleep(5)
+        d = datetime.now(timezone.utc) - timedelta(seconds=6)
+        try:
+            async for entry in guild.audit_logs(after=d, limit=10, action=AuditLogAction.message_bulk_delete):
+                print(5, entry, entry.target, payload.channel_id)
+                if entry.target.id == payload.channel_id:
+                    mod = entry.user
+                    channel = entry.target
+                    count = entry.extra.count
+                    break
+        except Forbidden:
+            return
+
+        if mod == guild.me:
+            return
+
+        embed = Embed(
+            title='Multiple messages deleted!',
+            description=f'{mod.mention} deleted {count} messages in <#{channel.id}>',
+            color=discord.Color.red()
+        )
+
+        try:
+            await config.purge_channel.send(embed=embed)
+        except (Forbidden, NotFound, HTTPException):
+            pass
 
 async def setup(bot):
     await bot.add_cog(EventsCog(bot))

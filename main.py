@@ -72,11 +72,12 @@ async def startup():
         case_insensitive=True,
         max_messages=20000,
         intents=intents,
+        allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=True)
     )
 
     if bot.config['enable_prometheus']:
         port = int(bot.config.get('prometheus_port', 8000))
-        logger.info('Prometheus enabled on port %d', port)
+        logger.info('Prometheus enabled on port {}', port)
         logger.add(PrometheusLoggingHandler())
         await bot.add_cog(PrometheusCog(bot, port=port))
 
@@ -84,6 +85,8 @@ async def startup():
     for cog in cogs:
         await bot.load_extension(cog)
         logger.debug('Loaded cog: {}', cog)
+
+    bot.check_all_commands()
 
     async with aiohttp.ClientSession(headers=headers) as session:
         bot.session = session

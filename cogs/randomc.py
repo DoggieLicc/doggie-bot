@@ -11,7 +11,6 @@ UTM_PARAMS = '?utm_source=discord_bot_doggie_bot&utm_medium=referral'
 
 class RandomCog(commands.GroupCog, group_name='random'):
     """Commands to get something random, like colors or images!"""
-
     def __init__(self, bot):
         self.bot: utils.CustomBot = bot
 
@@ -30,6 +29,7 @@ class RandomCog(commands.GroupCog, group_name='random'):
 
         self.cached_random_photos: list[Photo] = []
 
+    @utils.not_user_integration()
     @app_commands.command()
     @app_commands.describe(include_bots='Whether or not to include bots (Default: False)')
     async def member(self, interaction: Interaction, include_bots: bool = False):

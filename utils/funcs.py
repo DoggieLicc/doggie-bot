@@ -5,7 +5,7 @@ from uuid import UUID
 
 import discord
 from PIL import Image
-from discord import Embed, User, Member, Permissions, app_commands, Interaction
+from discord import Embed, User, Member, Permissions, app_commands, Interaction, Color, File, Forbidden, HTTPException, Message, DeletedReferencedMessage
 from discord.ext.commands import BotMissingPermissions
 
 __all__ = [
@@ -23,16 +23,17 @@ __all__ = [
     'fix_url',
     'solid_color_image',
     'client_has_permissions',
-    'invoker_has_permissions'
+    'invoker_has_permissions',
+    'not_user_integration'
 ]
 
 
 def create_embed(user: Member | User | None, *, image=None, thumbnail=None, **kwargs) -> Embed:
     """Makes a discord.Embed with options for image and thumbnail URLs, and adds a footer with author name"""
 
-    kwargs['color'] = kwargs.get('color', discord.Color.green())
+    kwargs['color'] = kwargs.get('color', Color.green())
 
-    embed = discord.Embed(**kwargs)
+    embed = Embed(**kwargs)
     embed.set_image(url=fix_url(image))
     embed.set_thumbnail(url=fix_url(thumbnail))
 
@@ -69,10 +70,19 @@ def hierarchy_check(mod: Member, user: Member | User) -> bool:
     if isinstance(user, User):
         return True
 
+    if mod == user:
+        return False
+
+    if mod.guild.owner == mod:
+        return True
+    
+    # temp
+    return True
+
     return mod.top_role > user.top_role and mod.guild.me.top_role > user.top_role and not user == mod.guild.owner
 
 
-def shorten_below_number(_list: list[Any], *, separator: str = '\n', number: int = 1000):
+def shorten_below_number[T](_list: list[T], *, separator: str = '\n', number: int = 1000) -> list[T]:
     shortened = ''
 
     while _list and len(shortened) + len(str(_list[0])) <= number:
@@ -80,12 +90,12 @@ def shorten_below_number(_list: list[Any], *, separator: str = '\n', number: int
 
     return shortened[:-len(separator)]
 
-async def multi_punish(
+async def multi_punish[T: (Member, User)](
         mod: Member,
-        users: list[Member | User],
+        users: list[T],
         func: Callable[[Member | User, Any], Coroutine[Any, Any, Any]],
         **kwargs
-) -> tuple[list[Member | User], list[Member | User]]:
+) -> tuple[list[T], list[T]]:
     punished = []
     not_punished = [user for user in users if not hierarchy_check(mod, user)]
 
@@ -94,7 +104,7 @@ async def multi_punish(
         try:
             await func(user, **kwargs)
             punished.append(user)
-        except (discord.Forbidden, discord.HTTPException):
+        except (Forbidden, HTTPException):
             not_punished.append(user)
 
     return punished, not_punished
@@ -114,7 +124,7 @@ def punish_embed(
                             title=f'Users couldn\'t be {punishment}!',
                             description=f'The bot wasn\'t able to {punishment} any users! '
                                         'Maybe their role is higher than yours. or higher than this bot\'s roles.',
-                            color=discord.Color.red())
+                            color=Color.red())
 
     if not_punished:
         embed = create_embed(mod,
@@ -122,7 +132,7 @@ def punish_embed(
                              description=f'{len(punished)} users were {punishment} for "{reason[:1000]}"\n'
                                          f'{len(not_punished)} users couldn\'t be punished, '
                                          f'maybe their role is higher than yours. or higher than this bot\'s roles.',
-                             color=discord.Color.orange())
+                             color=Color.orange())
 
         embed.add_field(name=f'Users not {punishment}:',
                         value=shorten_below_number(not_punished))
@@ -146,28 +156,28 @@ def is_uuid4(string: str) -> bool:
     return uuid.hex == string
 
 
-def str_to_file(string: str, *, filename: str = 'file.txt', encoding: str = 'utf-8') -> discord.File:
+def str_to_file(string: str, *, filename: str = 'file.txt', encoding: str = 'utf-8') -> File:
     """Converts a given str to a discord.File ready for sending"""
 
     _bytes = bytes(string, encoding)
     buffer = io.BytesIO(_bytes)
-    file = discord.File(buffer, filename=filename)
+    file = File(buffer, filename=filename)
     return file
 
 
-def format_deleted_msg(message: discord.Message, title: str | None = None) -> discord.Embed:
+def format_deleted_msg(message: Message, title: str | None = None) -> Embed:
     emote = '<:messagedelete:941816371401064490>'
     reply = message.reference
 
     if reply:
         reply = reply.resolved
 
-    reply_deleted = isinstance(reply, discord.DeletedReferencedMessage)
+    reply_deleted = isinstance(reply, DeletedReferencedMessage)
 
-    embed = discord.Embed(
+    embed = Embed(
         title=f'{emote} {title}' if title else f'{emote} Message deleted in #{message.channel}',
         description=f'"{message.content}"' if message.content else '*No content*',
-        color=discord.Color.red()
+        color=Color.red()
     )
 
     embed.set_author(name=f'{message.author}: {message.author.id}', icon_url=fix_url(message.author.display_avatar))
@@ -198,14 +208,14 @@ def format_deleted_msg(message: discord.Message, title: str | None = None) -> di
     return embed
 
 
-def fix_url(url: Any):
+def fix_url(url: Any) -> str | None:
     if not url:
         return None
 
     return str(url)
 
 
-def solid_color_image(color: tuple):
+def solid_color_image(color: tuple[float, ...]):
     buffer = io.BytesIO()
     image = Image.new('RGB', (80, 80), color)
     image.save(buffer, 'png')
@@ -226,7 +236,7 @@ def client_has_permissions(**perms: [*discord.permissions._PermissionsKwargs]):
         if not missing:
             return True
 
-        raise BotMissingPermissions(missing)
+        return False
 
     return app_commands.check(predicate)
 
@@ -243,6 +253,13 @@ def invoker_has_permissions(**perms: [*discord.permissions._PermissionsKwargs]):
         if not missing:
             return True
 
-        raise BotMissingPermissions(missing)
+        return False
 
+    return app_commands.check(predicate)
+
+def not_user_integration():
+    def predicate(interaction: Interaction) -> bool:
+        return not interaction.is_user_integration()
+
+    #predicate.__eq__ = lambda o: o.__qualname__ == 'not_user_integration.<locals>.predicate'
     return app_commands.check(predicate)
