@@ -1,4 +1,7 @@
 import random
+from dataclasses import dataclass
+from typing import Callable
+from inspect import Parameter, Signature
 
 from discord import app_commands, Interaction, Color, File, User
 from discord.ext import commands
@@ -32,6 +35,61 @@ async def furry_image(interaction: Interaction[CustomBot], user: User | None, en
     return utils.create_embed(interaction.user, title=f'Furry {action}!', description=msg, image=url[0]['url'])
 
 
+@dataclass
+class FurryCommand:
+    action1: str
+    action2: str | None = None
+    action3: str | None = None
+
+    def add_param_description(self, callback: Callable):
+        deco = app_commands.describe(user=f'Specify someone to {self.action1} them!')
+        return deco(callback)
+
+    def get_callback(self) -> Callable:
+        params = [
+            Parameter(
+                "interaction",
+                Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=Interaction,
+            ),
+            Parameter(
+                "user",
+                Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=User | None,
+                default=None
+            )
+        ]
+
+        async def callback(*args, **kwargs):
+            bound = callback.__signature__.bind(*args, **kwargs)  # type: ignore
+
+            interaction: Interaction[CustomBot] = bound.arguments["interaction"]
+            user: User | None = bound.arguments["user"]
+
+            embed = await furry_image(interaction, user, self.action1, self.action2)
+
+            await interaction.response.send_message(embed=embed)
+
+        callback.__name__ = str(self.action1)
+        callback.__signature__ = Signature(params)  # type: ignore
+        callback = self.add_param_description(callback)
+
+        return callback
+
+    @property
+    def description(self) -> str:
+        act = self.action3 if self.action3 else self.action1 + 'ing'
+        return f'Get a picture of {act} eachother, because why not?'
+
+FURRY_COMMANDS = [
+    FurryCommand('hug', None, 'hugging'),
+    FurryCommand('boop'),
+    FurryCommand('hold'),
+    FurryCommand('kiss', 'kisses'),
+    FurryCommand('lick')
+]
+
+
 class RandomCog(commands.GroupCog, group_name='random'):
     """Commands to get something random, like colors or images!"""
     def __init__(self, bot):
@@ -51,6 +109,17 @@ class RandomCog(commands.GroupCog, group_name='random'):
             logger.warning('UNSPLASH_API_KEY Environment variable missing. /unsplash command will not be registered')
 
         self.cached_random_photos: list[Photo] = []
+
+        furry_group = app_commands.Group(name='furry', description='Get random furry images! (SFW)', parent=self.app_command)
+
+        for furry_command in FURRY_COMMANDS:
+            furry_group.add_command(
+                app_commands.Command(
+                    name=furry_command.action1,
+                    description=furry_command.description,
+                    callback=furry_command.get_callback()
+                )
+            )
 
     @utils.not_user_integration()
     @app_commands.command()

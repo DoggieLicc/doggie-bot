@@ -174,9 +174,6 @@ def add_impact(image: Image.Image, top_text: str, bottom_text: str | None):
 
     return image
 
-@dataclass
-class CommandArg:
-    arg_index: int
 
 @dataclass
 class ImageCommand:
@@ -305,8 +302,8 @@ class Images(GroupCog, group_name='image'):
         self.bot: CustomBot = bot
 
     async def cog_load(self):
-        for image_command in IMAGE_COMMANDS:
-            if self.app_command:
+        if self.app_command:
+            for image_command in IMAGE_COMMANDS:
                 self.app_command.add_command(
                     Command(
                         name=image_command.name.lower(),
