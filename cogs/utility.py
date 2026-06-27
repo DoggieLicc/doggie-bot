@@ -9,6 +9,7 @@ from discord.ui import Select
 from loguru import logger
 
 import utils
+from utils import CustomBot
 
 
 def get_hoisters(members: list[Member]):
@@ -127,8 +128,8 @@ class PollSelect(Select):
 class UtilityCog(Cog, name="Utility"):
     """Utility commands that may be useful to you!"""
 
-    def __init__(self, bot: utils.CustomBot):
-        self.bot: utils.CustomBot = bot
+    def __init__(self, bot: CustomBot):
+        self.bot: CustomBot = bot
 
         if self.bot.config['saucenao_api_key']:
             self.bot.tree.add_command(
@@ -145,7 +146,7 @@ class UtilityCog(Cog, name="Utility"):
     @app_commands.command()
     @utils.not_user_integration()
     @app_commands.guild_only()
-    async def recentjoins(self, interaction: Interaction):
+    async def recentjoins(self, interaction: Interaction[CustomBot]):
         """Shows the most recent joins in the current server"""
 
         if not interaction.guild:
@@ -160,7 +161,7 @@ class UtilityCog(Cog, name="Utility"):
 
     @app_commands.guild_only()
     @app_commands.command()
-    async def selfbot(self, interaction: Interaction):
+    async def selfbot(self, interaction: Interaction[CustomBot]):
         """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)"""
 
         if not interaction.guild or not interaction.guild.owner:
@@ -249,7 +250,7 @@ class UtilityCog(Cog, name="Utility"):
     @app_commands.guild_only()
     @utils.not_user_integration()
     @app_commands.command()
-    async def hoisters(self, interaction: Interaction):
+    async def hoisters(self, interaction: Interaction[CustomBot]):
         """Shows a list of members who have names made to 'hoist' themselves to the top of the member list!"""
 
         if not interaction.guild:
@@ -273,7 +274,7 @@ class UtilityCog(Cog, name="Utility"):
     @app_commands.command()
     async def stealemote(
         self,
-        interaction: Interaction,
+        interaction: Interaction[CustomBot],
         emotes: Transform[list[PartialEmoji], utils.MultiplePartialEmoteTransformer]
     ):
         """Adds the specified emotes to your server!"""
@@ -341,7 +342,7 @@ class UtilityCog(Cog, name="Utility"):
     @app_commands.guild_only()
     @app_commands.command()
     @utils.not_user_integration()
-    async def newaccounts(self, interaction: Interaction):
+    async def newaccounts(self, interaction: Interaction[CustomBot]):
         """Shows the newest accounts in this server!"""
         if not interaction.guild:
             return None
@@ -354,7 +355,7 @@ class UtilityCog(Cog, name="Utility"):
     @app_commands.describe(image_url='... or the URL of the image to get the source of')
     async def saucenao(
         self,
-        interaction: Interaction,
+        interaction: Interaction[CustomBot],
         image: Attachment | None = None,
         image_url: str | None = None
     ):

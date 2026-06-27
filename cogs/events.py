@@ -7,6 +7,7 @@ from discord.ext.commands import Cog, Context
 from loguru import logger
 
 import utils
+from utils import CustomBot
 
 
 async def ban_embed(guild: Guild, punished: Member | User, action) -> Embed:
@@ -37,7 +38,7 @@ async def ban_embed(guild: Guild, punished: Member | User, action) -> Embed:
     return embed
 
 
-def format_log(interaction: Interaction, _list: list[Member], reason: str, punishment: str) -> Embed | None:
+def format_log(interaction: Interaction[CustomBot], _list: list[Member], reason: str, punishment: str) -> Embed | None:
     embed = Embed(
         title=f'{len(_list)} members {punishment}!',
         description=f'They were {punishment} by {interaction.user.mention} (@{interaction.user}) for "{reason}"',
@@ -53,8 +54,8 @@ def format_log(interaction: Interaction, _list: list[Member], reason: str, punis
 
 
 class EventsCog(Cog):
-    def __init__(self, bot: utils.CustomBot):
-        self.bot: utils.CustomBot = bot
+    def __init__(self, bot: CustomBot):
+        self.bot: CustomBot = bot
 
     @Cog.listener()
     async def on_fully_ready(self):
@@ -209,7 +210,7 @@ class EventsCog(Cog):
             pass
 
     @Cog.listener()
-    async def on_mute(self, interaction: Interaction, muted: list[Member], reason: str):
+    async def on_mute(self, interaction: Interaction[CustomBot], muted: list[Member], reason: str):
         if not interaction.guild:
             return
 
@@ -227,7 +228,7 @@ class EventsCog(Cog):
             pass
 
     @Cog.listener()
-    async def on_unmute(self, interaction: Interaction, unmuted: list[Member], reason: str):
+    async def on_unmute(self, interaction: Interaction[CustomBot], unmuted: list[Member], reason: str):
         if not interaction.guild:
             return
 
@@ -245,7 +246,7 @@ class EventsCog(Cog):
             pass
 
     @Cog.listener()
-    async def on_purge(self, interaction: Interaction, users: list[User], amount: int):
+    async def on_purge(self, interaction: Interaction[CustomBot], users: list[User], amount: int):
         if not interaction.guild or not interaction.channel:
             return
 

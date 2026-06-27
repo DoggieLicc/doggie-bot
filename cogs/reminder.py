@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
-from typing import cast
 
 from discord import app_commands, Interaction, TextChannel
 from discord.ext import commands
 from discord.utils import escape_markdown
 from discord.app_commands import Transform, Range
+
 import utils
+from utils import CustomBot
 
 class ReminderList(utils.EntryMenu):
     async def get_page_contents(self):
@@ -31,8 +32,8 @@ class ReminderList(utils.EntryMenu):
 
 class ReminderCog(commands.GroupCog, name="reminder"):
     """Create and manage your reminders"""
-    def __init__(self, bot: utils.CustomBot):
-        self.bot: utils.CustomBot = bot
+    def __init__(self, bot: CustomBot):
+        self.bot: CustomBot = bot
 
     @app_commands.command()
     @app_commands.describe(reminder='For what you want to be reminded for')
@@ -40,7 +41,7 @@ class ReminderCog(commands.GroupCog, name="reminder"):
     @app_commands.describe(channel='A channel to send the reminder to. If not specified, it will be sent to your DMs')
     async def add(
         self,
-        interaction: Interaction,
+        interaction: Interaction[CustomBot],
         reminder: str,
         time: Transform[datetime, utils.TimeTransformer],
         channel: TextChannel | None
@@ -73,7 +74,7 @@ class ReminderCog(commands.GroupCog, name="reminder"):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command()
-    async def list(self, interaction: Interaction):
+    async def list(self, interaction: Interaction[CustomBot]):
         """Shows your active reminders that you made!"""
 
         filtered_reminders = [reminder for reminder in self.bot.reminders.values()
@@ -87,7 +88,7 @@ class ReminderCog(commands.GroupCog, name="reminder"):
 
     @app_commands.command()
     @app_commands.describe(reminder_id='The ID of the reminder that you want to cancel, can be seen in /reminders list')
-    async def cancel(self, interaction: Interaction, reminder_id: Range[int, 1, 9999]):
+    async def cancel(self, interaction: Interaction[CustomBot], reminder_id: Range[int, 1, 9999]):
         """Cancels and deletes a reminder using its ID!"""
 
         reminder = self.bot.reminders.get(reminder_id)

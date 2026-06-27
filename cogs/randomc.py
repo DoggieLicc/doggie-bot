@@ -1,18 +1,41 @@
 import random
 
-from discord import app_commands, Interaction, Color, File
+from discord import app_commands, Interaction, Color, File, User
 from discord.ext import commands
 from loguru import logger
 
 from unsplash import Unsplash, Photo
 import utils
+from utils import CustomBot
 
 UTM_PARAMS = '?utm_source=discord_bot_doggie_bot&utm_medium=referral'
+
+async def get_pic(url: str, interaction: Interaction[CustomBot], key: str) -> str:
+    if not interaction.client.session:
+        return ''
+
+    async with interaction.client.session.get(url) as resp:
+        data = await resp.json()
+
+    return data[key]
+
+
+async def furry_image(interaction: Interaction[CustomBot], user: User | None, endpoint: str, action: str, a2: str = None):
+    if not user or user == interaction.user:
+        msg = f'{interaction.user.mention} has no one to {action} :('
+    elif user.bot:
+        msg = f'{interaction.user.mention} tries to {action} a bot... sad :('
+    else:
+        msg = f'{interaction.user.mention} {action + "s" if not a2 else a2} {user.mention}!'
+
+    url = await get_pic(f'https://v2.yiff.rest/furry/{endpoint}', interaction, key='images')
+    return utils.create_embed(interaction.user, title=f'Furry {action}!', description=msg, image=url[0]['url'])
+
 
 class RandomCog(commands.GroupCog, group_name='random'):
     """Commands to get something random, like colors or images!"""
     def __init__(self, bot):
-        self.bot: utils.CustomBot = bot
+        self.bot: CustomBot = bot
 
         if bot.config['unsplash_api_key'] and self.app_command:
             self.unsplash = Unsplash(bot.config['unsplash_api_key'])
@@ -32,7 +55,7 @@ class RandomCog(commands.GroupCog, group_name='random'):
     @utils.not_user_integration()
     @app_commands.command()
     @app_commands.describe(include_bots='Whether or not to include bots (Default: False)')
-    async def member(self, interaction: Interaction, include_bots: bool = False):
+    async def member(self, interaction: Interaction[CustomBot], include_bots: bool = False):
         """Shows a random member from this server!"""
 
         if not interaction.guild:
@@ -50,7 +73,7 @@ class RandomCog(commands.GroupCog, group_name='random'):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command()
-    async def color(self, interaction: Interaction):
+    async def color(self, interaction: Interaction[CustomBot]):
         """Shows a random color!"""
         color = Color.random()
 
@@ -70,7 +93,25 @@ class RandomCog(commands.GroupCog, group_name='random'):
 
         await interaction.response.send_message(file=file, embed=embed)
 
-    async def unsplash_cmd(self, interaction: Interaction):
+    @app_commands.command()
+    async def duck(self, interaction: Interaction[CustomBot]):
+        """Gets a random duck from random-d.uk"""
+
+        url = await get_pic('https://random-d.uk/api/v2/quack', interaction, key='url')
+        embed = utils.create_embed(interaction.user, title='Random duck picture!:', image=url)
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command()
+    async def dog(self, interaction: Interaction[CustomBot]):
+        """Gets a random dog from random.dog"""
+
+        url = await get_pic('https://random.dog/woof.json?filter=mp4', interaction, key='url')
+        embed = utils.create_embed(interaction.user, title='Random dog picture!:', image=url)
+
+        await interaction.response.send_message(embed=embed)
+
+    async def unsplash_cmd(self, interaction: Interaction[CustomBot]):
         """Gets a random photo from the Unsplash API!"""
 
         if not self.unsplash:

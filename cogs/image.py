@@ -9,6 +9,7 @@ from discord.ext.commands import GroupCog
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw, ImageFont, ImageSequence
 
 import utils
+from utils import CustomBot
 
 
 def image_to_file(image: Image.Image, extension) -> File:
@@ -219,7 +220,7 @@ class ImageCommand:
         async def callback(*args, **kwargs):
             bound = callback.__signature__.bind(*args, **kwargs)  # type: ignore
 
-            interaction: Interaction = bound.arguments["interaction"]
+            interaction: Interaction[CustomBot] = bound.arguments["interaction"]
             image: Attachment | None = bound.arguments["image"]
 
             if image:
@@ -301,7 +302,7 @@ class Images(GroupCog, group_name='image'):
     """Commands for image manipulation!"""
 
     def __init__(self, bot):
-        self.bot: utils.CustomBot = bot
+        self.bot: CustomBot = bot
 
     async def cog_load(self):
         for image_command in IMAGE_COMMANDS:
