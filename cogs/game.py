@@ -12,14 +12,14 @@ import utils
 
 mojang_api = Mojang()
 
-def sync_minecraft(interaction: Interaction, account) -> Embed:
+def sync_minecraft(interaction: Interaction, account: str) -> Embed:
     try:
         if utils.is_uuid4(account):
             uuid = account
         else:
             uuid = mojang_api.get_uuid(account)
 
-        profile = mojang_api.get_profile(uuid)
+        profile = mojang_api.get_profile(str(uuid))
         if not profile:
             raise utils.DoggieBotException('Account not found!', 'Couldn\'t find a Minecraft account with this name.')
 
@@ -71,7 +71,7 @@ class Games(GroupCog, group_name='game'):
             osu_group.add_command(
                 app_commands.Command(
                     name='account',
-                    description=self.account.__doc__,
+                    description=self.account.__doc__ or '…',
                     callback=self.account
                 )
             )
@@ -79,7 +79,7 @@ class Games(GroupCog, group_name='game'):
             osu_group.add_command(
                 app_commands.Command(
                     name='beatmap',
-                    description=self.beatmap.__doc__,
+                    description=self.beatmap.__doc__ or '…',
                     callback=self.beatmap
                 )
             )
@@ -102,6 +102,8 @@ class Games(GroupCog, group_name='game'):
     @app_commands.describe(gamemode='The gamemode to get gamestats for, defaults to regular osu')
     async def account(self, interaction: Interaction, account: str, gamemode: osu_modes | None = 'osu'):
         """Gets info of osu! accounts! You can also specify a gamemode to get stats for that gamemode!"""
+        if not self.osu_api:
+            raise utils.DoggieBotException('Unable to load osu! api!', 'The osu! api module wasn\'t loaded.')
 
         await interaction.response.defer(thinking=True)
         user = await self.osu_api.fetch_user(user=account, mode=gamemode)
@@ -155,10 +157,14 @@ class Games(GroupCog, group_name='game'):
     @app_commands.describe(beatmap_id='The ID of the beatmap you want to view.')
     async def beatmap(self, interaction: Interaction, beatmap_id: int):
         """Gets a beatmap from a beatmap ID!"""
+        if not self.osu_api:
+            raise utils.DoggieBotException('Unable to load osu! api!', 'The osu! api module wasn\'t loaded.')
 
         await interaction.response.defer(thinking=True)
         beatmap = await self.osu_api.lookup_beatmap(beatmap_id=beatmap_id)
         beatmap_set = beatmap.beatmapset
+        if not beatmap_set:
+            raise utils.DoggieBotException('Beatmap has no set!', 'This beatmap doesn\'t seem to belong to a beatmap set')
 
         embed = utils.create_embed(
             interaction.user,

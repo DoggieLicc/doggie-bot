@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 import discord
-from discord import app_commands, Interaction, Message
+from discord import CategoryChannel, ForumChannel, app_commands, Interaction, Message
 from discord.utils import cached_property
 from discord.app_commands import Timestamp, TransformerError
 from discord.ext.commands import BadArgument, RoleNotFound, UserNotFound, CommandError, MemberNotFound
@@ -33,6 +33,7 @@ class FakeContext(discord.Object):
 
 class FakeMessage(discord.Object):
     # pylint: disable=no-member
+
     def __init__(self, guild: discord.Guild | None = None, content: str = ''):
         self.content = content
         self.guild = guild
@@ -40,19 +41,19 @@ class FakeMessage(discord.Object):
 
     @cached_property
     def raw_mentions(self) -> list[int]:
-        return Message.raw_mentions.function(self)
+        return Message.raw_mentions.function(self)  # type: ignore
 
     @cached_property
     def raw_channel_mentions(self) -> list[int]:
-        return Message.raw_channel_mentions.function(self)
+        return Message.raw_channel_mentions.function(self)  # type: ignore
 
     @cached_property
     def raw_role_mentions(self) -> list[int]:
-        return Message.raw_role_mentions.function(self)
+        return Message.raw_role_mentions.function(self)  # type: ignore
 
     @cached_property
     def channel_mentions(self) -> list[discord.abc.GuildChannel | discord.Thread]:
-        return Message.channel_mentions.function(self)
+        return Message.channel_mentions.function(self)  # type: ignore
 
     @cached_property
     def mentions(self) -> list[discord.Member]:
@@ -77,13 +78,13 @@ class FakeMessage(discord.Object):
 
     @cached_property
     def clean_content(self) -> str:
-        return Message.clean_content.function(self)
+        return Message.clean_content.function(self)  # type: ignore
 
 
 class MessageTransformer(app_commands.Transformer):
     # pylint: disable=abstract-method
     async def transform(self, interaction: Interaction, value: str, /) -> discord.Message:
-        if value.isnumeric():  # MessageConverter does not fetch message for an id, so we handle it here
+        if value.isnumeric() and interaction.channel and not isinstance(interaction.channel, (ForumChannel, CategoryChannel)):  # MessageConverter does not fetch message for an id, so we handle it here
             state_msg = interaction.client._connection._get_message(int(value))
             message = state_msg or await interaction.channel.fetch_message(int(value))
             return message
@@ -268,7 +269,7 @@ class TimeTransformer(app_commands.Transformer):
     async def transform(self, interaction: Interaction, value: str, /) -> datetime:
         try:
             # pylint: disable=no-value-for-parameter
-            return await Timestamp().transform(interaction, value)
+            return await Timestamp().transform(interaction, value)  # type: ignore
         except TransformerError:
             pass
 

@@ -47,17 +47,15 @@ class ReminderCog(commands.GroupCog, name="reminder"):
     ):
         """Add a reminder to be sent to you or a channel after a specified duration!"""
 
-        channel: TextChannel = cast(TextChannel, channel)
-
         if time < datetime.now(tz=timezone.utc):
             raise utils.DoggieBotException('Invalid time!', 'Can\'t set a reminder in the past!')
 
-        if channel:
+        if channel and interaction.is_user_integration():
+            raise utils.DoggieBotException('Invalid option:', 'Can\'t specify a channel to send to when bot is installed as only an user app')
+
+        if channel and interaction.guild:
             bot_perms = channel.permissions_for(interaction.guild.me)
             author_perms = channel.permissions_for(interaction.user)
-
-            if interaction.is_user_integration():
-                raise utils.DoggieBotException('Invalid option:', 'Can\'t specify a channel to send to when bot is installed as only an user app')
 
             if channel.guild != interaction.guild or not (bot_perms.view_channel and bot_perms.send_messages) or not (author_perms.view_channel and author_perms.send_messages):
                 raise utils.DoggieBotException('Missing Permissions', 'You or this bot don\'t have permissions to talk in that channel!')
@@ -84,9 +82,8 @@ class ReminderCog(commands.GroupCog, name="reminder"):
         if not filtered_reminders:
             raise utils.DoggieBotException('No reminders!', 'You don\'t have any reminders set yet, use the `/reminder add` command to add one!')
 
-        menu = ReminderList(owner=interaction.user, items=filtered_reminders, items_per_page=10)
-        contents = await menu.get_page_contents()
-        await interaction.response.send_message(view=menu, ephemeral=True, **contents)
+        view = ReminderList(owner=interaction.user, items=filtered_reminders, items_per_page=10)
+        await interaction.response.send_message(view=view, ephemeral=True, **await view.get_page_contents())
 
     @app_commands.command()
     @app_commands.describe(reminder_id='The ID of the reminder that you want to cancel, can be seen in /reminders list')

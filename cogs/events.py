@@ -9,7 +9,7 @@ from loguru import logger
 import utils
 
 
-async def ban_embed(guild: Guild, punished: User, action) -> Embed:
+async def ban_embed(guild: Guild, punished: Member | User, action) -> Embed:
     mod, reason = None, "Unknown"
     emote = utils.Emotes.ban_create if action.name == 'ban' else utils.Emotes.ban_delete
 
@@ -58,7 +58,8 @@ class EventsCog(Cog):
 
     @Cog.listener()
     async def on_fully_ready(self):
-        logger.info(f'Logged in as: {self.bot.user.name} - {self.bot.user.id}')
+        if self.bot.user:
+            logger.info(f'Logged in as: {self.bot.user.name} - {self.bot.user.id}')
         logger.info(f'Version: {discord.__version__}')
         logger.info('Successfully logged in and booted...!')
 
@@ -209,11 +210,16 @@ class EventsCog(Cog):
 
     @Cog.listener()
     async def on_mute(self, interaction: Interaction, muted: list[Member], reason: str):
+        if not interaction.guild:
+            return
+
         config = self.bot.get_logging_config(interaction.guild)
         if not config.mute_channel:
             return
 
         embed = format_log(interaction, muted, reason, 'muted')
+        if not embed:
+            return
 
         try:
             await config.mute_channel.send(embed=embed)
@@ -222,11 +228,16 @@ class EventsCog(Cog):
 
     @Cog.listener()
     async def on_unmute(self, interaction: Interaction, unmuted: list[Member], reason: str):
+        if not interaction.guild:
+            return
+
         config = self.bot.get_logging_config(interaction.guild)
         if not config.mute_channel:
             return
 
         embed = format_log(interaction, unmuted, reason, 'unmuted')
+        if not embed:
+            return
 
         try:
             await config.mute_channel.send(embed=embed)
@@ -235,13 +246,16 @@ class EventsCog(Cog):
 
     @Cog.listener()
     async def on_purge(self, interaction: Interaction, users: list[User], amount: int):
+        if not interaction.guild or not interaction.channel:
+            return
+
         config = self.bot.get_logging_config(interaction.guild)
         if not config.purge_channel:
             return
 
         embed = Embed(
             title=f'{amount} messages deleted!',
-            description=f'{interaction.user.mention} deleted {amount} messages in {interaction.channel.mention}\n\n'
+            description=f'{interaction.user.mention} deleted {amount} messages in <#{interaction.channel.id}>\n\n'
                         f'Deleted messages from:\n' +
                         ', '.join(map(str, users)),
             color=Color.red()
@@ -254,6 +268,9 @@ class EventsCog(Cog):
 
     @Cog.listener()
     async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent):
+        if not payload.guild_id:
+            return
+
         guild = self.bot.get_guild(payload.guild_id)
 
         if not guild:
@@ -270,16 +287,15 @@ class EventsCog(Cog):
         d = datetime.now(timezone.utc) - timedelta(seconds=6)
         try:
             async for entry in guild.audit_logs(after=d, limit=10, action=AuditLogAction.message_bulk_delete):
-                print(5, entry, entry.target, payload.channel_id)
-                if entry.target.id == payload.channel_id:
+                if entry and entry.target and entry.target.id == payload.channel_id:
                     mod = entry.user
                     channel = entry.target
-                    count = entry.extra.count
+                    count = getattr(entry.extra, 'count', 0)
                     break
         except Forbidden:
             return
 
-        if mod == guild.me:
+        if not mod or not channel or mod == guild.me:
             return
 
         embed = Embed(

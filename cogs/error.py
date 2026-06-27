@@ -1,7 +1,7 @@
 import traceback
 
 from discord.ext.commands import Cog
-from discord import app_commands, Interaction, User, Color, InteractionResponded, NotFound, DiscordException
+from discord import CategoryChannel, ForumChannel, app_commands, Interaction, User, Color, InteractionResponded, NotFound, DiscordException
 from loguru import logger
 
 import utils
@@ -23,7 +23,7 @@ class ErrorHandler(Cog):
             tree = self.bot.tree
             tree.on_error = self._old_tree_error
 
-    async def error_handler(self, interaction: Interaction, error: app_commands.AppCommandError):
+    async def error_handler(self, interaction: Interaction, error: app_commands.AppCommandError | Exception):
         error_message = None
         error_title = 'Error while running command!'
 
@@ -39,7 +39,7 @@ class ErrorHandler(Cog):
         if isinstance(error, app_commands.CheckFailure):
             error_title = 'Checks failed!'
             error_message = 'Some checks failed... either you or this bot are missing permissions here.'
-            check_names = [c.__qualname__ for c in interaction.command.checks]
+            check_names = [c.__qualname__ for c in getattr(interaction.command, 'checks', [])]
             if 'not_user_integration.<locals>.predicate' in check_names and interaction.is_user_integration():
                 error_title = 'Invalid install!'
                 error_message = 'Can\'t use this command as an user install. Get someone to install me to this server!'
@@ -90,7 +90,7 @@ class ErrorHandler(Cog):
                 owner_embed.add_field(
                     name='Extra Info:',
                     value=f'Guild: {interaction.guild}: {getattr(interaction.guild, "id", "None")}\n'
-                          f'Channel: {interaction.channel}:{interaction.channel.id}', inline=False
+                          f'Channel: {interaction.channel}:{getattr(interaction.channel, "id", None)}', inline=False
                 )
 
                 await owner.send(embed=owner_embed, files=[file])
@@ -108,12 +108,14 @@ class ErrorHandler(Cog):
             try:
                 await interaction.edit_original_response(embed=embed)
             except (InteractionResponded, NotFound):
+                if not interaction.channel or isinstance(interaction.channel, (ForumChannel, CategoryChannel)):
+                    return
                 try:
                     await interaction.channel.send(embed=embed)
                 except DiscordException:
                     logger.warning(
-                        'Unable to respond to exception in {} ({})',
-                        interaction.channel.name, interaction.channel.id
+                        'Unable to respond to exception in {}',
+                        interaction.channel
                     )
 
 

@@ -14,7 +14,7 @@ class RandomCog(commands.GroupCog, group_name='random'):
     def __init__(self, bot):
         self.bot: utils.CustomBot = bot
 
-        if bot.config['unsplash_api_key']:
+        if bot.config['unsplash_api_key'] and self.app_command:
             self.unsplash = Unsplash(bot.config['unsplash_api_key'])
             self.app_command.add_command(
                 app_commands.Command(
@@ -34,6 +34,9 @@ class RandomCog(commands.GroupCog, group_name='random'):
     @app_commands.describe(include_bots='Whether or not to include bots (Default: False)')
     async def member(self, interaction: Interaction, include_bots: bool = False):
         """Shows a random member from this server!"""
+
+        if not interaction.guild:
+            return
 
         member = random.choice([m for m in interaction.guild.members if not m.bot or m.bot == include_bots])
 
@@ -69,6 +72,9 @@ class RandomCog(commands.GroupCog, group_name='random'):
 
     async def unsplash_cmd(self, interaction: Interaction):
         """Gets a random photo from the Unsplash API!"""
+
+        if not self.unsplash:
+            return
 
         if not self.cached_random_photos:
             self.cached_random_photos = await self.unsplash.random(content_filter='high', count=30)

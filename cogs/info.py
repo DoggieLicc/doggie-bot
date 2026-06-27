@@ -55,10 +55,13 @@ class Info(Cog, name='Information'):
     def __init__(self, bot: utils.CustomBot):
         self.bot: utils.CustomBot = bot
 
+    @app_commands.allowed_installs(users=False)
     @app_commands.command()
     @app_commands.guild_only()
     async def server(self, interaction: Interaction):
         """Lists info for this server"""
+        if not interaction.guild:
+            return
 
         guild = interaction.guild
 
@@ -106,7 +109,7 @@ class Info(Cog, name='Information'):
         embed.add_field(
             name='Counts:',
             value=f'Members: {guild.member_count} total members\n'
-                  f'{guild.member_count - bot_count} humans; {bot_count} bots\n'
+                  f'{(guild.member_count or 0) - bot_count} humans; {bot_count} bots\n'
                   f'Roles: {len(guild.roles)} roles\n'
                   f'Text channels: {len(guild.text_channels)} channels\n'
                   f'Voice Channels: {len(guild.voice_channels)} channels\n'
@@ -128,7 +131,7 @@ class Info(Cog, name='Information'):
     async def user(self, interaction: Interaction, user: Member | User | None):
         """Shows information about the user specified, if no user specified then it returns info for you"""
 
-        user: Member | User = user or interaction.user
+        user = user or interaction.user
 
         fetched = user if user.banner else await self.bot.fetch_user(user.id)
 
@@ -157,7 +160,7 @@ class Info(Cog, name='Information'):
             inline=False
         )
 
-        if isinstance(user, Member) and user.guild == interaction.guild:
+        if isinstance(user, Member) and user.guild == interaction.guild and interaction.guild and user:
             role_mentions = utils.shorten_below_number(
                 [role.mention for role in reversed(user.roles)][:-1],
                 separator=' ',
@@ -187,7 +190,7 @@ class Info(Cog, name='Information'):
     async def avatar(self, interaction: Interaction, user: Member |  User | None):
         """Shows the avatar of the specified user, if no user specified then it returns info for you"""
 
-        user: User = user or interaction.user
+        user = user or interaction.user
 
         avatar = user.display_avatar
 
@@ -212,17 +215,18 @@ class Info(Cog, name='Information'):
         embed = utils.create_embed(
             interaction.user,
             title=f'Invite Info: {utils.Emotes.invite}',
-            thumbnail=invite.guild.icon,
-            image=invite.guild.banner
+            thumbnail=getattr(invite.guild, 'icon', None),
+            image=getattr(invite.guild, 'banner', None)
         )
 
-        embed.add_field(
-            name='Invite channel:',
-            value=f'**Name:** #{invite.channel.name} {utils.Emotes.channel(invite.channel)}\n'
-                  f'**ID:** {invite.channel.id}\n'
-                  f'**Created at:** {utils.user_friendly_dt(invite.channel.created_at)}',
-            inline=True
-        )
+        if invite.channel:
+            embed.add_field(
+                name='Invite channel:',
+                value=f'**Name:** #{getattr(invite.channel, "name", "Unknown")} {utils.Emotes.channel(invite.channel)}\n'
+                    f'**ID:** {invite.channel.id}\n'
+                    f'**Created at:** {utils.user_friendly_dt(invite.channel.created_at)}',
+                inline=True
+            )
 
         embed.add_field(
             name='Active members: Total members',
@@ -238,21 +242,26 @@ class Info(Cog, name='Information'):
             inline=False
         )
 
-        embed.add_field(
-            name='Server Info:',
-            value=f'**Name:** {invite.guild}\n'
-                  f'**Description:** {invite.guild.description or "None"}\n'
-                  f'**ID:** {invite.guild.id}\n'
-                  f'**Created at:** {utils.user_friendly_dt(invite.guild.created_at)}'
-        )
+        if invite.guild:
+            embed.add_field(
+                name='Server Info:',
+                value=f'**Name:** {invite.guild}\n'
+                    f'**Description:** {getattr(invite.guild, 'description', 'None')}\n'
+                    f'**ID:** {invite.guild.id}\n'
+                    f'**Created at:** {utils.user_friendly_dt(invite.guild.created_at)}'
+            )
 
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.allowed_installs(users=False)
     @app_commands.command()
     @app_commands.guild_only()
     @app_commands.describe(channel='The channel to get info for')
     async def channel(self, interaction: Interaction, channel: GuildChannel | Thread):
         """Shows info for the channel specified"""
+
+        if not interaction.guild or not interaction.channel:
+            return
 
         embed = utils.create_embed(
             interaction.user,
@@ -276,7 +285,7 @@ class Info(Cog, name='Information'):
                           f'Locked?: {"Yes" if channel.locked else "No"}\n'
                           f'Archive timestamp: {utils.user_friendly_dt(channel.archive_timestamp)}\n'
                           f'Archive time: {channel.auto_archive_duration} seconds\n'
-                          f'Creator: {channel.owner.mention}',
+                          f'Creator: {channel.owner.mention if channel.owner else "Unknown"}',
                     inline=False
                 )
 
@@ -305,11 +314,15 @@ class Info(Cog, name='Information'):
 
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.allowed_installs(users=False)
     @app_commands.command()
     @app_commands.guild_only()
     @app_commands.describe(role='The role to get info for')
     async def role(self, interaction: Interaction, role: Role):
         """Shows info for the role specified"""
+
+        if not interaction.guild:
+            return
 
         embed = utils.create_embed(
             interaction.user,
@@ -317,12 +330,12 @@ class Info(Cog, name='Information'):
             thumbnail=role.icon
         )
 
-        if role.is_bot_managed():
+        if role.is_bot_managed() and role.tags and role.tags.bot_id:
             bot = interaction.guild.get_member(role.tags.bot_id)
             embed.add_field(name='Bot manager name:', value=str(bot), inline=False)
             embed.add_field(name='Bot manager ID:', value=role.tags.bot_id, inline=False)
 
-        elif role.is_integration():
+        elif role.is_integration() and role.tags and role.tags.integration_id:
             embed.add_field(name='Integration ID:', value=role.tags.integration_id, inline=False)
 
         embed.add_field(
@@ -369,14 +382,14 @@ class Info(Cog, name='Information'):
     async def token(self, interaction: Interaction, token: str):
         """Shows info of an account/bot token!"""
 
-        token = token.split('.', 2)
-        if len(token) != 3:
+        tokens = token.split('.', 2)
+        if len(tokens) != 3:
             raise utils.DoggieBotException('Invalid token!', 'The specified token is not a valid Discord token')
 
         # pylint: disable=broad-exception-caught
         try:
-            user = await self.bot.fetch_user(int(base64.b64decode(token[0])))
-            bytes_int = base64.urlsafe_b64decode(token[1] + '==')
+            user = await self.bot.fetch_user(int(base64.b64decode(tokens[0])))
+            bytes_int = base64.urlsafe_b64decode(tokens[1] + '==')
             bytes_decoded = int.from_bytes(bytes_int, 'big')
         except Exception as e:
             raise utils.DoggieBotException('Invalid token!', 'The specified token is not a valid Discord token') from e
@@ -395,7 +408,7 @@ class Info(Cog, name='Information'):
 
         embed.add_field(
             name='Token Info:',
-            value=f'**Token:** {".".join(token)}\n'
+            value=f'**Token:** {".".join(tokens)}\n'
                   f'**Creation Date:** {utils.user_friendly_dt(time)}',
             inline=False
         )
@@ -410,6 +423,7 @@ class Info(Cog, name='Information'):
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @app_commands.allowed_installs(users=False)
     @app_commands.command()
     @app_commands.describe(message='The message to get info for, best to use the message link')
     async def message(self, interaction: Interaction, message: Transform[Message, utils.MessageTransformer]):
@@ -425,7 +439,7 @@ class Info(Cog, name='Information'):
             url=message.jump_url,
         )
 
-        images = [a.url for a in message.attachments if a.content_type.startswith('image')]
+        images = [a.url for a in message.attachments if a.content_type and a.content_type.startswith('image')]
 
         embed.set_author(name=message.author, icon_url=utils.fix_url(message.author.display_avatar))
 
@@ -433,7 +447,7 @@ class Info(Cog, name='Information'):
 
         embed.add_field(name='Attachments:', value=attachments, inline=False)
 
-        if message.reference:
+        if message.reference and message.reference.message_id:
             try:
                 replied = await message.channel.fetch_message(message.reference.message_id)
             except (NotFound, Forbidden, HTTPException):
@@ -451,7 +465,7 @@ class Info(Cog, name='Information'):
         embed.add_field(
             name='Info:',
             value=f'ID: {message.id}\n'
-                  f'Channel: {message.channel.mention} ({message.channel.id})\n'
+                  f'Channel: <#{message.channel.id}> ({message.channel.id})\n'
                   f'Created at: {utils.user_friendly_dt(message.created_at)}\n'
                   f'{len(message.mentions)} members mentioned\n'
                   f'Stickers: {(", ".join([f"[{s}]({s.url})" for s in message.stickers]) or "No stickers")}\n'

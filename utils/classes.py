@@ -2,11 +2,14 @@ import asyncio
 import os
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+from typing import Any
 
+from aiohttp import ClientSession
 import yaml
 import discord
-from discord import TextChannel, ChannelType, Message, User, Guild, Role, app_commands
+from discord import TextChannel, ChannelType, Message, User, Guild, Role, app_commands, Thread
 from discord.ext import commands
+from discord.abc import GuildChannel, PrivateChannel
 from loguru import logger
 
 from utils.funcs import guess_user_nitro_status, create_embed, fix_url
@@ -146,7 +149,7 @@ class CustomBot(commands.Bot):
             check_same_thread=False
         )
 
-        self.reminders: dict[int, Reminder] = {}
+        self.reminders: dict[int, Reminder | None] = {}
         self.basic_configs: dict[int, BasicConfig] = {}
         self.logging_configs: dict[int, LoggingConfig] = {}
         self.sniped: list[Message] = []
@@ -154,7 +157,7 @@ class CustomBot(commands.Bot):
 
         self.fully_ready = False
         self.start_time: datetime = None  # type: ignore
-        self.session = None
+        self.session: ClientSession | None = None
 
     async def setup_hook(self):
         self.loop.create_task(self.startup())
@@ -164,6 +167,9 @@ class CustomBot(commands.Bot):
 
         if not self.fully_ready:
             await self.wait_for('fully_ready')
+
+        if not self.user:
+            return
 
         if message.content in [f'<@!{self.user.id}>', f'<@{self.user.id}>']:
             embed = create_embed(
@@ -195,7 +201,7 @@ class CustomBot(commands.Bot):
             info = await self.application_info()
             self.owner_id = info.owner.id
 
-        return await self.fetch_user(self.owner_id or list(self.owner_ids)[0])
+        return await self.fetch_user(self.owner_id or list(self.owner_ids if self.owner_ids else [])[0])
 
     async def load_reminders(self):
         async with self.db.conn() as conn:
@@ -203,12 +209,12 @@ class CustomBot(commands.Bot):
                 for row in await cursor.execute('SELECT * FROM reminders'):
                     message_id: int = row['id']
                     try:
-                        user: User = await self.fetch_user(row['user_id'])
+                        user: User | None = await self.fetch_user(row['user_id'])
                     except discord.NotFound:
-                        user: None = None
+                        user = None
                     reminder: str = row['reminder']
                     end_time: int = row['end_time']
-                    destination: User | TextChannel = self.get_channel(row['destination']) or user
+                    destination = self.get_channel(row['destination']) or user
 
                     if destination is None or user is None:
                         continue
@@ -252,7 +258,7 @@ class CustomBot(commands.Bot):
         async with self.db.conn() as conn:
             async with conn.cursor() as cursor:
                 for row in await cursor.execute('SELECT * FROM logging_config'):
-                    guild: discord.Guild = self.get_guild(row['guild_id'])
+                    guild = self.get_guild(row['guild_id'])
 
                     if not guild:
                         continue
@@ -280,7 +286,7 @@ class CustomBot(commands.Bot):
     def get_logging_config(self, guild: Guild) -> 'LoggingConfig':
         return self.logging_configs.get(guild.id, LoggingConfig(guild))
 
-    def check_commands(self, cmds: app_commands.ContextMenu | app_commands.Command | app_commands.Group):
+    def check_commands(self, cmds: list[app_commands.Command[Any, ..., Any] | app_commands.Group]):
         for command in cmds:
             if isinstance(command, app_commands.Group):
                 self.check_commands(command.commands)
@@ -349,7 +355,7 @@ class Emotes:
     timeout = '<:timeout:1519145193335427185>'
 
     @staticmethod
-    def channel(chann: discord.abc.GuildChannel):
+    def channel(chann: discord.abc.GuildChannel | discord.PartialInviteChannel | discord.Thread | discord.Object):
         if chann.type == ChannelType.text:
             if isinstance(chann, TextChannel):
                 if chann.is_nsfw():
@@ -408,7 +414,7 @@ class Reminder:
     message_id: int
     user: User
     reminder: str
-    destination: User | TextChannel
+    destination: GuildChannel | User | Thread | PrivateChannel
     end_time: datetime
     bot: CustomBot
     id: int = field(init=False)
@@ -452,7 +458,7 @@ class Reminder:
             )
 
         try:
-            await self.destination.send(
+            await self.destination.send(  # pyright: ignore[reportAttributeAccessIssue]
                 f"**Hey {self.user.mention},**" if isinstance(self.destination, TextChannel) else None,
                 embed=embed
             )

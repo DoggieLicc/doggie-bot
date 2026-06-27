@@ -1,12 +1,12 @@
 import io
 from datetime import datetime
-from typing import Any, Callable, Coroutine
+from typing import Any, Literal, Unpack
 from uuid import UUID
+from collections.abc import Callable, Awaitable
 
 import discord
 from PIL import Image
-from discord import Embed, User, Member, Permissions, app_commands, Interaction, Color, File, Forbidden, HTTPException, Message, DeletedReferencedMessage
-from discord.ext.commands import BotMissingPermissions
+from discord import Embed, User, Member, Permissions, app_commands, Interaction, Color, File, Forbidden, HTTPException, Message, DeletedReferencedMessage, DMChannel
 
 __all__ = [
     'create_embed',
@@ -47,15 +47,17 @@ def guess_user_nitro_status(user: Member | User) -> bool:
     """Guess if an user or member has Discord Nitro"""
 
     if isinstance(user, Member):
-        has_emote_status = any(a.emoji.is_custom_emoji() for a in user.activities if getattr(a, 'emoji', None))
+        has_emote_status = any(a.emoji.is_custom_emoji() for a in user.activities if getattr(a, 'emoji', None) and a.emoji)  # pyright: ignore[reportAttributeAccessIssue]
 
         return any([user.display_avatar.is_animated(), has_emote_status, user.premium_since])
 
     return any([user.display_avatar.is_animated(), user.banner])
 
 
-def user_friendly_dt(dt: datetime):
+def user_friendly_dt(dt: datetime | None) -> str:
     """Format a datetime as "short_date (relative_date)" """
+    if not dt:
+        return 'Unknown Date'
     return discord.utils.format_dt(dt, style='f') + f' ({discord.utils.format_dt(dt, style="R")})'
 
 
@@ -64,8 +66,11 @@ def format_perms(permissions: Permissions) -> str:
     return '\n'.join(perms_list)
 
 
-def hierarchy_check(mod: Member, user: Member | User) -> bool:
+def hierarchy_check(mod: Member | User, user: Member | User) -> bool:
     """Check if a moderator and the bot can punish an user/member"""
+
+    if isinstance(mod, User):
+        return False
 
     if isinstance(user, User):
         return True
@@ -75,14 +80,11 @@ def hierarchy_check(mod: Member, user: Member | User) -> bool:
 
     if mod.guild.owner == mod:
         return True
-    
-    # temp
-    return True
 
     return mod.top_role > user.top_role and mod.guild.me.top_role > user.top_role and not user == mod.guild.owner
 
 
-def shorten_below_number[T](_list: list[T], *, separator: str = '\n', number: int = 1000) -> list[T]:
+def shorten_below_number(_list: list[Any], *, separator: str = '\n', number: int = 1000) -> str:
     shortened = ''
 
     while _list and len(shortened) + len(str(_list[0])) <= number:
@@ -91,9 +93,9 @@ def shorten_below_number[T](_list: list[T], *, separator: str = '\n', number: in
     return shortened[:-len(separator)]
 
 async def multi_punish[T: (Member, User)](
-        mod: Member,
+        mod: Member | User,
         users: list[T],
-        func: Callable[[Member | User, Any], Coroutine[Any, Any, Any]],
+        func: Callable[[Member | User], Awaitable[None]],
         **kwargs
 ) -> tuple[list[T], list[T]]:
     punished = []
@@ -203,7 +205,8 @@ def format_deleted_msg(message: Message, title: str | None = None) -> Embed:
 
         embed.add_field(name='Message reply:', value=msg)
 
-    embed.add_field(name='Message channel:', value=message.channel.mention, inline=False)
+    if message.channel:
+        embed.add_field(name='Message channel:', value=f'<#{message.channel.id}>', inline=False)
 
     return embed
 
@@ -223,7 +226,7 @@ def solid_color_image(color: tuple[float, ...]):
 
     return buffer
 
-def client_has_permissions(**perms: [*discord.permissions._PermissionsKwargs]):
+def client_has_permissions(**perms: Unpack[discord.permissions._PermissionsKwargs]):
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
     if invalid:
         raise TypeError(f'Invalid permission(s): {", ".join(invalid)}')
@@ -240,12 +243,15 @@ def client_has_permissions(**perms: [*discord.permissions._PermissionsKwargs]):
 
     return app_commands.check(predicate)
 
-def invoker_has_permissions(**perms: [*discord.permissions._PermissionsKwargs]):
+def invoker_has_permissions(**perms: Unpack[discord.permissions._PermissionsKwargs]):
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
     if invalid:
         raise TypeError(f'Invalid permission(s): {", ".join(invalid)}')
 
     def predicate(interaction: Interaction) -> bool:
+        if isinstance(interaction.user, User):
+            return False
+
         permissions = interaction.user.guild_permissions
 
         missing = [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
@@ -261,5 +267,13 @@ def not_user_integration():
     def predicate(interaction: Interaction) -> bool:
         return not interaction.is_user_integration()
 
-    #predicate.__eq__ = lambda o: o.__qualname__ == 'not_user_integration.<locals>.predicate'
     return app_commands.check(predicate)
+
+def cond_eph(interaction: Interaction) -> dict[Literal['ephemeral'], bool]:
+    if interaction.is_guild_integration():
+        return {'ephemeral': False}
+
+    if isinstance(interaction.channel, DMChannel):
+        return {'ephemeral': False}
+
+    return {'ephemeral': True}
