@@ -1,12 +1,12 @@
 import math
 from typing import Any
-from collections.abc import Iterable
 
 import discord
 from discord import Interaction, User, ButtonStyle
 from discord.ui import View, Button, Item
 from discord.ext.commands import Paginator
 
+from utils.myinteraction import *
 
 __all__ = [
     'PaginatedMenu',
@@ -42,9 +42,9 @@ class CustomView(View):
 
     def disable_children(self) -> None:
         for child in self._children:
-            child.disabled = True
+            setattr(child, 'disabled', True)
 
-    async def on_error(self, interaction: Interaction, error: Exception, _: Item[Any], /) -> None:
+    async def on_error(self, interaction: MyInteraction, error: Exception, _: Item[Any], /) -> None:  # type: ignore
         await interaction.client.tree.on_error(interaction, error)
 
 
@@ -84,7 +84,7 @@ class PageView(CustomView):
     async def stop_button(self, interaction: Interaction, _: Button):
         children = self.children
         for child in children:
-            child.disabled = True
+            setattr(child, 'disabled', True)
         self._children = children
 
         await interaction.response.edit_message(view=self)
@@ -103,7 +103,7 @@ class PageView(CustomView):
 
 
 class EntryMenu[T](PageView):
-    def __init__(self, owner: User, items: Iterable[T], items_per_page: int):
+    def __init__(self, owner: User, items: list[T], items_per_page: int):
         super().__init__(owner)
         self.items = items
         self.items_per_page = items_per_page
@@ -112,7 +112,7 @@ class EntryMenu[T](PageView):
     async def get_page_contents(self) -> dict:
         raise NotImplementedError()
 
-    def get_page_items(self) -> Iterable[T]:
+    def get_page_items(self) -> list[T]:
         return self.items[(self.current_index - 1) * self.items_per_page:self.current_index * self.items_per_page]
 
     @property
@@ -121,13 +121,12 @@ class EntryMenu[T](PageView):
 
 
 class PaginatedMenu[T](PageView):
-    def __init__(self, owner: User, items: Iterable[T]):
+    def __init__(self, owner: User, items: list[T]):
         super().__init__(owner)
 
         self.paginator = self.get_paginator(items)
         self.items = items
         self.current_index = 1
-        self.max_page = len(self.paginator.pages)
         self.remove_buttons_if_one_page()
 
     def format_line(self, item) -> str:
@@ -168,7 +167,7 @@ class PaginatedMenu[T](PageView):
     async def stop_button(self, interaction: Interaction, _: Button):
         children = self.children
         for child in children:
-            child.disabled = True
+            setattr(child, 'disabled', True)
         self._children = children
 
         await interaction.edit_original_response(view=self)

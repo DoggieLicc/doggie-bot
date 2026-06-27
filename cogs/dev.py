@@ -3,7 +3,7 @@ import textwrap
 import traceback
 from contextlib import redirect_stdout
 
-from discord import User, Color, Embed, File, Asset
+from discord import DMChannel, GroupChannel, PartialMessageable, User, Color, Embed, File, Asset
 from discord.ext import commands
 from discord.ext.commands import Context
 import utils
@@ -216,6 +216,8 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
 
     @commands.command(aliases=['clean'])
     async def cleanup(self, ctx: Context, limit=100):
+        if isinstance(ctx.channel, (DMChannel, PartialMessageable, GroupChannel)):
+            return
         messages = await ctx.channel.purge(limit=limit, bulk=False, check=lambda m: m.author == ctx.me)
         await ctx.send(f'Deleted {len(messages)} message(s)', delete_after=3, reference=ctx.message)
 

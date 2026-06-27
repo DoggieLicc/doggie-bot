@@ -2,14 +2,14 @@ import unicodedata
 from datetime import datetime
 from functools import partial
 
-from discord import app_commands, Member, User, Interaction, Color, Role, Embed, TextChannel, ChannelType
+from discord import CategoryChannel, DMChannel, ForumChannel, GroupChannel, Thread, app_commands, Member, User, Color, Role, Embed, TextChannel, ChannelType
 from discord.ext.commands import GroupCog
 from discord.app_commands import Transform, Range
 
 import utils
+from utils.myinteraction import *
 
-
-def maybe_first_snipe_msg(interaction: Interaction):
+def maybe_first_snipe_msg(interaction: MyInteraction):
     embed = utils.create_embed(
         interaction.user,
         title='⚠ Warning!',
@@ -35,7 +35,7 @@ class SnipeMenu(utils.EntryMenu):
     async def get_page_contents(self):
         message = self.get_page_items()[0]
         if isinstance(message, Embed):
-            return message
+            return {"embed": message}
 
         embed = utils.format_deleted_msg(message, title=f'Sniped message {self.current_index}/{self.max_page}:')
 
@@ -61,11 +61,14 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(reason='The reason for the ban. Shown in the audit log')
     async def ban(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         users: Transform[list[Member | User], utils.GreedyMemberUserTransformer],
         reason: str | None = "No reason specified"
     ):
         """Ban members who broke the rules! You can specify multiple members in one command."""
+
+        if not interaction.guild:
+            return
 
         await interaction.response.defer(thinking=True)
 
@@ -87,11 +90,14 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(reason='The reason for the unban. Shown in the audit log')
     async def unban(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         users: Transform[list[Member | User], utils.GreedyMemberUserTransformer],
         reason: str | None = "No reason specified"
     ):
         """Unban banned users with their User ID, you can specify multiple people to be unbanned"""
+
+        if not interaction.guild:
+            return
 
         await interaction.response.defer(thinking=True)
 
@@ -113,11 +119,14 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(reason='The reason for the softban. Shown in the audit log')
     async def softban(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         users: Transform[list[Member | User], utils.GreedyMemberUserTransformer],
         reason: str | None = "No reason specified"
     ):
         """Bans then unbans the specified users, which deletes their recent messages and 'kicks' them"""
+
+        if not interaction.guild:
+            return
 
         await interaction.response.defer(thinking=True)
 
@@ -146,11 +155,14 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(reason='The reason for the kick. Shown in the audit log')
     async def kick(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         members: Transform[list[Member], utils.GreedyMemberTransformer],
         reason: str | None = "No reason specified"
     ):
         """Kick members who broke the rules! You can specify multiple members in one command"""
+
+        if not interaction.guild:
+            return
 
         await interaction.response.defer(thinking=True)
 
@@ -173,7 +185,7 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(reason='The reason for the timeout. Shown in the audit log')
     async def timeout(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         members: Transform[list[Member], utils.GreedyMemberTransformer],
         duration: Transform[datetime, utils.TimeTransformer],
         reason: str | None = 'No reason specified'
@@ -201,7 +213,7 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(reason='The reason for the untimeout. Shown in the audit log')
     async def untimeout(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         members: Transform[list[Member], utils.GreedyMemberTransformer],
         reason: str | None = "No reason specified"
     ):
@@ -227,7 +239,7 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(nickname='The new nickname to set for the members')
     async def rename(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         members: Transform[list[Member], utils.GreedyMemberTransformer],
         nickname: str
     ):
@@ -257,7 +269,7 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(reason='The reason for the mute. Shown in the audit log')
     async def mute(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         members: Transform[list[Member], utils.GreedyMemberTransformer],
         reason: str | None = "No reason specified"
     ):
@@ -291,7 +303,7 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(reason='The reason for the unmute. Shown in the audit log')
     async def unmute(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         members: Transform[list[Member], utils.GreedyMemberTransformer],
         reason: str | None = "No reason specified"
     ):
@@ -325,7 +337,7 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(amount='The amount of messages to check. Max of 200')
     async def purge(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         users: Transform[list[Member | User], utils.GreedyMemberUserTransformer] | None = None,
         amount: Range[int, 1, 200] | None = 200
     ):
@@ -335,18 +347,21 @@ class Moderation(GroupCog, group_name='mod'):
 
         await interaction.response.defer(thinking=True, ephemeral=True)
 
+        if not interaction.channel or isinstance(interaction.channel, (ForumChannel, CategoryChannel, DMChannel, GroupChannel)):
+            raise utils.DoggieBotException('Invalid channel!', 'Can\'t use purge in forums, dms, or groups.')
+
         messages_deleted = await interaction.channel.purge(limit=amount, check=lambda m: not users or (m.author in users), bulk=True)
 
-        users = [user.mention for user in users] if users else ['anyone']
+        users_s = [user.mention for user in users] if users else ['anyone']
         embed = utils.create_embed(
             interaction.user,
             title=f'{len(messages_deleted)} messages deleted!',
-            description='Deleted messages from ' + ', '.join(users)
+            description='Deleted messages from ' + ', '.join(users_s)
         )
 
         await interaction.edit_original_response(embed=embed)
 
-        self.bot.dispatch('purge', interaction, users, len(messages_deleted))
+        self.bot.dispatch('purge', interaction, users_s, len(messages_deleted))
 
     @utils.invoker_has_permissions(manage_nicknames=True)
     @utils.client_has_permissions(manage_nicknames=True)
@@ -354,7 +369,7 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
     async def asciify(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         members: Transform[list[Member], utils.GreedyMemberTransformer],
     ):
         """Replace weird unicode letters in nicknames with normal ASCII text!"""
@@ -380,16 +395,22 @@ class Moderation(GroupCog, group_name='mod'):
     @app_commands.describe(user='Specify an user to only get deleted messages from that user')
     async def snipe(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         channel: TextChannel | None,
         user: User | None
     ):
         """Shows recent deleted messages! An administrator must opt-in to message sniping for the bot to store messages."""
 
+        if not interaction.guild or not interaction.channel or isinstance(interaction.channel, (DMChannel, GroupChannel)):
+            return
+
         if not interaction.client.get_basic_config(interaction.guild).snipe:
             raise utils.DoggieBotException('Snipe not enabled!', 'A server admin must use `/config edit` and enable message snipes for this server')
 
-        channel = channel or interaction.channel
+        channel = channel or interaction.channel  # type: ignore
+
+        if not channel:
+            return
 
         if not (channel.permissions_for(interaction.user).manage_messages and channel.permissions_for(interaction.user).view_channel):
             raise utils.DoggieBotException('Can\'t snipe from that channel!', 'You need permissions to view and manage messages of that channel before you can snipe messages from it!')
@@ -405,7 +426,13 @@ class Moderation(GroupCog, group_name='mod'):
         view = SnipeMenu(interaction.user, filtered, 1)
         first_msg = (await view.get_page_contents())['embed']
         if channel.type is ChannelType.text:
-            if (
+            if isinstance(interaction.channel, Thread):
+                if (
+                    not channel.overwrites_for(interaction.guild.default_role).view_channel and
+                    interaction.channel.is_private()
+                ):
+                    first_msg = maybe_first_snipe_msg(interaction)
+            elif (
                 not channel.overwrites_for(interaction.guild.default_role).view_channel and
                 interaction.channel.overwrites_for(interaction.guild.default_role).view_channel
             ):

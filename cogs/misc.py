@@ -111,7 +111,7 @@ class Misc(Cog):
         if obj is None:
             raise utils.DoggieBotException('Command not found!', f'The command `{command}` wasn\'t found in this bot.')
 
-        if getattr(obj, 'callback', None) is None:
+        if isinstance(obj, app_commands.Group):
             raise utils.DoggieBotException('Not a command!', f'`/{obj.qualified_name}` is a command group, and doesn\'t have source code!')
 
         src = obj.callback.__code__

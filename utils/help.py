@@ -25,11 +25,5 @@ class CustomHelp(commands.HelpCommand):
     async def send_cog_help(self, cog):
         await self.send_generic_message()
 
-    async def command_not_found(self, string):
-        await self.send_generic_message()
-
-    async def subcommand_not_found(self, command, string):
-        await self.send_generic_message()
-
     async def send_error_message(self, error):
         pass

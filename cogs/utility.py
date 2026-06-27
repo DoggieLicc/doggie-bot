@@ -2,7 +2,7 @@ import asyncio
 import time
 import itertools
 
-from discord import app_commands, Interaction, Attachment, PartialEmoji, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden, Emoji
+from discord import InteractionMessage, app_commands, Interaction, Attachment, PartialEmoji, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden, Emoji
 from discord.app_commands import Transform
 from discord.ext.commands import Cog
 from discord.ui import Select
@@ -77,7 +77,7 @@ class HoistersMenu(utils.EntryMenu):
                 inline=False
             )
 
-        return embed
+        return {'embed': embed}
 
 
 class SauceMenu(utils.EntryMenu):
@@ -148,6 +148,9 @@ class UtilityCog(Cog, name="Utility"):
     async def recentjoins(self, interaction: Interaction):
         """Shows the most recent joins in the current server"""
 
+        if not interaction.guild:
+            return
+
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         members = sorted(interaction.guild.members, key=lambda m: m.joined_at, reverse=True)[:100]
@@ -160,6 +163,9 @@ class UtilityCog(Cog, name="Utility"):
     async def selfbot(self, interaction: Interaction):
         """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)"""
 
+        if not interaction.guild or not interaction.guild.owner:
+            return
+
         selfbot_embed = Embed(
             color=Color.green(),
             title='Giveaway',
@@ -171,10 +177,10 @@ class UtilityCog(Cog, name="Utility"):
 
         selfbot_embed.set_author(name='Discord Nitro')
 
-        message = await interaction.response.send_message(
+        message: InteractionMessage = (await interaction.response.send_message(
             ':tada: **GIVEAWAY** :tada: :yay:',
             embed=selfbot_embed
-        ).resource
+        )).resource  # type: ignore
 
         try:
             await message.add_reaction('\N{PARTY POPPER}')
@@ -235,7 +241,7 @@ class UtilityCog(Cog, name="Utility"):
                 embed = utils.create_embed(
                     interaction.user,
                     title='Reactions found!',
-                    description=message.embeds[0].description + new_msg
+                    description=message.embeds[0].description or '' + new_msg
                 )
 
                 message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
@@ -245,6 +251,9 @@ class UtilityCog(Cog, name="Utility"):
     @app_commands.command()
     async def hoisters(self, interaction: Interaction):
         """Shows a list of members who have names made to 'hoist' themselves to the top of the member list!"""
+
+        if not interaction.guild:
+            return None
 
         hoisters = get_hoisters(interaction.guild.members)
 
@@ -268,6 +277,9 @@ class UtilityCog(Cog, name="Utility"):
         emotes: Transform[list[PartialEmoji], utils.MultiplePartialEmoteTransformer]
     ):
         """Adds the specified emotes to your server!"""
+
+        if not interaction.guild:
+            return None
 
         added, not_added = [], []
         embed = Embed()
@@ -331,6 +343,8 @@ class UtilityCog(Cog, name="Utility"):
     @utils.not_user_integration()
     async def newaccounts(self, interaction: Interaction):
         """Shows the newest accounts in this server!"""
+        if not interaction.guild:
+            return None
 
         members = sorted(interaction.guild.members, key=lambda m: m.created_at, reverse=True)[:200]
         view = RecentAccounts(interaction.user, members, 10)
@@ -346,12 +360,15 @@ class UtilityCog(Cog, name="Utility"):
     ):
         """Gets the source of an image using SauceNAO, usually for art. Most anime databases are disabled. :3"""
 
+        if not self.bot.session:
+            return
+
         if not image_url and not image:
             raise utils.DoggieBotException('No image Specified!', 'You must specify either `image` or `image_url`')
 
         await interaction.response.defer(thinking=True)
 
-        image_url = image_url or image.proxy_url
+        image_url = image_url or (image.proxy_url if image else None)
 
         BASE_URL = 'https://saucenao.com/search.php'
 

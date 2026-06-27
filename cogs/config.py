@@ -1,14 +1,16 @@
 from dataclasses import fields
 
-from discord import TextChannel, Role, Interaction, app_commands, Embed, ui, Guild, CheckboxGroupOption
+from discord import TextChannel, Role, app_commands, Embed, ui, Guild, CheckboxGroupOption
 from discord.ext.commands import GroupCog
 
 import utils
+from utils.myinteraction import *
+
 
 def maybe_mention(channel):
     return channel.mention if channel else "Not set"
 
-def get_config_embed(bot, interaction: Interaction) -> Embed:
+def get_config_embed(bot, interaction: MyInteraction) -> Embed:
     basic_config = bot.get_basic_config(interaction.guild)
     logging_config = bot.get_logging_config(interaction.guild)
 
@@ -32,12 +34,14 @@ def get_config_embed(bot, interaction: Interaction) -> Embed:
 
 class ConfigClearer(ui.Modal):
     # pylint: disable=arguments-differ
-    def __init__(self, interaction: Interaction, *, title: str):
+    def __init__(self, interaction: MyInteraction, *, title: str):
         super().__init__(title=title)
         self.has_items = False
         self.add_checkboxes(interaction)
 
-    def add_checkboxes(self, interaction: Interaction):
+    def add_checkboxes(self, interaction: MyInteraction):
+        if not interaction.guild:
+            return
         basic_config: utils.BasicConfig = interaction.client.get_basic_config(interaction.guild)
         logging_config: utils.LoggingConfig = interaction.client.get_logging_config(interaction.guild)
 
@@ -91,8 +95,10 @@ class ConfigClearer(ui.Modal):
             )
         )
 
-    async def on_submit(self, interaction: Interaction):
-        checkbox_group: ui.CheckboxGroup = self.find_item(100)
+    async def on_submit(self, interaction: MyInteraction):  # type: ignore
+        checkbox_group = self.find_item(100)
+        if not isinstance(checkbox_group, ui.CheckboxGroup) or not interaction.guild:
+            return
         basic_changes = {}
         logging_changes = {}
         for value in checkbox_group.values:
@@ -128,7 +134,7 @@ class Configuration(GroupCog, group_name='config'):
         self.bot: utils.CustomBot = bot
 
     @app_commands.command()
-    async def view(self, interaction: Interaction):
+    async def view(self, interaction: MyInteraction):
         """Shows the current configuration for this server!"""
 
         embed = get_config_embed(self.bot, interaction)
@@ -145,7 +151,7 @@ class Configuration(GroupCog, group_name='config'):
     @app_commands.describe(logging_purge_channel='The channel where purges by this or other bots are reported')
     async def edit(
         self,
-        interaction: Interaction,
+        interaction: MyInteraction,
         snipe_enabled: bool | None,
         mute_role: Role | None,
         logging_ban_channel: TextChannel | None,
@@ -205,7 +211,7 @@ class Configuration(GroupCog, group_name='config'):
 
     @utils.invoker_has_permissions(manage_guild=True)
     @app_commands.command()
-    async def clear(self, interaction: Interaction):
+    async def clear(self, interaction: MyInteraction):
         """Open a menu where you can clear specific configurations for this server. You need "Manage Server" permissions!"""
         modal = ConfigClearer(interaction, title='Clear Configurations')
 
