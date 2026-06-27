@@ -6,7 +6,7 @@ from discord import Interaction, User, ButtonStyle
 from discord.ui import View, Button, Item
 from discord.ext.commands import Paginator
 
-from utils.myinteraction import *
+from utils.classes import CustomBot
 
 __all__ = [
     'PaginatedMenu',
@@ -44,7 +44,7 @@ class CustomView(View):
         for child in self._children:
             setattr(child, 'disabled', True)
 
-    async def on_error(self, interaction: MyInteraction, error: Exception, _: Item[Any], /) -> None:  # type: ignore
+    async def on_error(self, interaction: Interaction[CustomBot], error: Exception, _: Item[Any], /) -> None:  # type: ignore
         await interaction.client.tree.on_error(interaction, error)
 
 

@@ -6,15 +6,16 @@ from discord.ext.commands import Cog
 from discord.utils import oauth_url
 
 import utils
+from utils import CustomBot
 
 class Misc(Cog):
     """Commands that show info about the bot"""
 
-    def __init__(self, bot: utils.CustomBot):
-        self.bot: utils.CustomBot = bot
+    def __init__(self, bot: CustomBot):
+        self.bot: CustomBot = bot
 
     @app_commands.command()
-    async def info(self, interaction: Interaction):
+    async def info(self, interaction: Interaction[CustomBot]):
         """Shows information for the bot!"""
 
         invite_url = oauth_url(self.bot.application_id, permissions=Permissions(4513770781404358))
@@ -64,7 +65,7 @@ class Misc(Cog):
 
     @app_commands.command()
     @app_commands.describe(suggestion='What you want to suggest!')
-    async def suggest(self, interaction: Interaction, suggestion: str):
+    async def suggest(self, interaction: Interaction[CustomBot], suggestion: str):
         """Send a suggestion or bug report to the bot owner!"""
 
         owner: User = await self.bot.get_owner()
@@ -86,7 +87,7 @@ class Misc(Cog):
 
     @app_commands.command()
     @app_commands.describe(command='Specify a command to get the source code of that command')
-    async def source(self, interaction: Interaction, command: str | None = None):
+    async def source(self, interaction: Interaction[CustomBot], command: str | None = None):
         """Look at the code of this bot!"""
 
         if command is None:

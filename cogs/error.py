@@ -5,12 +5,13 @@ from discord import CategoryChannel, ForumChannel, app_commands, Interaction, Us
 from loguru import logger
 
 import utils
+from utils import CustomBot
 from osu import OsuApiException
 from unsplash import UnsplashException
 
 class ErrorHandler(Cog):
-    def __init__(self, bot: utils.CustomBot):
-        self.bot: utils.CustomBot = bot
+    def __init__(self, bot: CustomBot):
+        self.bot: CustomBot = bot
         self._old_tree_error = None
 
     async def cog_load(self):
@@ -23,7 +24,7 @@ class ErrorHandler(Cog):
             tree = self.bot.tree
             tree.on_error = self._old_tree_error
 
-    async def error_handler(self, interaction: Interaction, error: app_commands.AppCommandError | Exception):
+    async def error_handler(self, interaction: Interaction[CustomBot], error: app_commands.AppCommandError | Exception):
         error_message = None
         error_title = 'Error while running command!'
 

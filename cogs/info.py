@@ -9,8 +9,9 @@ from discord.utils import oauth_url, snowflake_time
 
 import whoisdomain as whois
 import utils
+from utils import CustomBot
 
-def sync_whois(interaction: Interaction, domain: str):
+def sync_whois(interaction: Interaction[CustomBot], domain: str):
     try:
         query = whois.query(domain, ignore_returncode=True)
 
@@ -52,13 +53,13 @@ def sync_whois(interaction: Interaction, domain: str):
 class Info(Cog, name='Information'):
     """Get info for Discord objects, domains, and more"""
 
-    def __init__(self, bot: utils.CustomBot):
-        self.bot: utils.CustomBot = bot
+    def __init__(self, bot: CustomBot):
+        self.bot: CustomBot = bot
 
     @app_commands.allowed_installs(users=False)
     @app_commands.command()
     @app_commands.guild_only()
-    async def server(self, interaction: Interaction):
+    async def server(self, interaction: Interaction[CustomBot]):
         """Lists info for this server"""
         if not interaction.guild:
             return
@@ -128,7 +129,7 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(user='The user to get info about.')
-    async def user(self, interaction: Interaction, user: Member | User | None):
+    async def user(self, interaction: Interaction[CustomBot], user: Member | User | None):
         """Shows information about the user specified, if no user specified then it returns info for you"""
 
         user = user or interaction.user
@@ -187,7 +188,7 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(user='The user to get info about.')
-    async def avatar(self, interaction: Interaction, user: Member |  User | None):
+    async def avatar(self, interaction: Interaction[CustomBot], user: Member |  User | None):
         """Shows the avatar of the specified user, if no user specified then it returns info for you"""
 
         user = user or interaction.user
@@ -209,7 +210,7 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(invite='The Discord invite to get info for')
-    async def invite(self, interaction: Interaction, invite: app_commands.Transform[Invite, utils.InviteTransformer]):
+    async def invite(self, interaction: Interaction[CustomBot], invite: app_commands.Transform[Invite, utils.InviteTransformer]):
         """Shows info for an invite using a invite URL or its code"""
 
         embed = utils.create_embed(
@@ -257,7 +258,7 @@ class Info(Cog, name='Information'):
     @app_commands.command()
     @app_commands.guild_only()
     @app_commands.describe(channel='The channel to get info for')
-    async def channel(self, interaction: Interaction, channel: GuildChannel | Thread):
+    async def channel(self, interaction: Interaction[CustomBot], channel: GuildChannel | Thread):
         """Shows info for the channel specified"""
 
         if not interaction.guild or not interaction.channel:
@@ -318,7 +319,7 @@ class Info(Cog, name='Information'):
     @app_commands.command()
     @app_commands.guild_only()
     @app_commands.describe(role='The role to get info for')
-    async def role(self, interaction: Interaction, role: Role):
+    async def role(self, interaction: Interaction[CustomBot], role: Role):
         """Shows info for the role specified"""
 
         if not interaction.guild:
@@ -361,7 +362,7 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(emote='The emote to get info for')
-    async def emote(self, interaction: Interaction, emote: Transform[PartialEmoji, utils.PartialEmoteTransformer]):
+    async def emote(self, interaction: Interaction[CustomBot], emote: Transform[PartialEmoji, utils.PartialEmoteTransformer]):
         """Shows info of a custom Discord emote"""
 
         embed = utils.create_embed(
@@ -379,7 +380,7 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(token='The Discord account token to get info for')
-    async def token(self, interaction: Interaction, token: str):
+    async def token(self, interaction: Interaction[CustomBot], token: str):
         """Shows info of an account/bot token!"""
 
         tokens = token.split('.', 2)
@@ -426,7 +427,7 @@ class Info(Cog, name='Information'):
     @app_commands.allowed_installs(users=False)
     @app_commands.command()
     @app_commands.describe(message='The message to get info for, best to use the message link')
-    async def message(self, interaction: Interaction, message: Transform[Message, utils.MessageTransformer]):
+    async def message(self, interaction: Interaction[CustomBot], message: Transform[Message, utils.MessageTransformer]):
         """Gets information for a Discord Message"""
 
         if message.guild != interaction.guild or (message.guild is None and (message.channel != interaction.channel)):
@@ -479,7 +480,7 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(colors='The color name or a member/role to get colors of')
-    async def color(self, interaction: Interaction, colors: Transform[list[Color], utils.ColorTransformer]):
+    async def color(self, interaction: Interaction[CustomBot], colors: Transform[list[Color], utils.ColorTransformer]):
         """Gets info for a color! You can specify a member, role, or color"""
 
         embeds = []
@@ -505,7 +506,7 @@ class Info(Cog, name='Information'):
 
     @app_commands.command()
     @app_commands.describe(domain='The domain to get a WHOIS lookup for')
-    async def whois(self, interaction: Interaction, domain: str):
+    async def whois(self, interaction: Interaction[CustomBot], domain: str):
         """Does a WHOIS lookup on a domain!"""
 
         embed = await self.bot.loop.run_in_executor(None, sync_whois, interaction, domain)
@@ -514,7 +515,7 @@ class Info(Cog, name='Information'):
     @app_commands.command()
     @app_commands.describe(_id='The Discord ID to get info of')
     @app_commands.rename(_id='id')
-    async def snowflake(self, interaction: Interaction, _id: str):
+    async def snowflake(self, interaction: Interaction[CustomBot], _id: str):
         """Gets creation date for a Discord snowflake"""
 
         try:

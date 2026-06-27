@@ -9,10 +9,11 @@ from loguru import logger
 
 from osu import OsuApi
 import utils
+from utils import CustomBot
 
 mojang_api = Mojang()
 
-def sync_minecraft(interaction: Interaction, account: str) -> Embed:
+def sync_minecraft(interaction: Interaction[CustomBot], account: str) -> Embed:
     try:
         if utils.is_uuid4(account):
             uuid = account
@@ -58,7 +59,7 @@ class Games(GroupCog, group_name='game'):
     """Commands used to get info for video-game accounts"""
 
     def __init__(self, bot):
-        self.bot: utils.CustomBot = bot
+        self.bot: CustomBot = bot
 
         if bot.config['osu_client_id'] and bot.config['osu_client_secret']:
             self.osu_api = OsuApi(
@@ -90,7 +91,7 @@ class Games(GroupCog, group_name='game'):
 
     @app_commands.command()
     @app_commands.describe(account='The username or UUID of the Java Minecraft account')
-    async def minecraft(self, interaction: Interaction, account: str):
+    async def minecraft(self, interaction: Interaction[CustomBot], account: str):
         """Get info of a Java Minecraft account using current username or their UUID"""
 
         await interaction.response.defer(thinking=True)
@@ -100,7 +101,7 @@ class Games(GroupCog, group_name='game'):
 
     @app_commands.describe(account='The username of the osu! account to view')
     @app_commands.describe(gamemode='The gamemode to get gamestats for, defaults to regular osu')
-    async def account(self, interaction: Interaction, account: str, gamemode: osu_modes | None = 'osu'):
+    async def account(self, interaction: Interaction[CustomBot], account: str, gamemode: osu_modes | None = 'osu'):
         """Gets info of osu! accounts! You can also specify a gamemode to get stats for that gamemode!"""
         if not self.osu_api:
             raise utils.DoggieBotException('Unable to load osu! api!', 'The osu! api module wasn\'t loaded.')
@@ -155,7 +156,7 @@ class Games(GroupCog, group_name='game'):
         await interaction.edit_original_response(embed=embed)
 
     @app_commands.describe(beatmap_id='The ID of the beatmap you want to view.')
-    async def beatmap(self, interaction: Interaction, beatmap_id: int):
+    async def beatmap(self, interaction: Interaction[CustomBot], beatmap_id: int):
         """Gets a beatmap from a beatmap ID!"""
         if not self.osu_api:
             raise utils.DoggieBotException('Unable to load osu! api!', 'The osu! api module wasn\'t loaded.')
