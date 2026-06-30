@@ -7,7 +7,7 @@ from typing import Any
 from aiohttp import ClientSession
 import yaml
 import discord
-from discord import TextChannel, ChannelType, Message, User, Guild, Role, app_commands, Thread
+from discord import TextChannel, ChannelType, Message, User, Guild, Role, app_commands, Thread, ui
 from discord.ext import commands
 from discord.abc import GuildChannel, PrivateChannel
 from loguru import logger
@@ -530,9 +530,10 @@ class LoggingConfig:
 
 
 class DoggieBotException(Exception):
-    def __init__(self, title, description):
+    def __init__(self, title, description, view: ui.View | None = None):
         self.title = str(title)
         self.description = str(description)
+        self.view = view
 
 class MissingAPIKey(DoggieBotException):
     pass

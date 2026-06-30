@@ -1,5 +1,6 @@
 import traceback
 
+from discord.abc import MISSING
 from discord.ext.commands import Cog
 from discord import CategoryChannel, ForumChannel, app_commands, Interaction, User, Color, InteractionResponded, NotFound, DiscordException
 from loguru import logger
@@ -27,6 +28,7 @@ class ErrorHandler(Cog):
     async def error_handler(self, interaction: Interaction[CustomBot], error: app_commands.AppCommandError | Exception):
         error_message = None
         error_title = 'Error while running command!'
+        error_view = MISSING
 
         if isinstance(error, app_commands.CommandInvokeError):
             error = error.original
@@ -56,6 +58,8 @@ class ErrorHandler(Cog):
         if isinstance(error, utils.DoggieBotException):
             error_message = error.description
             error_title = error.title
+            if error.view:
+                error_view = error.view
 
         if isinstance(error, (OsuApiException, UnsplashException)):
             error_message = f'Error when doing API lookup! The API may be down, or the searched resource wasn\'t found: {str(error)}'
@@ -104,15 +108,15 @@ class ErrorHandler(Cog):
         )
 
         try:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed, ephemeral=True, view=error_view)
         except (InteractionResponded, NotFound):
             try:
-                await interaction.edit_original_response(embed=embed)
+                await interaction.edit_original_response(embed=embed, view=error_view)
             except (InteractionResponded, NotFound):
                 if not interaction.channel or isinstance(interaction.channel, (ForumChannel, CategoryChannel)):
                     return
                 try:
-                    await interaction.channel.send(embed=embed)
+                    await interaction.channel.send(embed=embed, view=error_view)
                 except DiscordException:
                     logger.warning(
                         'Unable to respond to exception in {}',

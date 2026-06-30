@@ -2,7 +2,7 @@ import math
 from typing import Any
 
 import discord
-from discord import Interaction, User, ButtonStyle
+from discord import Interaction, Member, User, ButtonStyle
 from discord.ui import View, Button, Item
 from discord.ext.commands import Paginator
 
@@ -17,7 +17,7 @@ __all__ = [
 
 
 class CustomView(View):
-    def __init__(self, owner: User):
+    def __init__(self, owner: User | Member):
         self.owner = owner
         self.message = None
         super().__init__(timeout=6000)

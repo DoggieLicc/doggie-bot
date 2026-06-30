@@ -23,7 +23,7 @@ async def get_pic(url: str, interaction: Interaction[CustomBot], key: str) -> st
     return data[key]
 
 
-async def furry_image(interaction: Interaction[CustomBot], user: User | None, endpoint: str, action: str, a2: str = None):
+async def furry_image(interaction: Interaction[CustomBot], user: User | None, endpoint: str, action: str, a2: str | None = None):
     if not user or user == interaction.user:
         msg = f'{interaction.user.mention} has no one to {action} :('
     elif user.bot:
@@ -66,7 +66,7 @@ class FurryCommand:
             interaction: Interaction[CustomBot] = bound.arguments["interaction"]
             user: User | None = bound.arguments["user"]
 
-            embed = await furry_image(interaction, user, self.action1, self.action2)
+            embed = await furry_image(interaction, user, self.action1, self.action1, self.action2)
 
             await interaction.response.send_message(embed=embed)
 
@@ -86,7 +86,8 @@ FURRY_COMMANDS = [
     FurryCommand('boop'),
     FurryCommand('hold'),
     FurryCommand('kiss', 'kisses'),
-    FurryCommand('lick')
+    FurryCommand('lick'),
+    FurryCommand('cuddle', None, 'cuddling')
 ]
 
 
