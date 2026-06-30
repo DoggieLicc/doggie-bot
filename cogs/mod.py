@@ -2,7 +2,7 @@ import unicodedata
 from datetime import datetime
 from functools import partial
 
-from discord import CategoryChannel, DMChannel, ForumChannel, GroupChannel, app_commands, Member, User, Role, Embed, TextChannel, Interaction
+from discord import CategoryChannel, DMChannel, ForumChannel, GroupChannel, app_commands, Member, User, Role, Embed, TextChannel, Interaction, ui, ButtonStyle
 from discord.ext.commands import GroupCog
 from discord.app_commands import Transform, Range
 
@@ -31,6 +31,33 @@ class SnipeMenu(utils.EntryMenu):
         )
 
         return {"embed": embed}
+
+
+class EnableSnipeView(utils.CustomView):
+    async def interaction_check(self, interaction: Interaction[CustomBot], /) -> bool:
+        self.message = interaction.message
+        if not interaction.guild or isinstance(self.owner, User):
+            return False
+
+        if not self.owner.guild_permissions.manage_guild:
+            await interaction.response.send_message('You need `Manage Server` permissions to enable message snipes...', ephemeral=True)
+            return False
+
+        basic_config = interaction.client.get_basic_config(interaction.guild)
+
+        if basic_config.snipe:
+            await interaction.response.send_message('Message sniping is already enabled in this server!', ephemeral=True)
+            await self.on_timeout()
+            return False
+
+        return True
+
+    @ui.button(label='MOD ACTION: Enable Message Sniping', style=ButtonStyle.red)
+    async def enable_snipe(self, interaction: Interaction[CustomBot], _: ui.Button):
+        basic_config = interaction.client.get_basic_config(interaction.guild)
+        await basic_config.set_config(interaction.client, snipe=True)
+        await self.on_timeout()
+        await interaction.response.send_message('Message sniping has been enabled for this server! `/config`', ephemeral=True)
 
 @app_commands.guild_only()
 @app_commands.allowed_installs(users=False)
@@ -391,6 +418,9 @@ class Moderation(GroupCog, group_name='mod'):
             return
 
         if not interaction.client.get_basic_config(interaction.guild).snipe:
+            if isinstance(interaction.user, Member) and interaction.user.guild_permissions.manage_guild:
+                view = EnableSnipeView(interaction.user)
+                raise utils.DoggieBotException('Snipe not enabled!', 'A server admin must use `/config edit` and enable message snipes for this server', view=view)
             raise utils.DoggieBotException('Snipe not enabled!', 'A server admin must use `/config edit` and enable message snipes for this server')
 
         channel = channel or interaction.channel  # type: ignore
