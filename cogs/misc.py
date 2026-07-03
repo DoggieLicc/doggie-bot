@@ -1,27 +1,27 @@
 import inspect
 from io import StringIO
 
-from discord import app_commands, Interaction, Permissions, User, File
-from discord.ext.commands import Cog
+from discord import app_commands, Permissions, User, File
+from discord.ext import commands
 from discord.utils import oauth_url
 
 import utils
-from utils import CustomBot
+from utils import CustomBot, CustomContext
 
-class Misc(Cog):
+class Misc(commands.Cog, name='Misc'):
     """Commands that show info about the bot"""
 
     def __init__(self, bot: CustomBot):
         self.bot: CustomBot = bot
 
-    @app_commands.command()
-    async def info(self, interaction: Interaction[CustomBot]):
+    @commands.hybrid_command(aliases=['i', 'ping', 'about'])
+    async def info(self, ctx: CustomContext):
         """Shows information for the bot!"""
 
         invite_url = oauth_url(self.bot.application_id, permissions=Permissions(4513770781404358))
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title='Info for Doggie Bot!',
             description='This bot is a multi-purpose bot!'
         )
@@ -61,17 +61,18 @@ class Misc(Cog):
             inline=False
         )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['report', 'bug', 'suggestion'])
+    @commands.cooldown(3, 86_400, commands.BucketType.user)
     @app_commands.describe(suggestion='What you want to suggest!')
-    async def suggest(self, interaction: Interaction[CustomBot], suggestion: str):
+    async def suggest(self, ctx: CustomContext, suggestion: str):
         """Send a suggestion or bug report to the bot owner!"""
 
         owner: User = await self.bot.get_owner()
 
         owner_embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title='New suggestion!:',
             description=suggestion
         )
@@ -79,35 +80,35 @@ class Misc(Cog):
         await owner.send(embed=owner_embed)
 
         user_embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'👍 Suggestion has been sent to {owner}! 💖'
         )
 
-        await interaction.response.send_message(embed=user_embed)
+        await ctx.send(embed=user_embed)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['code'])
     @app_commands.describe(command='Specify a command to get the source code of that command')
-    async def source(self, interaction: Interaction[CustomBot], command: str | None = None):
+    async def source(self, ctx: CustomContext, command: str | None = None):
         """Look at the code of this bot!"""
 
         if command is None:
             embed = utils.create_embed(
-                interaction.user,
+                ctx.author,
                 title='Source Code:',
                 description='[Github for **Doggie Bot**](https://github.com/DoggieLicc/doggie-bot)'
             )
 
-            return await interaction.response.send_message(embed=embed)
+            return await ctx.send(embed=embed)
 
-        commands = command.lower().strip('/').split(maxsplit=2)
+        a_commands = command.lower().strip('/').split(maxsplit=2)
 
-        obj = self.bot.tree.get_command(commands[0])
+        obj = self.bot.tree.get_command(a_commands[0])
 
-        if isinstance(obj, app_commands.Group) and len(commands) > 1:
-            obj = obj.get_command(commands[1])
+        if isinstance(obj, app_commands.Group) and len(a_commands) > 1:
+            obj = obj.get_command(a_commands[1])
 
-            if isinstance(obj, app_commands.Group) and len(commands) > 2:
-                obj = obj.get_command(commands[2])
+            if isinstance(obj, app_commands.Group) and len(a_commands) > 2:
+                obj = obj.get_command(a_commands[2])
 
         if obj is None:
             raise utils.DoggieBotException('Command not found!', f'The command `{command}` wasn\'t found in this bot.')
@@ -127,7 +128,7 @@ class Misc(Cog):
 
         file = File(fp=buffer, filename=f'{command.replace(" ", "_").lower()}.py')
 
-        await interaction.response.send_message(f'Here you go, {interaction.user.mention}. (You should view this on a PC)', file=file)
+        await ctx.send(f'Here you go, {ctx.author.mention}. (You should view this on a PC)', file=file)
 
 
 async def setup(bot):

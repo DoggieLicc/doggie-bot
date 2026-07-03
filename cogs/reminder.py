@@ -1,14 +1,14 @@
 from datetime import datetime, timezone
 
-from discord import app_commands, Interaction, TextChannel
+from discord import app_commands, TextChannel
 from discord.ext import commands
 from discord.utils import escape_markdown
-from discord.app_commands import Transform, Range
 
 import utils
-from utils import CustomBot
+from utils import CustomBot, CustomContext
+from utils.classes import Reminder
 
-class ReminderList(utils.EntryMenu):
+class ReminderList(utils.EntryMenu[Reminder]):
     async def get_page_contents(self):
         entries = self.get_page_items()
 
@@ -30,20 +30,20 @@ class ReminderList(utils.EntryMenu):
 
         return {"embed": embed}
 
-class ReminderCog(commands.GroupCog, name="reminder"):
+class ReminderCog(commands.GroupCog, name='Reminder', group_name='reminder'):
     """Create and manage your reminders"""
     def __init__(self, bot: CustomBot):
         self.bot: CustomBot = bot
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['r', 'remindme', 'reminder'])
     @app_commands.describe(reminder='For what you want to be reminded for')
     @app_commands.describe(time='When you want to be reminded. Can be a Discord-style timestamp, or durations (5h 30min)')
     @app_commands.describe(channel='A channel to send the reminder to. If not specified, it will be sent to your DMs')
     async def add(
         self,
-        interaction: Interaction[CustomBot],
+        ctx: CustomContext,
         reminder: str,
-        time: Transform[datetime, utils.TimeTransformer],
+        time: utils.TimeConverter,
         channel: TextChannel | None
     ):
         """Add a reminder to be sent to you or a channel after a specified duration!"""
@@ -51,49 +51,49 @@ class ReminderCog(commands.GroupCog, name="reminder"):
         if time < datetime.now(tz=timezone.utc):
             raise utils.DoggieBotException('Invalid time!', 'Can\'t set a reminder in the past!')
 
-        if channel and interaction.is_user_integration():
+        if channel and ctx.interaction and (not ctx.guild or not ctx.guild.owner_id):
             raise utils.DoggieBotException('Invalid option:', 'Can\'t specify a channel to send to when bot is installed as only an user app')
 
-        if channel and interaction.guild:
-            bot_perms = channel.permissions_for(interaction.guild.me)
-            author_perms = channel.permissions_for(interaction.user)
+        if channel and ctx.guild:
+            bot_perms = channel.permissions_for(ctx.guild.me)
+            author_perms = channel.permissions_for(ctx.author)
 
-            if channel.guild != interaction.guild or not (bot_perms.view_channel and bot_perms.send_messages) or not (author_perms.view_channel and author_perms.send_messages):
+            if channel.guild != ctx.guild or not (bot_perms.view_channel and bot_perms.send_messages) or not (author_perms.view_channel and author_perms.send_messages):
                 raise utils.DoggieBotException('Missing Permissions', 'You or this bot don\'t have permissions to talk in that channel!')
 
-        destination = channel or interaction.user
+        destination = channel or ctx.author
 
-        rem = utils.Reminder(interaction.id, interaction.user, reminder, destination, time, self.bot)
+        rem = utils.Reminder(ctx.message.id, ctx.author, reminder, destination, time, self.bot)
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Reminder added! (**ID**: {rem.id})',
             description=f'Reminder "{reminder}" has been added for {utils.user_friendly_dt(time)} to be sent to ' + (channel.mention if channel else 'you') + '!'
         )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await ctx.send(embed=embed, ephemeral=True)
 
-    @app_commands.command()
-    async def list(self, interaction: Interaction[CustomBot]):
+    @commands.hybrid_command(liases=['reminders', 'list_reminders', 'listreminders', 'all', 'all_reminders'])
+    async def list(self, ctx: CustomContext):
         """Shows your active reminders that you made!"""
 
         filtered_reminders = [reminder for reminder in self.bot.reminders.values()
-                              if reminder is not None and reminder.user == interaction.user]
+                              if reminder is not None and reminder.user == ctx.author]
 
         if not filtered_reminders:
             raise utils.DoggieBotException('No reminders!', 'You don\'t have any reminders set yet, use the `/reminder add` command to add one!')
 
-        view = ReminderList(owner=interaction.user, items=filtered_reminders, items_per_page=10)
-        await interaction.response.send_message(view=view, ephemeral=True, **await view.get_page_contents())
+        view = ReminderList(owner=ctx.author, items=filtered_reminders, items_per_page=5)
+        await ctx.send(view=view, ephemeral=True, **await view.get_page_contents())
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['deletereminder', 'cancelreminder', 'del'])
     @app_commands.describe(reminder_id='The ID of the reminder that you want to cancel, can be seen in /reminders list')
-    async def cancel(self, interaction: Interaction[CustomBot], reminder_id: Range[int, 1, 9999]):
+    async def cancel(self, ctx: CustomContext, reminder_id: commands.Range[int, 1, 9999]):
         """Cancels and deletes a reminder using its ID!"""
 
         reminder = self.bot.reminders.get(reminder_id)
 
-        if reminder is None or reminder.user != interaction.user:
+        if reminder is None or reminder.user != ctx.author:
             raise utils.DoggieBotException('Reminder not found!', 'A reminder with that ID wasn\'t found, or it is not your reminder!')
 
         reminder_str = escape_markdown(reminder.reminder)
@@ -101,12 +101,12 @@ class ReminderCog(commands.GroupCog, name="reminder"):
         await reminder.remove()
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Reminder successfully removed! (ID: {reminder_id})',
             description=f'Reminder "{reminder_str}" has been canceled and deleted!'
         )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await ctx.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot):

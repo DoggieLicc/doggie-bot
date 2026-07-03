@@ -58,6 +58,7 @@ class PageView(CustomView):
 
     async def update_page(self, interaction: Interaction):
         contents = await self.get_page_contents()
+        self.update_button_state()
         await interaction.response.edit_message(view=self, **contents)
 
     @property
@@ -68,12 +69,26 @@ class PageView(CustomView):
         if self.max_page == 1:
             self.clear_items()
 
-    @discord.ui.button(emoji='\U000023EA', style=ButtonStyle.blurple)
+    def update_button_state(self):
+        self.far_left.disabled = False
+        self.left.disabled = False
+        self.right.disabled = False
+        self.far_right.disabled = False
+
+        if self.current_index == 1:
+            self.far_left.disabled = True
+            self.left.disabled = True
+
+        if self.current_index == self.max_page:
+            self.right.disabled = True
+            self.far_right.disabled = True
+
+    @discord.ui.button(emoji='\U000023EA', style=ButtonStyle.blurple, disabled=True)
     async def far_left(self, interaction: Interaction, _: Button):
         self.current_index = 1
         await self.update_page(interaction)
 
-    @discord.ui.button(emoji='\U000025C0', style=ButtonStyle.blurple)
+    @discord.ui.button(emoji='\U000025C0', style=ButtonStyle.blurple, disabled=True)
     async def left(self, interaction: Interaction, _: Button):
         self.current_index -= 1
         self.current_index = max(self.current_index, 1)
@@ -121,19 +136,20 @@ class EntryMenu[T](PageView):
 
 
 class PaginatedMenu[T](PageView):
-    def __init__(self, owner: User, items: list[T]):
+    def __init__(self, owner: User, items: list[T], max_size: int = 750):
         super().__init__(owner)
 
+        self.max_size = max_size
         self.paginator = self.get_paginator(items)
         self.items = items
         self.current_index = 1
         self.remove_buttons_if_one_page()
 
-    def format_line(self, item) -> str:
+    def format_line(self, item: T) -> str:
         raise NotImplementedError()
 
-    def get_paginator(self, items) -> Paginator:
-        paginator = Paginator(prefix=None, suffix=None, max_size=750)
+    def get_paginator(self, items: list[T]) -> Paginator:
+        paginator = Paginator(prefix=None, suffix=None, max_size=self.max_size)
 
         for item in items:
             paginator.add_line(self.format_line(item))
@@ -143,43 +159,10 @@ class PaginatedMenu[T](PageView):
     async def get_page_contents(self) -> dict:
         raise NotImplementedError()
 
-    async def update_page(self, interaction: Interaction):
-        contents = await self.get_page_contents()
-        await interaction.edit_original_response(view=self, **contents)
-
     @property
     def current_page(self) -> str:
         return self.paginator.pages[self.current_index - 1]
 
-    @discord.ui.button(emoji='\U000023EA', style=ButtonStyle.blurple)
-    async def far_left(self, interaction: Interaction, _: Button):
-        self.current_index = 1
-        await self.update_page(interaction)
-
-    @discord.ui.button(emoji='\U000025C0', style=ButtonStyle.blurple)
-    async def left(self, interaction: Interaction, _: Button):
-        self.current_index -= 1
-        self.current_index = max(self.current_index, 1)
-
-        await self.update_page(interaction)
-
-    @discord.ui.button(emoji='\U000023F9', style=ButtonStyle.red)
-    async def stop_button(self, interaction: Interaction, _: Button):
-        children = self.children
-        for child in children:
-            setattr(child, 'disabled', True)
-        self._children = children
-
-        await interaction.edit_original_response(view=self)
-
-    @discord.ui.button(emoji='\U000025B6', style=ButtonStyle.blurple)
-    async def right(self, interaction: Interaction, _: Button):
-        self.current_index += 1
-        self.current_index = min(self.current_index, self.max_page)
-
-        await self.update_page(interaction)
-
-    @discord.ui.button(emoji='\U000023E9', style=ButtonStyle.blurple)
-    async def far_right(self, interaction: Interaction, _: Button):
-        self.current_index = self.max_page
-        await self.update_page(interaction)
+    @property
+    def max_page(self) -> int:
+        return len(self.paginator.pages)

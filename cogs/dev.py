@@ -1,13 +1,14 @@
 import io
+import copy
 import textwrap
 import traceback
 from contextlib import redirect_stdout
 
-from discord import DMChannel, GroupChannel, PartialMessageable, User, Color, Embed, File, Asset
+from discord import DMChannel, GroupChannel, PartialMessageable, User, Color, Embed, File, Asset, Member
 from discord.ext import commands
-from discord.ext.commands import Context
-import utils
 
+import utils
+from utils import CustomBot, CustomContext
 
 def cleanup_code(content):
     if content.startswith('```') and content.endswith('```'):
@@ -27,10 +28,10 @@ def format_error(author: User, error: Exception) -> Embed:
     return embed
 
 class Dev(commands.Cog, command_attrs={"hidden": True}):
-    def __init__(self, bot: utils.CustomBot):
-        self.bot: utils.CustomBot = bot
+    def __init__(self, bot: CustomBot):
+        self.bot: CustomBot = bot
 
-    async def cog_check(self, ctx: Context):
+    async def cog_check(self, ctx: CustomContext):
         # pylint: disable=invalid-overridden-method
         if not await self.bot.is_owner(ctx.author):
             raise commands.NotOwner()
@@ -38,7 +39,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         return True
 
     @commands.command()
-    async def load(self, ctx: Context, *cogs: str):
+    async def load(self, ctx: CustomContext, *cogs: str):
         # pylint: disable=broad-exception-caught
         for cog in cogs:
             try:
@@ -57,7 +58,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def unload(self, ctx: Context, *cogs: str):
+    async def unload(self, ctx: CustomContext, *cogs: str):
         # pylint: disable=broad-exception-caught
         for cog in cogs:
             try:
@@ -76,7 +77,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def reload(self, ctx: Context, *cogs: str):
+    async def reload(self, ctx: CustomContext, *cogs: str):
         for cog in cogs:
             try:
                 await self.bot.reload_extension(f'cogs.{cog}')
@@ -100,7 +101,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['ra'])
-    async def reloadall(self, ctx):
+    async def reloadall(self, ctx: CustomContext):
         for cog in self.bot.cogs_list:
             try:
                 await self.bot.reload_extension(cog)
@@ -124,7 +125,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def list_cogs(self, ctx: Context):
+    async def list_cogs(self, ctx: CustomContext):
         embed = utils.create_embed(
             ctx.author,
             title='Showing all loaded cogs...',
@@ -136,7 +137,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def eval(self, ctx: commands.Context, *, code):
+    async def eval(self, ctx: CustomContext, *, code):
         # pylint: disable=broad-exception-caught,exec-used
 
         env = {
@@ -215,14 +216,23 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         return await ctx.send(embed=embed)
 
     @commands.command(aliases=['clean'])
-    async def cleanup(self, ctx: Context, limit=100):
+    async def cleanup(self, ctx: CustomContext, limit=100):
         if isinstance(ctx.channel, (DMChannel, PartialMessageable, GroupChannel)):
             return
         messages = await ctx.channel.purge(limit=limit, bulk=False, check=lambda m: m.author == ctx.me)
         await ctx.send(f'Deleted {len(messages)} message(s)', delete_after=3, reference=ctx.message)
 
     @commands.command()
-    async def sync(self, ctx: commands.Context):
+    async def sudo(self, ctx: CustomContext, who: Member | User, *, command: str):
+        msg = copy.copy(ctx.message)
+        msg.channel = ctx.channel
+        msg.author = who
+        msg.content = (ctx.prefix or ctx.me.mention) + command
+        new_ctx = await self.bot.get_context(msg, cls=type(ctx))
+        await self.bot.invoke(new_ctx)
+
+    @commands.command()
+    async def sync(self, ctx: CustomContext):
         app_commands = await self.bot.tree.sync()
         await ctx.send(f'Synced {len(app_commands)} app commands!')
 

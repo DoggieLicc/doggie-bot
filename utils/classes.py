@@ -2,7 +2,7 @@ import asyncio
 import os
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import ClientSession
 import yaml
@@ -22,7 +22,8 @@ __all__ = [
     'BasicConfig',
     'LoggingConfig',
     'MissingAPIKey',
-    'DoggieBotException'
+    'DoggieBotException',
+    'CustomContext'
 ]
 
 dirname = os.getcwd()
@@ -38,7 +39,7 @@ BasicConfigTable = BaseTable(
             addit_schema='PRIMARY KEY'
         ),
         BaseColumn(
-            name='prefix',  # Unused now
+            name='prefix',
             datatype='text'
         ),
         BaseColumn(
@@ -113,6 +114,34 @@ RemindersTable = BaseTable(
 ALL_DB_TABLES = [BasicConfigTable, LoggingConfigTable, RemindersTable]
 
 
+class CustomContext(commands.Context):
+    def __init__(self, **attrs):
+        super().__init__(**attrs)
+        self.bot: CustomBot = self.bot
+        self.error_handled = False
+
+    if not TYPE_CHECKING:
+        async def defer(self, *args, **kwargs):
+            if 'ephemeral' not in kwargs and self.interaction and self.channel.type != ChannelType.private:
+                if not self.guild or not self.guild.owner_id:
+                    kwargs['ephemeral'] = True
+
+                if self.guild and (not self.interaction.permissions.send_messages or not self.interaction.app_permissions.send_messages):
+                    kwargs['ephemeral'] = True
+
+            return await super().defer(*args, **kwargs)
+
+        async def send(self, *args, **kwargs):
+            if 'ephemeral' not in kwargs and self.interaction and self.channel.type != ChannelType.private:
+                if not self.guild or not self.guild.owner_id:
+                    kwargs['ephemeral'] = True
+
+                if self.guild and (not self.interaction.permissions.send_messages or not self.interaction.app_permissions.send_messages):
+                    kwargs['ephemeral'] = True
+
+            return await super().send(*args, **kwargs)
+
+
 class CustomBot(commands.Bot):
     # noinspection PyTypeChecker
     def __init__(self, **kwargs):
@@ -161,6 +190,10 @@ class CustomBot(commands.Bot):
 
     async def setup_hook(self):
         self.loop.create_task(self.startup())
+
+    async def get_context(self, message: Message, *, cls=CustomContext) -> CustomContext:
+        # pylint: disable=arguments-differ
+        return await super().get_context(message, cls=cls)
 
     async def on_message(self, message):
         # pylint: disable=arguments-differ
@@ -235,6 +268,7 @@ class CustomBot(commands.Bot):
             async with conn.cursor() as cursor:
                 for row in await cursor.execute('SELECT * FROM basic_config'):
                     guild = self.get_guild(row['guild_id'])
+                    prefix = row['prefix'] or None
                     snipe = bool(row['snipe'])
                     mute_role = guild.get_role(row['mute_role']) if guild else None
 
@@ -243,6 +277,7 @@ class CustomBot(commands.Bot):
 
                     config = BasicConfig(
                         guild=guild,
+                        prefix=prefix,
                         snipe=snipe,
                         mute_role=mute_role
                     )
@@ -285,6 +320,20 @@ class CustomBot(commands.Bot):
 
     def get_logging_config(self, guild: Guild) -> 'LoggingConfig':
         return self.logging_configs.get(guild.id, LoggingConfig(guild))
+
+    @staticmethod
+    def get_custom_prefix(_bot: 'CustomBot', message: Message):
+        default_prefixes = ['doggie.', 'Doggie.', 'dog.', 'Dog.']
+
+        if not message.guild:
+            return commands.when_mentioned_or(*default_prefixes)(_bot, message)
+
+        config = _bot.basic_configs.get(message.guild.id)
+
+        if not config or not config.prefix:
+            return commands.when_mentioned_or(*default_prefixes)(_bot, message)
+
+        return commands.when_mentioned_or(config.prefix)(_bot, message)
 
     def check_commands(self, cmds: list[app_commands.Command[Any, ..., Any] | app_commands.Group]):
         for command in cmds:
@@ -481,6 +530,7 @@ class Reminder:
 @dataclass(frozen=True)
 class BasicConfig:
     guild: discord.Guild
+    prefix: str | None = None
     snipe: bool | None = None
     mute_role: Role | None = None
 
@@ -491,7 +541,7 @@ class BasicConfig:
             'REPLACE INTO basic_config VALUES(?, ?, ?, ?)',
             (
                 config.guild.id,
-                None,  # Unused prefix config
+                config.prefix,
                 config.snipe,
                 config.mute_role.id if config.mute_role else None
             )

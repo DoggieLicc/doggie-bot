@@ -1,17 +1,17 @@
 import base64
 import datetime
 
-from discord import Color, Member, Role, User, app_commands, File, Interaction, Thread, Invite, PartialEmoji, Message, TextChannel, VoiceChannel, StageChannel, NotFound, Forbidden, HTTPException
-from discord.ext.commands import Cog
-from discord.app_commands import Transform
+from discord import Emoji, Member, Role, User, app_commands, File, Thread, Invite, Message, TextChannel, VoiceChannel, StageChannel, NotFound, Forbidden, HTTPException
+from discord.ext import commands
 from discord.abc import GuildChannel
 from discord.utils import oauth_url, snowflake_time
 
 import whoisdomain as whois
 import utils
-from utils import CustomBot
+from utils import CustomBot, CustomContext
+from utils.menus import PaginatedMenu
 
-def sync_whois(interaction: Interaction[CustomBot], domain: str):
+def sync_whois(ctx: CustomContext, domain: str):
     try:
         query = whois.query(domain, ignore_returncode=True)
 
@@ -24,7 +24,7 @@ def sync_whois(interaction: Interaction[CustomBot], domain: str):
     if not query:
         raise utils.DoggieBotException('Domain not found!', 'That domain wasn\'t found.')
 
-    embed = utils.create_embed(interaction.user, title=f'WHOIS Lookup for {domain}')
+    embed = utils.create_embed(ctx.author, title=f'WHOIS Lookup for {domain}')
 
     expiration_date = utils.user_friendly_dt(query.expiration_date) if query.expiration_date else 'Unknown'
     creation_date = utils.user_friendly_dt(query.creation_date) if query.creation_date else 'Unknown'
@@ -50,26 +50,55 @@ def sync_whois(interaction: Interaction[CustomBot], domain: str):
     return embed
 
 
-class Info(Cog, name='Information'):
+class EmotesView(PaginatedMenu[Emoji]):
+    def format_line(self, item) -> str:
+        return (f'**Emote:** {item}\n'
+                f'**Name:** {item.name}\n'
+                f'**ID:** {item.id}\n')
+
+    async def get_page_contents(self) -> dict:
+        embed = utils.create_embed(
+            self.owner,
+            title=f'Listing emotes: ({self.current_index}/{self.max_page})',
+            description=self.current_page
+        )
+        return {'embed': embed}
+
+class ChannelsView(PaginatedMenu[GuildChannel]):
+    def format_line(self, item) -> str:
+        return (f'**Channel:** {item.mention}\n'
+                f'**Category:** {item.type.name.title()}\n'
+                f'**ID:** {item.id}\n')
+
+    async def get_page_contents(self) -> dict:
+        embed = utils.create_embed(
+            self.owner,
+            title=f'Listing channels: ({self.current_index}/{self.max_page})',
+            description=self.current_page
+        )
+        return {'embed': embed}
+
+
+class Info(commands.Cog, name='Information'):
     """Get info for Discord objects, domains, and more"""
 
     def __init__(self, bot: CustomBot):
         self.bot: CustomBot = bot
 
+    @commands.hybrid_command(aliases=['guild'])
+    @commands.guild_only()
     @app_commands.allowed_installs(users=False)
-    @app_commands.command()
-    @app_commands.guild_only()
-    async def server(self, interaction: Interaction[CustomBot]):
-        """Lists info for this server"""
-        if not interaction.guild:
+    async def server(self, ctx: CustomContext):
+        """Shows info for this server"""
+        if not ctx.guild:
             return
 
-        guild = interaction.guild
+        guild = ctx.guild
 
         bot_count = sum(member.bot for member in guild.members)
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Info for {guild.name}:',
             thumbnail=guild.icon,
             image=guild.banner
@@ -125,14 +154,14 @@ class Info(Cog, name='Information'):
                   f'NSFW Filter: {str(guild.explicit_content_filter).replace("_", " ").title()}'
         )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['member', 'ui'])
     @app_commands.describe(user='The user to get info about.')
-    async def user(self, interaction: Interaction[CustomBot], user: Member | User | None):
+    async def user(self, ctx: CustomContext, user: Member | User | None):
         """Shows information about the user specified, if no user specified then it returns info for you"""
 
-        user = user or interaction.user
+        user = user or ctx.author
 
         fetched = user if user.banner else await self.bot.fetch_user(user.id)
 
@@ -140,7 +169,7 @@ class Info(Cog, name='Information'):
         badges = '\n'.join(flags) or 'None'
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Info for {user} {utils.Emotes.badges(user)}:',
             thumbnail=user.display_avatar,
             image=fetched.banner
@@ -161,13 +190,13 @@ class Info(Cog, name='Information'):
             inline=False
         )
 
-        if isinstance(user, Member) and user.guild == interaction.guild and interaction.guild and user:
+        if isinstance(user, Member) and user.guild == ctx.guild and ctx.guild and user:
             role_mentions = utils.shorten_below_number(
                 [role.mention for role in reversed(user.roles)][:-1],
                 separator=' ',
                 number=500
             )
-            top_role = user.top_role.mention if user.top_role != interaction.guild.default_role else 'No roles!'
+            top_role = user.top_role.mention if user.top_role != ctx.guild.default_role else 'No roles!'
 
             embed.add_field(
                 name='Member Info:',
@@ -184,14 +213,14 @@ class Info(Cog, name='Information'):
                 inline=False
             )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['pfp'])
     @app_commands.describe(user='The user to get info about.')
-    async def avatar(self, interaction: Interaction[CustomBot], user: Member |  User | None):
+    async def avatar(self, ctx: CustomContext, user: Member | User | None):
         """Shows the avatar of the specified user, if no user specified then it returns info for you"""
 
-        user = user or interaction.user
+        user = user or ctx.author
 
         avatar = user.display_avatar
 
@@ -200,21 +229,21 @@ class Info(Cog, name='Information'):
             addit_anim_links = f' | [GIF]({avatar.with_format('gif')})'
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             description=f'[JPG]({avatar.with_format('jpg')}) | [WEBP]({avatar.with_format('webp')}) | [PNG]({avatar.with_format('png')})' + addit_anim_links,
             title=f'Avatar of {user}:',
             image=avatar
         )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['inv'])
     @app_commands.describe(invite='The Discord invite to get info for')
-    async def invite(self, interaction: Interaction[CustomBot], invite: app_commands.Transform[Invite, utils.InviteTransformer]):
+    async def invite(self, ctx: CustomContext, invite: Invite):
         """Shows info for an invite using a invite URL or its code"""
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Invite Info: {utils.Emotes.invite}',
             thumbnail=getattr(invite.guild, 'icon', None),
             image=getattr(invite.guild, 'banner', None)
@@ -252,22 +281,22 @@ class Info(Cog, name='Information'):
                     f'**Created at:** {utils.user_friendly_dt(invite.guild.created_at)}'
             )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
+    @commands.hybrid_command(aliases=['chann', 'chan'])
+    @commands.guild_only()
     @app_commands.allowed_installs(users=False)
-    @app_commands.command()
-    @app_commands.guild_only()
     @app_commands.describe(channel='The channel to get info for')
-    async def channel(self, interaction: Interaction[CustomBot], channel: GuildChannel | Thread):
+    async def channel(self, ctx: CustomContext, channel: GuildChannel | Thread):
         """Shows info for the channel specified"""
 
-        if not interaction.guild or not interaction.channel:
+        if not ctx.guild or not ctx.channel:
             return
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Info for {channel.name}: {utils.Emotes.channel(channel)}',
-            thumbnail=interaction.guild.icon
+            thumbnail=ctx.guild.icon
         )
 
         if isinstance(channel, (TextChannel, Thread)):
@@ -313,26 +342,26 @@ class Info(Cog, name='Information'):
             inline=False
         )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
+    @commands.hybrid_command()
+    @commands.guild_only()
     @app_commands.allowed_installs(users=False)
-    @app_commands.command()
-    @app_commands.guild_only()
     @app_commands.describe(role='The role to get info for')
-    async def role(self, interaction: Interaction[CustomBot], role: Role):
+    async def role(self, ctx: CustomContext, role: Role):
         """Shows info for the role specified"""
 
-        if not interaction.guild:
+        if not ctx.guild:
             return
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Info for {role.name} {utils.Emotes.role}:',
             thumbnail=role.icon
         )
 
         if role.is_bot_managed() and role.tags and role.tags.bot_id:
-            bot = interaction.guild.get_member(role.tags.bot_id)
+            bot = ctx.guild.get_member(role.tags.bot_id)
             embed.add_field(name='Bot manager name:', value=str(bot), inline=False)
             embed.add_field(name='Bot manager ID:', value=role.tags.bot_id, inline=False)
 
@@ -358,15 +387,18 @@ class Info(Cog, name='Information'):
             inline=False
         )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['emoji'])
     @app_commands.describe(emote='The emote to get info for')
-    async def emote(self, interaction: Interaction[CustomBot], emote: Transform[PartialEmoji, utils.PartialEmoteTransformer]):
+    async def emote(self, ctx: CustomContext, emote: utils.PartialEmoteConverter):
         """Shows info of a custom Discord emote"""
 
+        if not emote.id:
+            raise utils.DoggieBotException('Invalid Emote!', 'This doesn\'t seem like a valid emote...')
+
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Info for custom emote: {utils.Emotes.emoji}',
             thumbnail=emote.url
         )
@@ -376,11 +408,11 @@ class Info(Cog, name='Information'):
         embed.add_field(name='Animated?:', value='Yes' if emote.animated else 'No')
         embed.add_field(name='Created at:', value=utils.user_friendly_dt(emote.created_at), inline=False)
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
+    @commands.hybrid_command()
     @app_commands.describe(token='The Discord account token to get info for')
-    async def token(self, interaction: Interaction[CustomBot], token: str):
+    async def token(self, ctx: CustomContext, token: str):
         """Shows info of an account/bot token!"""
 
         tokens = token.split('.', 2)
@@ -401,7 +433,7 @@ class Info(Cog, name='Information'):
             time = datetime.datetime.utcfromtimestamp(bytes_decoded + 1293840000)
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title=f'Info for {user.name}\'s token!',
             thumbnail=user.display_avatar,
             image=user.banner
@@ -422,19 +454,19 @@ class Info(Cog, name='Information'):
                   f'**Created at:** {utils.user_friendly_dt(user.created_at)}'
         )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await ctx.send(embed=embed, ephemeral=True)
 
+    @commands.hybrid_command(aliases=['msg'])
     @app_commands.allowed_installs(users=False)
-    @app_commands.command()
     @app_commands.describe(message='The message to get info for, best to use the message link')
-    async def message(self, interaction: Interaction[CustomBot], message: Transform[Message, utils.MessageTransformer]):
+    async def message(self, ctx: CustomContext, message: Message):
         """Gets information for a Discord Message"""
 
-        if message.guild != interaction.guild or (message.guild is None and (message.channel != interaction.channel)):
+        if message.guild != ctx.guild or (message.guild is None and (message.channel != ctx.channel)):
             raise utils.DoggieBotException('Invalid message!', 'Can\'t get a message from a different server!')
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title='Info for message:',
             description=f'"{message.content}"' if message.content else '*Message has no content*',
             url=message.jump_url,
@@ -476,11 +508,11 @@ class Info(Cog, name='Information'):
 
         image_embeds = [utils.create_embed(None, url=message.jump_url, image=image) for image in images]
 
-        await interaction.response.send_message(embeds=[embed] + image_embeds)
+        await ctx.send(embeds=[embed] + image_embeds)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['colour'])
     @app_commands.describe(colors='The color name or a member/role to get colors of')
-    async def color(self, interaction: Interaction[CustomBot], colors: Transform[list[Color], utils.ColorTransformer]):
+    async def color(self, ctx: CustomContext, colors: utils.ColorConverter):
         """Gets info for a color! You can specify a member, role, or color"""
 
         embeds = []
@@ -491,7 +523,7 @@ class Info(Cog, name='Information'):
             files.append(File(filename=f'color{i+1}.png', fp=buffer))
 
             embed = utils.create_embed(
-                interaction.user,
+                ctx.author,
                 title=f'Info for color #{i+1}:',
                 color=color,
                 thumbnail=f'attachment://color{i+1}.png'
@@ -502,26 +534,57 @@ class Info(Cog, name='Information'):
             embed.add_field(name='RGB:', value=f'`{color.to_rgb()}`')
             embeds.append(embed)
 
-        await interaction.response.send_message(files=files, embeds=embeds)
+        await ctx.send(files=files, embeds=embeds)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['domain'])
+    @commands.cooldown(1, 10, commands.BucketType.user)
     @app_commands.describe(domain='The domain to get a WHOIS lookup for')
-    async def whois(self, interaction: Interaction[CustomBot], domain: str):
+    async def whois(self, ctx: CustomContext, domain: str):
         """Does a WHOIS lookup on a domain!"""
 
-        embed = await self.bot.loop.run_in_executor(None, sync_whois, interaction, domain)
-        await interaction.response.send_message(embed=embed)
+        embed = await self.bot.loop.run_in_executor(None, sync_whois, ctx, domain)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=['emotes', 'listemojis'], guild_only=True)
+    @app_commands.allowed_installs(users=False)
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def listemotes(self, ctx: CustomContext):
+        """List all custom emotes in this server!"""
+        if not ctx.guild:
+            return
+
+        if not ctx.guild.emojis:
+            raise utils.DoggieBotException('No emotes!', 'This server has no custom emotes to show.')
+
+        view = EmotesView(ctx.author, ctx.guild.emojis)
+
+        await ctx.send(view=view, ephemeral=True, **await view.get_page_contents())
+
+    @commands.hybrid_command(aliases=['channels'], guild_only=True)
+    @app_commands.allowed_installs(users=False)
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def listchannels(self, ctx: CustomContext):
+        """List all channels in this server!"""
+        if not ctx.guild:
+            return
+
+        if not ctx.guild.channels:
+            raise utils.DoggieBotException('No channels!', 'This server has no channels to show... somehow?')
+
+        view = ChannelsView(ctx.author, ctx.guild.channels)
+
+        await ctx.send(view=view, ephemeral=True, **await view.get_page_contents())
+
+    @commands.hybrid_command(aliases=['id'])
     @app_commands.describe(_id='The Discord ID to get info of')
     @app_commands.rename(_id='id')
-    async def snowflake(self, interaction: Interaction[CustomBot], _id: str):
+    async def snowflake(self, ctx: CustomContext, _id: str = commands.parameter(displayed_name='id')):
         """Gets creation date for a Discord snowflake"""
 
         try:
             time = snowflake_time(int(_id))
             embed = utils.create_embed(
-                interaction.user,
+                ctx.author,
                 title='Snowflake info:',
                 description=f'**ID:** {_id}\n'
                             f'**Creation Date:** {utils.user_friendly_dt(time)}'
@@ -530,7 +593,7 @@ class Info(Cog, name='Information'):
         except OSError as e:
             raise utils.DoggieBotException('Invalid ID!', 'The snowflake ID was invalid.') from e
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):
