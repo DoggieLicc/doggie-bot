@@ -9,30 +9,35 @@ from loguru import logger
 
 from unsplash import Unsplash, Photo
 import utils
-from utils import CustomBot
+from utils import CustomBot, CustomContext
 
 UTM_PARAMS = '?utm_source=discord_bot_doggie_bot&utm_medium=referral'
 
-async def get_pic(url: str, interaction: Interaction[CustomBot], key: str) -> str:
-    if not interaction.client.session:
+async def get_pic(url: str, ctx_i: CustomContext | Interaction[CustomBot], key: str) -> str:
+    bot = ctx_i.bot if isinstance(ctx_i, CustomContext) else ctx_i.client
+    if not bot.session:
         return ''
 
-    async with interaction.client.session.get(url) as resp:
+    async with bot.session.get(url) as resp:
         data = await resp.json()
 
     return data[key]
 
 
-async def furry_image(interaction: Interaction[CustomBot], user: User | None, endpoint: str, action: str, a2: str | None = None):
-    if not user or user == interaction.user:
-        msg = f'{interaction.user.mention} has no one to {action} :('
+async def furry_image(ctx_i: CustomContext | Interaction[CustomBot], user: User | None, endpoint: str, action: str, a2: str | None = None):
+    author = ctx_i.author if isinstance(ctx_i, CustomContext) else ctx_i.user
+    if not user or user == author:
+        msg = f'{author.mention} has no one to {action} :('
     elif user.bot:
-        msg = f'{interaction.user.mention} tries to {action} a bot... sad :('
+        msg = f'{author.mention} tries to {action} a bot... sad :('
     else:
-        msg = f'{interaction.user.mention} {action + "s" if not a2 else a2} {user.mention}!'
+        msg = f'{author.mention} {action + "s" if not a2 else a2} {user.mention}!'
 
-    url = await get_pic(f'https://v2.yiff.rest/furry/{endpoint}', interaction, key='images')
-    return utils.create_embed(interaction.user, title=f'Furry {action}!', description=msg, image=url[0]['url'])
+    try:
+        url = await get_pic(f'https://v2.yiff.rest/furry/{endpoint}', ctx_i, key='images')
+    except Exception as e:
+        raise utils.DoggieBotException('API Error!', 'Unable to get furry image from API. Try again later?') from e
+    return utils.create_embed(author, title=f'Furry {action}!', description=msg, image=url[0]['url'])
 
 
 @dataclass
@@ -47,12 +52,12 @@ class FurryCommand:
 
     def get_callback(self) -> Callable:
         params = [
-            Parameter(
-                "interaction",
+            commands.Parameter(
+                "ctx",
                 Parameter.POSITIONAL_OR_KEYWORD,
-                annotation=Interaction,
+                annotation=CustomContext,
             ),
-            Parameter(
+            commands.Parameter(
                 "user",
                 Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=User | None,
@@ -61,17 +66,19 @@ class FurryCommand:
         ]
 
         async def callback(*args, **kwargs):
-            bound = callback.__signature__.bind(*args, **kwargs)  # type: ignore
+            bound = Signature(params).bind(*args, **kwargs)
 
-            interaction: Interaction[CustomBot] = bound.arguments["interaction"]
+            ctx: CustomContext = bound.arguments["ctx"]
             user: User | None = bound.arguments["user"]
 
-            embed = await furry_image(interaction, user, self.action1, self.action1, self.action2)
+            embed = await furry_image(ctx, user, self.action1, self.action1, self.action2)
 
-            await interaction.response.send_message(embed=embed)
+            if isinstance(ctx, CustomContext):
+                await ctx.send(embed=embed)
 
         callback.__name__ = str(self.action1)
         callback.__signature__ = Signature(params)  # type: ignore
+        callback.__doc__ = self.description
         callback = self.add_param_description(callback)
 
         return callback
@@ -91,59 +98,51 @@ FURRY_COMMANDS = [
 ]
 
 
-class RandomCog(commands.GroupCog, group_name='random'):
+class RandomCog(commands.Cog, name='Random'):
     """Commands to get something random, like colors or images!"""
     def __init__(self, bot):
         self.bot: CustomBot = bot
 
-        if bot.config['unsplash_api_key'] and self.app_command:
-            self.unsplash = Unsplash(bot.config['unsplash_api_key'])
-            self.app_command.add_command(
-                app_commands.Command(
-                    name='unsplash',
-                    description=self.unsplash_cmd.__doc__,
-                    callback=self.unsplash_cmd
-                )
-            )
-        else:
+        if not bot.config['unsplash_api_key']:
+            del self.unsplash_cmd
             self.unsplash = None
             logger.warning('UNSPLASH_API_KEY Environment variable missing. /unsplash command will not be registered')
+        else:
+            self.unsplash = Unsplash(bot.config['unsplash_api_key'])
 
         self.cached_random_photos: list[Photo] = []
 
-        furry_group = app_commands.Group(name='furry', description='Get random furry images! (SFW)', parent=self.app_command)
-
         for furry_command in FURRY_COMMANDS:
-            furry_group.add_command(
-                app_commands.Command(
-                    name=furry_command.action1,
-                    description=furry_command.description,
-                    callback=furry_command.get_callback()
-                )
-            )
+            cmd = commands.HybridCommand(furry_command.get_callback(), name=furry_command.action1, description=furry_command.description)
+            self.furry.add_command(cmd)
 
+    @commands.hybrid_group()
+    async def random(self, _):
+        """Commands to get something random, like colors or images!"""
+
+    @random.command(aliases=['user'])
+    @commands.guild_only()
     @utils.not_user_integration()
-    @app_commands.command()
     @app_commands.describe(include_bots='Whether or not to include bots (Default: False)')
-    async def member(self, interaction: Interaction[CustomBot], include_bots: bool = False):
+    async def member(self, ctx: CustomContext, include_bots: bool = False):
         """Shows a random member from this server!"""
 
-        if not interaction.guild:
+        if not ctx.guild:
             return
 
-        member = random.choice([m for m in interaction.guild.members if not m.bot or m.bot == include_bots])
+        member = random.choice([m for m in ctx.guild.members if not m.bot or m.bot == include_bots])
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title='Random member from server!',
             description=f'{member.mention} - (ID: {member.id})',
             thumbnail=member.display_avatar
         )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
-    async def color(self, interaction: Interaction[CustomBot]):
+    @random.command(aliases=['colour'])
+    async def color(self, ctx: CustomContext):
         """Shows a random color!"""
         color = Color.random()
 
@@ -151,7 +150,7 @@ class RandomCog(commands.GroupCog, group_name='random'):
         file = File(filename="color.png", fp=buffer)
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title='Showing random color:',
             color=color,
             thumbnail="attachment://color.png"
@@ -161,27 +160,41 @@ class RandomCog(commands.GroupCog, group_name='random'):
         embed.add_field(name='Int:', value=f'`{str(color.value).zfill(8)}`')
         embed.add_field(name='RGB:', value=f'`{color.to_rgb()}`')
 
-        await interaction.response.send_message(file=file, embed=embed)
+        await ctx.send(file=file, embed=embed)
 
-    @app_commands.command()
-    async def duck(self, interaction: Interaction[CustomBot]):
+    @random.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def duck(self, ctx: CustomContext):
         """Gets a random duck from random-d.uk"""
 
-        url = await get_pic('https://random-d.uk/api/v2/quack', interaction, key='url')
-        embed = utils.create_embed(interaction.user, title='Random duck picture!:', image=url)
+        url = await get_pic('https://random-d.uk/api/v2/quack', ctx, key='url')
+        embed = utils.create_embed(ctx.author, title='Random duck picture!:', image=url)
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command()
-    async def dog(self, interaction: Interaction[CustomBot]):
+    @random.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def dog(self, ctx: CustomContext):
         """Gets a random dog from random.dog"""
 
-        url = await get_pic('https://random.dog/woof.json?filter=mp4', interaction, key='url')
-        embed = utils.create_embed(interaction.user, title='Random dog picture!:', image=url)
+        url = await get_pic('https://random.dog/woof.json?filter=mp4', ctx, key='url')
+        embed = utils.create_embed(ctx.author, title='Random dog picture!:', image=url)
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    async def unsplash_cmd(self, interaction: Interaction[CustomBot]):
+    @random.command()
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def fox(self, ctx: utils.CustomContext):
+        """Gets a random fox from randomfox.ca"""
+
+        url = await get_pic('https://randomfox.ca/floof/', ctx, key='image')
+        embed = utils.create_embed(ctx.author, title='Random fox picture!:', image=url)
+
+        await ctx.send(embed=embed)
+
+    @random.command(name='unsplash')
+    @commands.cooldown(10, 60, commands.BucketType.user)
+    async def unsplash_cmd(self, ctx: CustomContext):
         """Gets a random photo from the Unsplash API!"""
 
         if not self.unsplash:
@@ -197,7 +210,7 @@ class RandomCog(commands.GroupCog, group_name='random'):
                       f'[Unsplash](https://unsplash.com/{UTM_PARAMS})*'
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title='Unsplash Image',
             description=description,
             image=image.urls.regular,
@@ -205,7 +218,11 @@ class RandomCog(commands.GroupCog, group_name='random'):
             timestamp=image.created_at
         )
 
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-async def setup(bot):
+    @random.group()
+    async def furry(self, _):
+        pass
+
+async def setup(bot: utils.CustomBot):
     await bot.add_cog(RandomCog(bot))

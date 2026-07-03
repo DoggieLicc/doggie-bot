@@ -1,12 +1,14 @@
 import io
 from datetime import datetime
-from typing import Any, Literal, Unpack
+from typing import Any, Unpack
 from uuid import UUID
 from collections.abc import Callable, Awaitable
 
 import discord
 from PIL import Image
 from discord import Embed, User, Member, Permissions, app_commands, Interaction, Color, File, Forbidden, HTTPException, Message, DeletedReferencedMessage, DMChannel
+from discord.ext import commands
+from discord.ext.commands import Context
 
 __all__ = [
     'create_embed',
@@ -22,7 +24,6 @@ __all__ = [
     'str_to_file',
     'fix_url',
     'solid_color_image',
-    'client_has_permissions',
     'invoker_has_permissions',
     'not_user_integration'
 ]
@@ -264,16 +265,13 @@ def invoker_has_permissions(**perms: Unpack[discord.permissions._PermissionsKwar
     return app_commands.check(predicate)
 
 def not_user_integration():
-    def predicate(interaction: Interaction) -> bool:
-        return not interaction.is_user_integration()
+    def predicate(ctx: Context) -> bool:
+        if not ctx.interaction:
+            return True
 
-    return app_commands.check(predicate)
+        if (not ctx.guild or not ctx.guild.owner_id) and ctx.channel.type != DMChannel:
+            return False
 
-def cond_eph(interaction: Interaction) -> dict[Literal['ephemeral'], bool]:
-    if interaction.is_guild_integration():
-        return {'ephemeral': False}
+        return True
 
-    if isinstance(interaction.channel, DMChannel):
-        return {'ephemeral': False}
-
-    return {'ephemeral': True}
+    return commands.check(predicate)

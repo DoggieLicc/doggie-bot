@@ -3,13 +3,13 @@ from inspect import Parameter, Signature
 from typing import Callable, Any
 from dataclasses import dataclass, field
 
-from discord import app_commands, Interaction, Attachment, File
-from discord.app_commands import Range, Group, Command
-from discord.ext.commands import GroupCog
+from discord import Asset, app_commands, Interaction, Attachment, File
+from discord.ext import commands
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw, ImageFont, ImageSequence
 
 import utils
 from utils import CustomBot
+from utils.classes import CustomContext
 
 
 def image_to_file(image: Image.Image, extension) -> File:
@@ -128,8 +128,9 @@ def make_mask(colors, width, height):
     return color_image
 
 
-def make_flag(image: Image.Image, alpha: float, colors: list[int]) -> Image.Image:
+def make_flag(_, image: Image.Image, alpha: float, colors: list[int]) -> Image.Image:
     alpha /= 100
+    alpha = 1-alpha
     mask = make_mask(colors, *image.size)
     blended_image = Image.blend(image, mask, alpha)
 
@@ -183,30 +184,38 @@ class ImageCommand:
     func: Callable
     arguments: tuple[Any] = field(default_factory=tuple)
     descripts: dict[str, str] = field(default_factory=dict)
+    aliases: list[str] = field(default_factory=list)
 
     def add_param_description(self, callback: Callable):
         self.descripts['image'] = 'The image you want to modify. If not specified, will use the last selected image, or your avatar'
+        self.descripts['image_url'] = 'The URL of the image you want to modify'
         deco = app_commands.describe(**self.descripts)
         return deco(callback)
 
     def get_callback(self) -> Callable:
         params = [
-            Parameter(
-                "interaction",
+            commands.Parameter(
+                "ctx",
                 Parameter.POSITIONAL_OR_KEYWORD,
-                annotation=Interaction,
+                annotation=CustomContext,
             ),
-            Parameter(
+            commands.Parameter(
                 "image",
                 Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=Attachment | None,
                 default=None
             ),
+            commands.Parameter(
+                "image_url",
+                Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=str | None,
+                default=None
+            )
         ]
 
         for name, typ, default in self.parameters:
             params.append(
-                Parameter(
+                commands.Parameter(
                     name,
                     Parameter.POSITIONAL_OR_KEYWORD,
                     annotation=typ,
@@ -215,26 +224,39 @@ class ImageCommand:
             )
 
         async def callback(*args, **kwargs):
-            bound = callback.__signature__.bind(*args, **kwargs)  # type: ignore
+            bound = Signature(params).bind(*args, **kwargs)
 
-            interaction: Interaction[CustomBot] = bound.arguments["interaction"]
-            image: Attachment | None = bound.arguments["image"]
+            ctx: CustomContext = bound.arguments['ctx']
+            image: Attachment | None = bound.arguments['image']
+            image_url: str | None = bound.arguments['image_url']
+            image_bytes: bytes | None = None
+
+            if image and image_url:
+                raise utils.DoggieBotException('Invalid arguments!', 'Don\'t specify both an image & image_url')
+
+            await ctx.defer()
+
+            if image_url:
+                asset = Asset(ctx._state, url=image_url, key='')
+                image_bytes = await asset.read()
 
             if image:
                 if not image.content_type or not image.content_type.startswith('image'):
                     raise utils.DoggieBotException('Attachment is not an image!', f'The specifed attachment is an `{image.content_type}`, which is not an image type.')
                 image_bytes = await image.read()
-            else:
-                image_bytes = await interaction.user.display_avatar.read()
+
+            if not image and not image_url:
+                image_bytes = await ctx.author.display_avatar.read()
+
+            if not image_bytes:
+                raise utils.DoggieBotException('Unable to read image!', 'Bot was unable to read the image...')
 
             command_args = [
                 bound.arguments[name]
                 for name, _, _ in self.parameters
             ]
 
-            await interaction.response.defer(thinking=True)
-
-            file = await interaction.client.loop.run_in_executor(
+            file = await ctx.bot.loop.run_in_executor(
                 None,
                 lambda: hande_gif_images(
                     image_bytes,
@@ -245,21 +267,37 @@ class ImageCommand:
             )
 
             embed = utils.create_embed(
-                interaction.user,
+                ctx.author,
                 title="Here's your image:",
                 image=f"attachment://{file.filename}",
             )
 
-            await interaction.edit_original_response(
+            if ctx.interaction:
+                await ctx.interaction.edit_original_response(embed=embed, attachments=[file])
+                return
+
+            await ctx.send(
                 embed=embed,
-                attachments=[file],
+                files=[file],
             )
 
         callback.__name__ = str(self.name)
         callback.__signature__ = Signature(params)  # type: ignore
+        callback.__doc__ = self.description
         callback = self.add_param_description(callback)
 
         return callback
+
+    def get_usage(self) -> str:
+        signatures = []
+        for parameter in self.parameters:
+            p_name = parameter[0]
+            # p_type = parameter[1]
+            p_default = parameter[2]
+            p_default_str = f'={p_default}' if p_default else ''
+            signatures.append(f'[{p_name}{p_default_str}]')
+
+        return '[image] ' + ' '.join(signatures)
 
 @dataclass
 class PrideFlagCommand(ImageCommand):
@@ -271,57 +309,65 @@ class PrideFlagCommand(ImageCommand):
 # pylint: disable=line-too-long
 IMAGE_COMMANDS = [
     ImageCommand('invert', 'Invert an image\'s colors!', [], invert_image),
-    ImageCommand('grayscale', 'Grayscale an image!', [], greyscale_image),
-    ImageCommand('deepfry', 'Deepfry an image!', [], deepfry_image),
-    ImageCommand('blur', 'Blur an image!', [('strength', Range[int, 0, 100], 5)], blur_image, tuple(), {'strength': 'How strong to make the blur (0-100, default 5)'}),
-    ImageCommand('noise', 'Add a noise filter to an image!', [('strength', Range[int, 0, 100], 50)], noise_image, tuple(), {'strength': 'How strong to make the noise (0-100, default 50)'}),
-    ImageCommand('brighten', 'Brighten an image!', [('brightness', Range[float, 0, 10], 1.25)], brighten_image, tuple(), {'brightness': 'How bright to make the image, values under 1 darken it. (0-10, default 1.25)'}),
-    ImageCommand('contrast', 'Add contrast to an image!', [('contrast', Range[float, 0, 10], 1.25)], contrast_image, tuple(), {'contrast': 'How strong to make the contrast, values under 1 lower contrast (0-10, default 1.25)'}),
-    ImageCommand('impact', 'Add impact-font text to an image!', [('top_text', str, 'TOP TEXT'), ('bottom_text', str, '')], add_impact, tuple(), {'top_text': 'The text to add at the top', 'bottom_text': 'The text to add at the bottom'}),
+    ImageCommand('grayscale', 'Grayscale an image!', [], greyscale_image, aliases=['grayscale', 'grey', 'gray']),
+    ImageCommand('deepfry', 'Deepfry an image!', [], deepfry_image, aliases=['deep', 'fry']),
+    ImageCommand('blur', 'Blur an image!', [('strength', commands.Range[int, 0, 100], 5)], blur_image, tuple(), {'strength': 'How strong to make the blur (0-100, default 5)'}, aliases=['blurry']),
+    ImageCommand('noise', 'Add a noise filter to an image!', [('strength', commands.Range[int, 0, 100], 50)], noise_image, tuple(), {'strength': 'How strong to make the noise (0-100, default 50)'}, aliases=['noisy']),
+    ImageCommand('brighten', 'Brighten an image!', [('brightness', commands.Range[float, 0, 10], 1.25)], brighten_image, tuple(), {'brightness': 'How bright to make the image, values under 1 darken it. (0-10, default 1.25)'}, aliases=['bright', 'brightness']),
+    ImageCommand('contrast', 'Add contrast to an image!', [('contrast', commands.Range[float, 0, 10], 1.25)], contrast_image, tuple(), {'contrast': 'How strong to make the contrast, values under 1 lower contrast (0-10, default 1.25)'}),
+    ImageCommand('impact', 'Add impact-font text to an image!', [('top_text', str, 'TOP TEXT'), ('bottom_text', str, '')], add_impact, tuple(), {'top_text': 'The text to add at the top', 'bottom_text': 'The text to add at the bottom'}, aliases=['meme', 'text', 'caption']),
     ImageCommand('rotate', 'Rotate an image!', [('angle', float, 90.0)], rotate_image, tuple(), {'angle': 'How many degrees to rotate the image clockwise (default 90.0)'})
 ]
 
 FLAG_COMMANDS = [
-    PrideFlagCommand('pride', 'Overlay the regular pride colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(255, 0, 24), (255, 165, 44), (255, 255, 65), (0, 128, 24), (0, 0, 249), (134, 0, 125)],)),
-    PrideFlagCommand('gay', 'Overlay the toothpaste gay colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(7, 141, 112), (38, 206, 170), (153, 232, 194), (255, 255, 255), (123, 173, 227), (80, 73, 203), (62, 26, 120)],)),
-    PrideFlagCommand('transgender', 'Overlay the transgender colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(91, 206, 250), (245, 169, 184), (255, 255, 255), (245, 169, 184), (91, 206, 250)],)),
-    PrideFlagCommand('bisexual', 'Overlay the bisexual colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(216, 9, 126), (216, 9, 126), (140, 87, 156), (36, 70, 142), (36, 70, 142)],)),
-    PrideFlagCommand('lesbian', 'Overlay the lesbian colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(213, 45, 0), (239, 118, 39), (255, 154, 86), (255, 255, 255), (209, 98, 164), (181, 86, 144), (163, 2, 98)],)),
-    PrideFlagCommand('acesexual', 'Overlay the acesexual colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(0, 0, 0), (164, 164, 164), (255, 255, 255), (129, 0, 129)],)),
-    PrideFlagCommand('pansexual', 'Overlay the pansexual colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(255, 28, 141), (255, 215, 0), (26, 179, 255)],)),
-    PrideFlagCommand('nonbinary', 'Overlay the nonbinary colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(255, 244, 48), (255, 255, 255), (156, 89, 209), (0, 0, 0)],)),
-    PrideFlagCommand('gnc', 'Overlay the gender-nonconforming colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(80, 40, 76), (150, 71, 122), (93, 150, 247), (255, 255, 255), (93, 150, 247), (150, 71, 122), (80, 40, 76)],)),
-    PrideFlagCommand('aromantic', 'Overlay the aromantic colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(58, 166, 63), (168, 212, 122), (255, 255, 255), (170, 170, 170), (0, 0, 0)],)),
-    PrideFlagCommand('genderqueer', 'Overlay the genderqueer colors unto an image', [('transparency', Range[int, 0, 100], 50)], ([(181, 126, 220), (255, 255, 255), (73, 128, 34)],)),
+    PrideFlagCommand('pride', 'Overlay the regular pride colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(255, 0, 24), (255, 165, 44), (255, 255, 65), (0, 128, 24), (0, 0, 249), (134, 0, 125)],), aliases=['rainbow', 'lgbt']),
+    PrideFlagCommand('gay', 'Overlay the toothpaste gay colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(7, 141, 112), (38, 206, 170), (153, 232, 194), (255, 255, 255), (123, 173, 227), (80, 73, 203), (62, 26, 120)],), aliases=['homo', 'homosexual']),
+    PrideFlagCommand('transgender', 'Overlay the transgender colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(91, 206, 250), (245, 169, 184), (255, 255, 255), (245, 169, 184), (91, 206, 250)],), aliases=['trans']),
+    PrideFlagCommand('bisexual', 'Overlay the bisexual colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(216, 9, 126), (216, 9, 126), (140, 87, 156), (36, 70, 142), (36, 70, 142)],), aliases=['bi']),
+    PrideFlagCommand('lesbian', 'Overlay the lesbian colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(213, 45, 0), (239, 118, 39), (255, 154, 86), (255, 255, 255), (209, 98, 164), (181, 86, 144), (163, 2, 98)],), aliases=['lesb']),
+    PrideFlagCommand('acesexual', 'Overlay the acesexual colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(0, 0, 0), (164, 164, 164), (255, 255, 255), (129, 0, 129)],), aliases=['ace']),
+    PrideFlagCommand('pansexual', 'Overlay the pansexual colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(255, 28, 141), (255, 215, 0), (26, 179, 255)],), aliases=['pan']),
+    PrideFlagCommand('nonbinary', 'Overlay the nonbinary colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(255, 244, 48), (255, 255, 255), (156, 89, 209), (0, 0, 0)],), aliases=['nb', 'non-binary', 'non_binary']),
+    PrideFlagCommand('gnc', 'Overlay the gender-nonconforming colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(80, 40, 76), (150, 71, 122), (93, 150, 247), (255, 255, 255), (93, 150, 247), (150, 71, 122), (80, 40, 76)],), aliases=['nonconforming', 'gendernonconforming']),
+    PrideFlagCommand('aromantic', 'Overlay the aromantic colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(58, 166, 63), (168, 212, 122), (255, 255, 255), (170, 170, 170), (0, 0, 0)],), aliases=['aro']),
+    PrideFlagCommand('genderqueer', 'Overlay the genderqueer colors unto an image', [('transparency', commands.Range[int, 0, 100], 50)], ([(181, 126, 220), (255, 255, 255), (73, 128, 34)],), aliases=['gq', 'queer']),
 ]
 
-class Images(GroupCog, group_name='image'):
+class Images(commands.Cog, group_name='image'):
     """Commands for image manipulation!"""
 
     def __init__(self, bot):
         self.bot: CustomBot = bot
 
     async def cog_load(self):
-        if self.app_command:
-            for image_command in IMAGE_COMMANDS:
-                self.app_command.add_command(
-                    Command(
-                        name=image_command.name.lower(),
-                        description=image_command.description,
-                        callback=image_command.get_callback()
-                    )
-                )
-
-        pride_group = Group(name='pride', description='Image commands for pride', parent=self.app_command)
-
-        for image_command in FLAG_COMMANDS:
-            pride_group.add_command(
-                Command(
-                    name=image_command.name.lower(),
+        for image_command in IMAGE_COMMANDS:
+            self.image.add_command(
+                commands.HybridCommand(
+                    image_command.get_callback(),
+                    name=image_command.name,
                     description=image_command.description,
-                    callback=image_command.get_callback()
+                    usage=image_command.get_usage()
                 )
             )
+
+        for image_command in FLAG_COMMANDS:
+            self.pride.add_command(
+                commands.HybridCommand(
+                    image_command.get_callback(),
+                    name=image_command.name.lower(),
+                    description=image_command.description,
+                    aliases=image_command.aliases,
+                    usage=image_command.get_usage()
+                )
+            )
+
+    @commands.hybrid_group()
+    async def image(self, _):
+        return
+
+    @image.group()
+    async def pride(self, _):
+        return
 
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
         if isinstance(error, UnidentifiedImageError):

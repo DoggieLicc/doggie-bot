@@ -2,14 +2,14 @@ import asyncio
 import time
 import itertools
 
-from discord import InteractionMessage, app_commands, Interaction, Attachment, PartialEmoji, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden, Emoji
-from discord.app_commands import Transform
-from discord.ext.commands import Cog
+from discord import InteractionMessage, app_commands, Interaction, Attachment, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden, Emoji, Message
+
+from discord.ext import commands
 from discord.ui import Select
 from loguru import logger
 
 import utils
-from utils import CustomBot
+from utils import CustomBot, CustomContext
 
 
 def get_hoisters(members: list[Member]):
@@ -21,7 +21,7 @@ def get_hoisters(members: list[Member]):
     return list(itertools.takewhile(check, members))[:200]
 
 
-class RecentJoinsMenu(utils.EntryMenu):
+class RecentJoinsMenu(utils.EntryMenu[Member]):
     async def get_page_contents(self):
         entries = self.get_page_items()
         embed = utils.create_embed(
@@ -42,7 +42,7 @@ class RecentJoinsMenu(utils.EntryMenu):
         return {"embed": embed}
 
 
-class RecentAccounts(utils.EntryMenu):
+class RecentAccounts(utils.EntryMenu[Member]):
     async def get_page_contents(self):
         embed = utils.create_embed(
             self.owner,
@@ -62,7 +62,7 @@ class RecentAccounts(utils.EntryMenu):
         return {"embed": embed}
 
 
-class HoistersMenu(utils.EntryMenu):
+class HoistersMenu(utils.EntryMenu[Member]):
     async def get_page_contents(self):
         embed = utils.create_embed(
             self.owner,
@@ -81,7 +81,7 @@ class HoistersMenu(utils.EntryMenu):
         return {'embed': embed}
 
 
-class SauceMenu(utils.EntryMenu):
+class SauceMenu(utils.EntryMenu[dict[str, dict]]):
     async def get_page_contents(self):
         result = self.get_page_items()[0]
 
@@ -125,46 +125,41 @@ class PollSelect(Select):
         await interaction.response.defer()
 
 
-class UtilityCog(Cog, name="Utility"):
+class UtilityCog(commands.Cog, name="Utility"):
     """Utility commands that may be useful to you!"""
 
     def __init__(self, bot: CustomBot):
         self.bot: CustomBot = bot
 
-        if self.bot.config['saucenao_api_key']:
-            self.bot.tree.add_command(
-                app_commands.Command(
-                    name=self.saucenao.__name__,
-                    description=self.saucenao.__doc__,
-                    callback=self.saucenao,
-                    nsfw=True
-                )
-            )
-        else:
+        if not self.bot.config['saucenao_api_key']:
+            del self.saucenao
             logger.warning('SAUCENAO_API_KEY Environment variable missing. /saucenao will not be registered')
 
-    @app_commands.command()
-    @utils.not_user_integration()
-    @app_commands.guild_only()
-    async def recentjoins(self, interaction: Interaction[CustomBot]):
+    @commands.hybrid_command(aliases=['recentusers', 'recent', 'newjoins', 'newusers', 'rj', 'joins'])
+    @commands.max_concurrency(2, commands.BucketType.user)
+    @app_commands.allowed_installs(users=False)
+    @commands.guild_only()
+    async def recentjoins(self, ctx: CustomContext):
         """Shows the most recent joins in the current server"""
 
-        if not interaction.guild:
+        if not ctx.guild:
             return
 
-        await interaction.response.defer(thinking=True, ephemeral=True)
+        await ctx.defer(ephemeral=True)
 
-        members = sorted(interaction.guild.members, key=lambda m: m.joined_at, reverse=True)[:100]
-        view = RecentJoinsMenu(interaction.user, members, 10)
+        members = sorted(ctx.guild.members, key=lambda m: m.joined_at, reverse=True)[:100]
+        view = RecentJoinsMenu(ctx.author, members, 10)
 
-        await interaction.edit_original_response(view=view, **await view.get_page_contents())
+        await ctx.send(view=view, **await view.get_page_contents())
 
-    @app_commands.guild_only()
-    @app_commands.command()
-    async def selfbot(self, interaction: Interaction[CustomBot]):
-        """Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)"""
+    @commands.hybrid_command(aliases=['bottest', 'selfbottest', 'bt', 'sbt', 'self'])
+    @commands.max_concurrency(3, commands.BucketType.channel)
+    @app_commands.allowed_installs(users=False)
+    @commands.guild_only()
+    async def selfbot(self, ctx: CustomContext):
+        """Creates a fake Nitro giveaway to catch selfbots!"""
 
-        if not interaction.guild or not interaction.guild.owner:
+        if not ctx.guild or not ctx.guild.owner:
             return
 
         selfbot_embed = Embed(
@@ -172,16 +167,16 @@ class UtilityCog(Cog, name="Utility"):
             title='Giveaway',
             description=f'**Prize:** Discord Nitro\n'
                         f'**Time left:** Infinity\n'
-                        f'**Hosted by:** {interaction.guild.owner.mention}\n'
+                        f'**Hosted by:** {ctx.guild.owner.mention}\n'
                         f'**React with :tada: to participate!**'
         )
 
         selfbot_embed.set_author(name='Discord Nitro')
 
-        message: InteractionMessage = (await interaction.response.send_message(
+        message: InteractionMessage | Message = await ctx.send(
             ':tada: **GIVEAWAY** :tada: :yay:',
             embed=selfbot_embed
-        )).resource  # type: ignore
+        )
 
         try:
             await message.add_reaction('\N{PARTY POPPER}')
@@ -205,105 +200,105 @@ class UtilityCog(Cog, name="Utility"):
             except asyncio.TimeoutError:
                 if not seen_users:
                     embed = utils.create_embed(
-                        interaction.user,
+                        ctx.author,
                         title='Test timed out!',
                         description='No one reacted within 10 minutes!',
                         color=Color.red()
                     )
 
-                    await interaction.edit_original_response(embeds=[selfbot_embed, embed])
+                    await ctx.send(embeds=[selfbot_embed, embed])
 
                 return
 
-            if user == interaction.user:
+            if user == ctx.author:
                 embed = utils.create_embed(
-                    interaction.user,
+                    ctx.author,
                     title='Test canceled!',
                     description=f'You reacted to your own test, so it was canceled.\nAnyways, '
                                 f'your time is {round(time.perf_counter() - t, 2)} seconds.',
                     color=Color.red()
                 )
 
-                return await interaction.edit_original_response(embeds=[selfbot_embed, embed])
+                return await ctx.send(embeds=[selfbot_embed, embed])
 
             if not len(message.embeds) > 1:
                 embed = utils.create_embed(
-                    interaction.user,
+                    ctx.author,
                     title='Reaction found!',
                     description=f'{user} (ID: {user.id})\nreacted with {reaction} in '
                                 f'{round(time.perf_counter() - t, 2)} seconds'
                 )
 
-                message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
+                message = await ctx.send(embeds=[selfbot_embed, embed])
             else:
                 new_msg = f'\n\n{user} (ID: {user.id})\nreacted with {reaction} in ' \
                             f'{round(time.perf_counter() - t, 2)} seconds'
 
                 embed = utils.create_embed(
-                    interaction.user,
+                    ctx.author,
                     title='Reactions found!',
                     description=message.embeds[0].description or '' + new_msg
                 )
 
-                message = await interaction.edit_original_response(embeds=[selfbot_embed, embed])
+                message = await ctx.send(embeds=[selfbot_embed, embed])
 
-    @app_commands.guild_only()
-    @utils.not_user_integration()
-    @app_commands.command()
-    async def hoisters(self, interaction: Interaction[CustomBot]):
+    @commands.hybrid_command(aliases=['hoist'])
+    @app_commands.allowed_installs(users=False)
+    @commands.guild_only()
+    async def hoisters(self, ctx: CustomContext):
         """Shows a list of members who have names made to 'hoist' themselves to the top of the member list!"""
 
-        if not interaction.guild:
+        if not ctx.guild:
             return None
 
-        hoisters = get_hoisters(interaction.guild.members)
+        hoisters = get_hoisters(ctx.guild.members)
 
         if not hoisters:
             raise utils.DoggieBotException('No hoisters found!', 'There weren\'t any members with odd starting characters found!')
 
-        view = HoistersMenu(interaction.user, hoisters, 10)
+        view = HoistersMenu(ctx.author, hoisters, 10)
 
-        await interaction.response.send_message(view=view, **await view.get_page_contents(), ephemeral=True)
+        await ctx.send(view=view, **await view.get_page_contents(), ephemeral=True)
 
-
-    @app_commands.guild_only()
+    @commands.hybrid_command(aliases=['steal_emote', 'steal_emoji', 'steal_emotes', 'add_emotes', 'add_emote'])
+    @app_commands.allowed_installs(users=False)
     @app_commands.default_permissions(create_expressions=True)
-    @utils.client_has_permissions(create_expressions=True)
-    @utils.not_user_integration()
+    @commands.guild_only()
+    @commands.has_guild_permissions(create_expressions=True)
+    @commands.bot_has_guild_permissions(create_expressions=True)
     @app_commands.describe(emotes='The custom emotes you want to add to this server')
-    @app_commands.command()
     async def stealemote(
         self,
-        interaction: Interaction[CustomBot],
-        emotes: Transform[list[PartialEmoji], utils.MultiplePartialEmoteTransformer]
+        ctx: CustomContext,
+        emotes: utils.MultiplePartialEmoteConverter
     ):
         """Adds the specified emotes to your server!"""
 
-        if not interaction.guild:
+        if not ctx.guild:
             return None
 
         added, not_added = [], []
         embed = Embed()
 
-        await interaction.response.defer(thinking=True)
+        await ctx.defer()
 
         for emote in emotes:
-            if isinstance(emote, Emoji) and emote.guild == interaction.guild:
+            if isinstance(emote, Emoji) and emote.guild == ctx.guild:
                 not_added.append(emote)
                 continue
 
             try:
-                added.append(await interaction.guild.create_custom_emoji(
+                added.append(await ctx.guild.create_custom_emoji(
                     name=emote.name,
                     image=await emote.read(),
-                    reason=f'Added by {interaction.user} ({interaction.user.id})')
+                    reason=f'Added by {ctx.author} ({ctx.author.id})')
                 )
             except (DiscordException, HTTPException, NotFound, Forbidden):
                 not_added.append(emote)
 
         if not added:
             embed = utils.create_embed(
-                interaction.user,
+                ctx.author,
                 title='Couldn\'t add any emotes!',
                 description='Make sure they aren\'t already in this server, and that the bot has permissions!',
                 color=Color.red()
@@ -311,7 +306,7 @@ class UtilityCog(Cog, name="Utility"):
 
         if added and not_added:
             embed = utils.create_embed(
-                interaction.user,
+                ctx.author,
                 title='Some emotes couldn\'t be added!',
                 description='Make sure they aren\'t already in this server, and that the bot has permissions!',
                 color=Color.orange()
@@ -319,7 +314,7 @@ class UtilityCog(Cog, name="Utility"):
 
         if added and not not_added:
             embed = utils.create_embed(
-                interaction.user,
+                ctx.author,
                 title='Emotes successfully added!'
             )
 
@@ -337,25 +332,29 @@ class UtilityCog(Cog, name="Utility"):
                 inline=False
             )
 
-        await interaction.edit_original_response(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.guild_only()
-    @app_commands.command()
-    @utils.not_user_integration()
-    async def newaccounts(self, interaction: Interaction[CustomBot]):
+    @commands.hybrid_command(aliases=['newaccount', 'new', 'newaccs', 'new_account', 'new_accounts'])
+    @app_commands.allowed_installs(users=False)
+    @commands.guild_only()
+    async def newaccounts(self, ctx: CustomContext):
         """Shows the newest accounts in this server!"""
-        if not interaction.guild:
+        if not ctx.guild:
             return None
 
-        members = sorted(interaction.guild.members, key=lambda m: m.created_at, reverse=True)[:200]
-        view = RecentAccounts(interaction.user, members, 10)
-        await interaction.response.send_message(view=view, **await view.get_page_contents(), ephemeral=True)
+        members = sorted(ctx.guild.members, key=lambda m: m.created_at, reverse=True)[:200]
+        view = RecentAccounts(ctx.author, members, 10)
+        await ctx.send(view=view, **await view.get_page_contents(), ephemeral=True)
 
+    @commands.hybrid_command(aliases=['sauce', 'saucenow'])
+    @commands.cooldown(4, 30, commands.BucketType.default)
+    @commands.cooldown(100, 60 * 60 * 24, commands.BucketType.default)  # api limits
+    @commands.is_nsfw()
     @app_commands.describe(image='Attach an image to get its source...')
     @app_commands.describe(image_url='... or the URL of the image to get the source of')
     async def saucenao(
         self,
-        interaction: Interaction[CustomBot],
+        ctx: CustomContext,
         image: Attachment | None = None,
         image_url: str | None = None
     ):
@@ -367,7 +366,7 @@ class UtilityCog(Cog, name="Utility"):
         if not image_url and not image:
             raise utils.DoggieBotException('No image Specified!', 'You must specify either `image` or `image_url`')
 
-        await interaction.response.defer(thinking=True)
+        await ctx.defer()
 
         image_url = image_url or (image.proxy_url if image else None)
 
@@ -388,10 +387,15 @@ class UtilityCog(Cog, name="Utility"):
             data = await resp.json()
             results = data['results']
 
-        view = SauceMenu(interaction.user, results, 1)
+        view = SauceMenu(ctx.author, results, 1)
 
-        await interaction.edit_original_response(view=view, **await view.get_page_contents())
+        await ctx.send(view=view, **await view.get_page_contents())
 
+    @app_commands.command()
+    async def help(self, interaction: Interaction):
+        """Show help page for this bot!"""
+        ctx = await commands.Context.from_interaction(interaction)
+        await ctx.send_help()
 
 async def setup(bot):
     await bot.add_cog(UtilityCog(bot))

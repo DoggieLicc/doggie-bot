@@ -1,19 +1,19 @@
 from typing import Literal
 from datetime import timedelta
 
-from discord import app_commands, Interaction, Embed
+from discord import app_commands, Embed
 from discord.utils import escape_markdown
-from discord.ext.commands import GroupCog
+from discord.ext import commands
 from mojang import API as Mojang
 from loguru import logger
 
 from osu import OsuApi
 import utils
-from utils import CustomBot
+from utils import CustomBot, CustomContext
 
 mojang_api = Mojang()
 
-def sync_minecraft(interaction: Interaction[CustomBot], account: str) -> Embed:
+def sync_minecraft(ctx: CustomContext, account: str) -> Embed:
     try:
         if utils.is_uuid4(account):
             uuid = account
@@ -29,7 +29,7 @@ def sync_minecraft(interaction: Interaction[CustomBot], account: str) -> Embed:
         raise utils.DoggieBotException('Lookup error!', 'Lookup failed. (Mojang API down?)') from e
 
     embed = utils.create_embed(
-        interaction.user,
+        ctx.author,
         title='Minecraft account info:',
         thumbnail=f'https://mc-heads.net/body/{account}.png'
     )
@@ -55,7 +55,7 @@ def sync_minecraft(interaction: Interaction[CustomBot], account: str) -> Embed:
 
 osu_modes = Literal['osu', 'taiko', 'fruits', 'mania']
 
-class Games(GroupCog, group_name='game'):
+class Games(commands.GroupCog, group_name='game', name='Games'):
     """Commands used to get info for video-game accounts"""
 
     def __init__(self, bot):
@@ -66,51 +66,41 @@ class Games(GroupCog, group_name='game'):
                 client_id=bot.config['osu_client_id'],
                 client_secret=bot.config['osu_client_secret']
             )
-
-            osu_group = app_commands.Group(name='osu', description='Commands for osu!', parent=self.app_command)
-
-            osu_group.add_command(
-                app_commands.Command(
-                    name='account',
-                    description=self.account.__doc__ or '…',
-                    callback=self.account
-                )
-            )
-
-            osu_group.add_command(
-                app_commands.Command(
-                    name='beatmap',
-                    description=self.beatmap.__doc__ or '…',
-                    callback=self.beatmap
-                )
-            )
         else:
+            del self.osu
             self.osu_api = None
             logger.warning('OSU_CLIENT_ID or OSU_CLIENT_SECRET environment variables missing. /game osu commands will not be registered.')
 
 
-    @app_commands.command()
+    @commands.hybrid_command(aliases=["mc"])
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @app_commands.describe(account='The username or UUID of the Java Minecraft account')
-    async def minecraft(self, interaction: Interaction[CustomBot], account: str):
+    async def minecraft(self, ctx: CustomContext, account: str):
         """Get info of a Java Minecraft account using current username or their UUID"""
 
-        await interaction.response.defer(thinking=True)
+        await ctx.defer()
 
-        embed = await self.bot.loop.run_in_executor(None, sync_minecraft, interaction, account)
-        await interaction.edit_original_response(embed=embed)
+        embed = await self.bot.loop.run_in_executor(None, sync_minecraft, ctx, account)
+        await ctx.send(embed=embed)
 
+    @commands.hybrid_group()
+    async def osu(self, _):
+        return
+
+    @osu.command(aliases=['user'])
+    @commands.cooldown(15, 60, commands.BucketType.user)
     @app_commands.describe(account='The username of the osu! account to view')
     @app_commands.describe(gamemode='The gamemode to get gamestats for, defaults to regular osu')
-    async def account(self, interaction: Interaction[CustomBot], account: str, gamemode: osu_modes | None = 'osu'):
+    async def account(self, ctx: CustomContext, account: str, gamemode: osu_modes | None = 'osu'):
         """Gets info of osu! accounts! You can also specify a gamemode to get stats for that gamemode!"""
         if not self.osu_api:
             raise utils.DoggieBotException('Unable to load osu! api!', 'The osu! api module wasn\'t loaded.')
 
-        await interaction.response.defer(thinking=True)
+        await ctx.defer()
         user = await self.osu_api.fetch_user(user=account, mode=gamemode)
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             title='Showing info for osu! account!',
             url=f'https://osu.ppy.sh/users/{user.id}',
             thumbnail=user.avatar_url,
@@ -153,22 +143,24 @@ class Games(GroupCog, group_name='game'):
                 f'**# of SSH grades:** {grade_counts.ssh}\n'
         )
 
-        await interaction.edit_original_response(embed=embed)
+        await ctx.send(embed=embed)
 
+    @osu.command(aliases=['bm'])
+    @commands.cooldown(15, 60, commands.BucketType.user)
     @app_commands.describe(beatmap_id='The ID of the beatmap you want to view.')
-    async def beatmap(self, interaction: Interaction[CustomBot], beatmap_id: int):
+    async def beatmap(self, ctx: CustomContext, beatmap_id: int):
         """Gets a beatmap from a beatmap ID!"""
         if not self.osu_api:
             raise utils.DoggieBotException('Unable to load osu! api!', 'The osu! api module wasn\'t loaded.')
 
-        await interaction.response.defer(thinking=True)
+        await ctx.defer()
         beatmap = await self.osu_api.lookup_beatmap(beatmap_id=beatmap_id)
         beatmap_set = beatmap.beatmapset
         if not beatmap_set:
             raise utils.DoggieBotException('Beatmap has no set!', 'This beatmap doesn\'t seem to belong to a beatmap set')
 
         embed = utils.create_embed(
-            interaction.user,
+            ctx.author,
             image=beatmap_set.covers['cover'] or None,
             url=beatmap.url,
             title='Showing info for osu! beatmap set!:',
@@ -206,7 +198,7 @@ class Games(GroupCog, group_name='game'):
                 f'**# of spinners:** {beatmap.count_spinners}'
         )
 
-        await interaction.edit_original_response(embed=embed)
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):

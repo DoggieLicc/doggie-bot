@@ -5,7 +5,6 @@ import inspect
 import discord
 import aiohttp
 from discord.ext.prometheus import PrometheusCog, PrometheusLoggingHandler
-from discord.ext.commands import when_mentioned
 from loguru import logger
 
 import utils
@@ -64,9 +63,9 @@ async def startup():
     discord.utils.setup_logging(handler=InterceptHandler())
 
     bot = utils.CustomBot(
-        activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie."'),
+        activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie." (Or use slash commands!)'),
         allowed_mentions=discord.AllowedMentions.none(),
-        command_prefix=when_mentioned,
+        command_prefix=utils.CustomBot.get_custom_prefix,
         help_command=utils.CustomHelp(),
         strip_after_prefix=True,
         case_insensitive=True,

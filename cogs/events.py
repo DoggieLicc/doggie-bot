@@ -2,12 +2,13 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 import discord
-from discord import Embed, User, Member, Color, Guild, AuditLogAction, Forbidden, NotFound, HTTPException, Message, Interaction
+from discord import Embed, User, Member, Color, Guild, AuditLogAction, Forbidden, NotFound, HTTPException, Message
 from discord.ext.commands import Cog, Context
 from loguru import logger
 
 import utils
 from utils import CustomBot
+from utils.classes import CustomContext
 
 
 async def ban_embed(guild: Guild, punished: Member | User, action) -> Embed:
@@ -38,10 +39,10 @@ async def ban_embed(guild: Guild, punished: Member | User, action) -> Embed:
     return embed
 
 
-def format_log(interaction: Interaction[CustomBot], _list: list[Member], reason: str, punishment: str) -> Embed | None:
+def format_log(ctx: CustomContext, _list: list[Member], reason: str, punishment: str) -> Embed | None:
     embed = Embed(
         title=f'{len(_list)} members {punishment}!',
-        description=f'They were {punishment} by {interaction.user.mention} (@{interaction.user}) for "{reason}"',
+        description=f'They were {punishment} by {ctx.author.mention} (@{ctx.author}) for "{reason}"',
         color=Color.red()
     )
 
@@ -66,7 +67,8 @@ class EventsCog(Cog):
 
     @Cog.listener()
     async def on_command(self, ctx: Context):
-        await ctx.typing()
+        if not ctx.interaction:
+            await ctx.typing()
 
     @Cog.listener()
     async def on_member_ban(self, guild: Guild, banned: Member | User):
@@ -210,15 +212,15 @@ class EventsCog(Cog):
             pass
 
     @Cog.listener()
-    async def on_mute(self, interaction: Interaction[CustomBot], muted: list[Member], reason: str):
-        if not interaction.guild:
+    async def on_mute(self, ctx: CustomContext, muted: list[Member], reason: str):
+        if not ctx.guild:
             return
 
-        config = self.bot.get_logging_config(interaction.guild)
+        config = self.bot.get_logging_config(ctx.guild)
         if not config.mute_channel:
             return
 
-        embed = format_log(interaction, muted, reason, 'muted')
+        embed = format_log(ctx, muted, reason, 'muted')
         if not embed:
             return
 
@@ -228,15 +230,15 @@ class EventsCog(Cog):
             pass
 
     @Cog.listener()
-    async def on_unmute(self, interaction: Interaction[CustomBot], unmuted: list[Member], reason: str):
-        if not interaction.guild:
+    async def on_unmute(self, ctx: CustomContext, unmuted: list[Member], reason: str):
+        if not ctx.guild:
             return
 
-        config = self.bot.get_logging_config(interaction.guild)
+        config = self.bot.get_logging_config(ctx.guild)
         if not config.mute_channel:
             return
 
-        embed = format_log(interaction, unmuted, reason, 'unmuted')
+        embed = format_log(ctx, unmuted, reason, 'unmuted')
         if not embed:
             return
 
@@ -246,17 +248,17 @@ class EventsCog(Cog):
             pass
 
     @Cog.listener()
-    async def on_purge(self, interaction: Interaction[CustomBot], users: list[User], amount: int):
-        if not interaction.guild or not interaction.channel:
+    async def on_purge(self, ctx: CustomContext, users: list[User], amount: int):
+        if not ctx.guild or not ctx.channel:
             return
 
-        config = self.bot.get_logging_config(interaction.guild)
+        config = self.bot.get_logging_config(ctx.guild)
         if not config.purge_channel:
             return
 
         embed = Embed(
             title=f'{amount} messages deleted!',
-            description=f'{interaction.user.mention} deleted {amount} messages in <#{interaction.channel.id}>\n\n'
+            description=f'{ctx.author.mention} deleted {amount} messages in <#{ctx.channel.id}>\n\n'
                         f'Deleted messages from:\n' +
                         ', '.join(map(str, users)),
             color=Color.red()
