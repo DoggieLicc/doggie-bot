@@ -71,7 +71,8 @@ async def startup():
         case_insensitive=True,
         max_messages=20000,
         intents=intents,
-        allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=True)
+        allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=True),
+        allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=True)
     )
 
     if bot.config['enable_prometheus']:
