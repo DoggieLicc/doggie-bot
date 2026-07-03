@@ -24,11 +24,11 @@ class ReminderList(utils.EntryMenu[Reminder]):
                 name=f'ID: {reminder.id}',
                 value=f'**Reminder:** {str(reminder)[:1100]}\n'
                         f'**Ends at:** {utils.user_friendly_dt(reminder.end_time)}\n'
-                        f'**Destination:** {channel.mention if channel else "Your DMS!"}\n',
+                        f'**Destination:** {channel.mention if channel else 'Your DMS!'}\n',
                 inline=False
             )
 
-        return {"embed": embed}
+        return {'embed': embed}
 
 class ReminderCog(commands.GroupCog, name='Reminder', group_name='reminder'):
     """Create and manage your reminders"""

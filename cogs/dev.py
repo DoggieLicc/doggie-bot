@@ -20,14 +20,14 @@ def format_error(author: User, error: Exception) -> Embed:
     error_lines = traceback.format_exception(type(error), error, error.__traceback__)
     embed = utils.create_embed(
         author,
-        title="Error!",
-        description=f'```py\n{"".join(error_lines)}\n```',
+        title='Error!',
+        description=f'```py\n{''.join(error_lines)}\n```',
         color=Color.red()
     )
 
     return embed
 
-class Dev(commands.Cog, command_attrs={"hidden": True}):
+class Dev(commands.Cog, command_attrs={'hidden': True}):
     def __init__(self, bot: CustomBot):
         self.bot: CustomBot = bot
 
@@ -51,7 +51,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         embed = utils.create_embed(
             ctx.author,
             title='Success!',
-            description=f'Cogs ``{", ".join(cogs)}`` has been loaded!',
+            description=f'Cogs ``{', '.join(cogs)}`` has been loaded!',
             color=Color.green()
         )
 
@@ -70,7 +70,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         embed = utils.create_embed(
             ctx.author,
             title='Success!',
-            description=f'Cogs ``{", ".join(cogs)}`` has been unloaded!',
+            description=f'Cogs ``{', '.join(cogs)}`` has been unloaded!',
             color=Color.green()
         )
 
@@ -94,7 +94,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         embed = utils.create_embed(
             ctx.author,
             title='Success!',
-            description=f'Cogs ``{", ".join(cogs)}`` has been reloaded!',
+            description=f'Cogs ``{', '.join(cogs)}`` has been reloaded!',
             color=Color.green()
         )
 
@@ -118,7 +118,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         embed = utils.create_embed(
             ctx.author,
             title='Success!',
-            description=f'Cogs ``{", ".join(self.bot.cogs_list)}`` has been reloaded!',
+            description=f'Cogs ``{', '.join(self.bot.cogs_list)}`` has been reloaded!',
             color=Color.green()
         )
 
@@ -151,7 +151,7 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
 
         env.update(globals())
         code = cleanup_code(code)
-        to_compile = f'async def func():\n{textwrap.indent(code, "  ")}'
+        to_compile = f'async def func():\n{textwrap.indent(code, '  ')}'
         stdout = io.StringIO()
 
         try:
@@ -176,18 +176,18 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
                 if len(value) < 4000:
                     embed = utils.create_embed(
                         ctx.author,
-                        title="Exec result:",
+                        title='Exec result:',
                         description=f'```py\n{value}\n```'
                     )
 
                     return await ctx.send(embed=embed)
 
                 return await ctx.send(
-                    f"Exec result too long ({len(value)} chars.):",
+                    f'Exec result too long ({len(value)} chars.):',
                     file=utils.str_to_file(value)
                 )
 
-            embed = utils.create_embed(ctx.author, title="Eval code executed!")
+            embed = utils.create_embed(ctx.author, title='Eval code executed!')
             return await ctx.send(embed=embed)
 
         if isinstance(ret, Embed):
@@ -205,12 +205,12 @@ class Dev(commands.Cog, command_attrs={"hidden": True}):
         if len(ret) < 4000:
             embed = utils.create_embed(
                 ctx.author,
-                title="Exec result:",
+                title='Exec result:',
                 description=f'```py\n{ret}\n```'
             )
 
         else:
-            return await ctx.send(f"Exec result too long ({len(ret)} chars.):",
+            return await ctx.send(f'Exec result too long ({len(ret)} chars.):',
                                   file=utils.str_to_file(ret))
 
         return await ctx.send(embed=embed)

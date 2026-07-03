@@ -19,7 +19,7 @@ class SnipeMenu(utils.EntryMenu[Embed | Message]):
     async def get_page_contents(self):
         message = self.get_page_items()[0]
         if isinstance(message, Embed):
-            return {"embed": message}
+            return {'embed': message}
 
         embed = utils.format_deleted_msg(message, title=f'Sniped message {self.current_index}/{self.max_page}:')
 
@@ -28,7 +28,7 @@ class SnipeMenu(utils.EntryMenu[Embed | Message]):
             icon_url=utils.fix_url(self.owner.display_avatar)
         )
 
-        return {"embed": embed}
+        return {'embed': embed}
 
 
 class EnableSnipeView(utils.CustomView):
@@ -76,7 +76,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
         ctx: CustomContext,
         *,
         users: commands.Greedy[utils.IntentionalUser],
-        reason: str | None = "No reason specified"
+        reason: str | None = 'No reason specified'
     ):
         """Ban members who broke the rules! You can specify multiple members in one command."""
 
@@ -106,7 +106,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
         ctx: CustomContext,
         *,
         users: commands.Greedy[utils.IntentionalUser],
-        reason: str | None = "No reason specified"
+        reason: str | None = 'No reason specified'
     ):
         """Unban banned users with their User ID, you can specify multiple people to be unbanned"""
 
@@ -136,7 +136,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
         ctx: CustomContext,
         *,
         users: commands.Greedy[utils.IntentionalUser],
-        reason: str | None = "No reason specified"
+        reason: str | None = 'No reason specified'
     ):
         """Bans then unbans the specified users, which deletes their recent messages and 'kicks' them"""
 
@@ -173,7 +173,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
         ctx: CustomContext,
         *,
         members: commands.Greedy[utils.IntentionalMember],
-        reason: str | None = "No reason specified"
+        reason: str | None = 'No reason specified'
     ):
         """Kick members who broke the rules! You can specify multiple members in one command"""
 
@@ -233,7 +233,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
         ctx: CustomContext,
         *,
         members: commands.Greedy[utils.IntentionalMember],
-        reason: str | None = "No reason specified"
+        reason: str | None = 'No reason specified'
     ):
         """Removes timeout from members!"""
 
@@ -291,7 +291,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
         ctx: CustomContext,
         *,
         members: commands.Greedy[utils.IntentionalMember],
-        reason: str | None = "No reason specified"
+        reason: str | None = 'No reason specified'
     ):
         """Gives the configured mute role to members!"""
 
@@ -326,7 +326,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
         ctx: CustomContext,
         *,
         members: commands.Greedy[utils.IntentionalMember],
-        reason: str | None = "No reason specified"
+        reason: str | None = 'No reason specified'
     ):
         """Removes the configured mute role from members!"""
 

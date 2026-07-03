@@ -178,6 +178,7 @@ class CustomBot(commands.Bot):
             check_same_thread=False
         )
 
+        self.user_selected_messages: dict[int, str] = {}
         self.reminders: dict[int, Reminder | None] = {}
         self.basic_configs: dict[int, BasicConfig] = {}
         self.logging_configs: dict[int, LoggingConfig] = {}
@@ -415,7 +416,7 @@ class Emotes:
         if chann.type == ChannelType.voice:
             return Emotes.voice
         if chann.type == ChannelType.category:
-            return ""
+            return ''
         if str(chann.type).endswith('thread'):
             return Emotes.thread
         if chann.type == ChannelType.stage_voice:
@@ -429,33 +430,33 @@ class Emotes:
 
         if user.bot:
             badges.append(Emotes.bot_tag)
-        if "staff" in flags:
+        if 'staff' in flags:
             badges.append(Emotes.staff)
-        if "partner" in flags:
+        if 'partner' in flags:
             badges.append(Emotes.partner)
-        if "hypesquad" in flags:
+        if 'hypesquad' in flags:
             badges.append(Emotes.hypesquad)
-        if "bug_hunter" in flags:
+        if 'bug_hunter' in flags:
             badges.append(Emotes.bughunter)
-        if "early_supporter" in flags:
+        if 'early_supporter' in flags:
             badges.append(Emotes.supporter)
-        if "hypesquad_briliance" in flags:
+        if 'hypesquad_briliance' in flags:
             badges.append(Emotes.brilliance)
-        if "hypesquad_bravery" in flags:
+        if 'hypesquad_bravery' in flags:
             badges.append(Emotes.bravery)
-        if "hypesquad_balance" in flags:
+        if 'hypesquad_balance' in flags:
             badges.append(Emotes.balance)
-        if "hypesquad_brilliance" in flags:
+        if 'hypesquad_brilliance' in flags:
             badges.append(Emotes.brilliance)
-        if "verified_bot" in flags:
+        if 'verified_bot' in flags:
             badges.append(Emotes.verified)
-        if "verified_bot_developer" in flags:
+        if 'verified_bot_developer' in flags:
             badges.append(Emotes.verified)
 
         if guess_user_nitro_status(user):
             badges.append(Emotes.nitro)
 
-        return " ".join(badges)
+        return ' '.join(badges)
 
 
 @dataclass
@@ -508,7 +509,7 @@ class Reminder:
 
         try:
             await self.destination.send(  # pyright: ignore[reportAttributeAccessIssue]
-                f"**Hey {self.user.mention},**" if isinstance(self.destination, TextChannel) else None,
+                f'**Hey {self.user.mention},**' if isinstance(self.destination, TextChannel) else None,
                 embed=embed
             )
 

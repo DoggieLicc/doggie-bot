@@ -16,7 +16,7 @@ class LoggingConverter(commands.FlagConverter):
 
 
 def maybe_mention(channel):
-    return channel.mention if channel else "Not set"
+    return channel.mention if channel else 'Not set'
 
 def get_config_embed(bot, ctx_i: Interaction[CustomBot] | CustomContext) -> Embed:
     basic_config = bot.get_basic_config(ctx_i.guild)
@@ -28,7 +28,7 @@ def get_config_embed(bot, ctx_i: Interaction[CustomBot] | CustomContext) -> Embe
         description=f'**Guild:** {basic_config.guild} ({basic_config.guild.id})\n'
                     f'**Custom Prefix:** `{basic_config.prefix or 'NO CUSTOM PREFIX SET'}`\n'
                     f'**Mute role:** {maybe_mention(basic_config.mute_role)}\n'
-                    f'**Snipe command:** {"Enabled" if basic_config.snipe else "Disabled"}')
+                    f'**Snipe command:** {'Enabled' if basic_config.snipe else 'Disabled'}')
 
     embed.add_field(
         name='Logging configuration:',
@@ -331,9 +331,9 @@ class Configuration(commands.GroupCog, group_name='config'):
 
         embed = utils.create_embed(
             ctx.author,
-            title="Snipe command " + ("enabled!" if option else "disabled!"),
-            description="The snipe feature has been " + ("enabled!" if option else "disabled!") +
-                        " This will " + ("enable" if option else "disable") + " the `snipe` command!"
+            title='Snipe command ' + ('enabled!' if option else 'disabled!'),
+            description='The snipe feature has been ' + ('enabled!' if option else 'disabled!') +
+                        ' This will ' + ('enable' if option else 'disable') + ' the `snipe` command!'
         )
 
         if not option:
@@ -378,7 +378,7 @@ class Configuration(commands.GroupCog, group_name='config'):
         if not options:
             raise commands.BadFlagArgument(config.get_flags()['ban_channel'], '.', '.')
 
-        msgs = [f'**{k.replace("_", " ").title()}:** {v.mention if v else "Disabled"}' for k, v in options.items()]
+        msgs = [f'**{k.replace('_', ' ').title()}:** {v.mention if v else 'Disabled'}' for k, v in options.items()]
 
         await logging_config.set_config(self.bot, **options)
 

@@ -12,7 +12,7 @@ from utils.classes import CustomContext
 
 
 async def ban_embed(guild: Guild, punished: Member | User, action) -> Embed:
-    mod, reason = None, "Unknown"
+    mod, reason = None, 'Unknown'
     emote = utils.Emotes.ban_create if action.name == 'ban' else utils.Emotes.ban_delete
 
     await asyncio.sleep(5)
@@ -30,8 +30,8 @@ async def ban_embed(guild: Guild, punished: Member | User, action) -> Embed:
         None,
         title=f'{emote} An user has been {action.name}ned!',
         description=f'{punished.mention} (@{punished}) was {action.name}ned from this server.\n'
-                    f'{action.name.title()}ned by: {mod.mention if mod else "Unknown"}'
-                    f'\n\nReason: {reason or "No reason specified"}',
+                    f'{action.name.title()}ned by: {mod.mention if mod else 'Unknown'}'
+                    f'\n\nReason: {reason or 'No reason specified'}',
         thumbnail=punished.display_avatar,
         color=Color.red()
     )
@@ -97,7 +97,7 @@ class EventsCog(Cog):
         if before.timed_out_until == after.timed_out_until:
             return
 
-        mod, reason = None, "Unknown"
+        mod, reason = None, 'Unknown'
         audit_failed = False
 
         await asyncio.sleep(5)
@@ -154,7 +154,7 @@ class EventsCog(Cog):
         if not config or not config.kick_channel:
             return
 
-        mod, reason = None, "Unknown"
+        mod, reason = None, 'Unknown'
         audit_failed = False
         await asyncio.sleep(5)
         d = datetime.now(timezone.utc) - timedelta(seconds=6)

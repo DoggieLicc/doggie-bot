@@ -31,7 +31,7 @@ async def furry_image(ctx_i: CustomContext | Interaction[CustomBot], user: User 
     elif user.bot:
         msg = f'{author.mention} tries to {action} a bot... sad :('
     else:
-        msg = f'{author.mention} {action + "s" if not a2 else a2} {user.mention}!'
+        msg = f'{author.mention} {action + 's' if not a2 else a2} {user.mention}!'
 
     try:
         url = await get_pic(f'https://v2.yiff.rest/furry/{endpoint}', ctx_i, key='images')
@@ -53,12 +53,12 @@ class FurryCommand:
     def get_callback(self) -> Callable:
         params = [
             commands.Parameter(
-                "ctx",
+                'ctx',
                 Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=CustomContext,
             ),
             commands.Parameter(
-                "user",
+                'user',
                 Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=User | None,
                 default=None
@@ -68,8 +68,8 @@ class FurryCommand:
         async def callback(*args, **kwargs):
             bound = Signature(params).bind(*args, **kwargs)
 
-            ctx: CustomContext = bound.arguments["ctx"]
-            user: User | None = bound.arguments["user"]
+            ctx: CustomContext = bound.arguments['ctx']
+            user: User | None = bound.arguments['user']
 
             embed = await furry_image(ctx, user, self.action1, self.action1, self.action2)
 
@@ -147,13 +147,13 @@ class RandomCog(commands.Cog, name='Random'):
         color = Color.random()
 
         buffer = await self.bot.loop.run_in_executor(None, utils.solid_color_image, color.to_rgb())
-        file = File(filename="color.png", fp=buffer)
+        file = File(filename='color.png', fp=buffer)
 
         embed = utils.create_embed(
             ctx.author,
             title='Showing random color:',
             color=color,
-            thumbnail="attachment://color.png"
+            thumbnail='attachment://color.png'
         )
 
         embed.add_field(name='Hex:', value=f'`{color}`')

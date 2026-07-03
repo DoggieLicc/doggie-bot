@@ -39,7 +39,7 @@ class RecentJoinsMenu(utils.EntryMenu[Member]):
                       f'Created at: {created_at}', inline=False
             )
 
-        return {"embed": embed}
+        return {'embed': embed}
 
 
 class RecentAccounts(utils.EntryMenu[Member]):
@@ -59,7 +59,7 @@ class RecentAccounts(utils.EntryMenu[Member]):
                       f'Created at: {created_at}', inline=False
             )
 
-        return {"embed": embed}
+        return {'embed': embed}
 
 
 class HoistersMenu(utils.EntryMenu[Member]):
@@ -112,7 +112,7 @@ class SauceMenu(utils.EntryMenu[dict[str, dict]]):
 
         embed.add_field(name='Potentially explicit?', value='Yes' if result['header']['hidden'] else 'No', inline=False)
 
-        return {"embed": embed}
+        return {'embed': embed}
 
 
 class PollSelect(Select):
@@ -125,7 +125,7 @@ class PollSelect(Select):
         await interaction.response.defer()
 
 
-class UtilityCog(commands.Cog, name="Utility"):
+class UtilityCog(commands.Cog, name='Utility'):
     """Utility commands that may be useful to you!"""
 
     def __init__(self, bot: CustomBot):
@@ -196,7 +196,7 @@ class UtilityCog(commands.Cog, name="Utility"):
 
         while True:
             try:
-                reaction, user = await self.bot.wait_for("reaction_add", timeout=600, check=check)
+                reaction, user = await self.bot.wait_for('reaction_add', timeout=600, check=check)
             except asyncio.TimeoutError:
                 if not seen_users:
                     embed = utils.create_embed(

@@ -20,8 +20,6 @@ __all__ = [
     'IntentionalUser'
 ]
 
-
-
 if TYPE_CHECKING:
     TimeConverter = datetime
     ColorConverter = Color
