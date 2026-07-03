@@ -3,13 +3,23 @@ from inspect import Parameter, Signature
 from typing import Callable, Any
 from dataclasses import dataclass, field
 
-from discord import Asset, app_commands, Interaction, Attachment, File
+from discord import Asset, HTTPException, NotFound, app_commands, Interaction, Attachment, File, Message, StickerFormatType, ui, ButtonStyle
 from discord.ext import commands
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance, UnidentifiedImageError, ImageDraw, ImageFont, ImageSequence
 
 import utils
 from utils import CustomBot
 from utils.classes import CustomContext
+
+
+class ImageSelectorView(ui.View):
+    @ui.button(label='Select Image', style=ButtonStyle.blurple)
+    async def select_image(self, interaction: Interaction[CustomBot], _):
+        if not interaction.message or not interaction.message.embeds:
+            return
+        image_url = interaction.message.embeds[0].image.url
+        interaction.client.user_selected_messages[interaction.user.id] = image_url
+        await interaction.response.send_message('Image has been selected as your default.', ephemeral=True)
 
 
 def image_to_file(image: Image.Image, extension) -> File:
@@ -188,25 +198,25 @@ class ImageCommand:
 
     def add_param_description(self, callback: Callable):
         self.descripts['image'] = 'The image you want to modify. If not specified, will use the last selected image, or your avatar'
-        self.descripts['image_url'] = 'The URL of the image you want to modify'
+        self.descripts['image_url'] = 'The URL of the image you want to modify, or specify an user to use their avatar.'
         deco = app_commands.describe(**self.descripts)
         return deco(callback)
 
     def get_callback(self) -> Callable:
         params = [
             commands.Parameter(
-                "ctx",
+                'ctx',
                 Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=CustomContext,
             ),
             commands.Parameter(
-                "image",
+                'image',
                 Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=Attachment | None,
                 default=None
             ),
             commands.Parameter(
-                "image_url",
+                'image_url',
                 Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=str | None,
                 default=None
@@ -230,6 +240,7 @@ class ImageCommand:
             image: Attachment | None = bound.arguments['image']
             image_url: str | None = bound.arguments['image_url']
             image_bytes: bytes | None = None
+            show_display_image_tip = False
 
             if image and image_url:
                 raise utils.DoggieBotException('Invalid arguments!', 'Don\'t specify both an image & image_url')
@@ -237,8 +248,21 @@ class ImageCommand:
             await ctx.defer()
 
             if image_url:
-                asset = Asset(ctx._state, url=image_url, key='')
-                image_bytes = await asset.read()
+                if ctx.guild:
+                    try:
+                        member = await commands.MemberConverter().convert(ctx, image_url)
+                        image_bytes = await member.display_avatar.read()
+                    except (commands.CommandError, commands.BadArgument, HTTPException, NotFound):
+                        pass
+                try:
+                    user = await commands.UserConverter().convert(ctx, image_url)
+                    image_bytes = await user.display_avatar.read()
+                except (commands.CommandError, commands.BadArgument, HTTPException, NotFound):
+                    pass
+
+                if not image_bytes:
+                    asset = Asset(ctx._state, url=image_url, key='')
+                    image_bytes = await asset.read()
 
             if image:
                 if not image.content_type or not image.content_type.startswith('image'):
@@ -246,7 +270,12 @@ class ImageCommand:
                 image_bytes = await image.read()
 
             if not image and not image_url:
-                image_bytes = await ctx.author.display_avatar.read()
+                if (image_url := ctx.bot.user_selected_messages.get(ctx.author.id, None)):
+                    asset = Asset(ctx._state, url=image_url, key='')
+                    image_bytes = await asset.read()
+                else:
+                    image_bytes = await ctx.author.display_avatar.read()
+                    show_display_image_tip = True
 
             if not image_bytes:
                 raise utils.DoggieBotException('Unable to read image!', 'Bot was unable to read the image...')
@@ -266,19 +295,27 @@ class ImageCommand:
                 )
             )
 
+            desc = {'description': '**Tip:** Use the context menu command "Select Image" on messages to use that image as the default!'} if show_display_image_tip else {}
+
             embed = utils.create_embed(
                 ctx.author,
-                title="Here's your image:",
-                image=f"attachment://{file.filename}",
+                title='Here\'s your image:',
+                image=f'attachment://{file.filename}',
+                **desc
             )
 
             if ctx.interaction:
-                await ctx.interaction.edit_original_response(embed=embed, attachments=[file])
+                await ctx.interaction.edit_original_response(
+                    embed=embed,
+                    attachments=[file],
+                    view=ImageSelectorView(timeout=None)
+                )
                 return
 
             await ctx.send(
                 embed=embed,
                 files=[file],
+                view=ImageSelectorView(timeout=None)
             )
 
         callback.__name__ = str(self.name)
@@ -338,6 +375,12 @@ class Images(commands.Cog, group_name='image'):
 
     def __init__(self, bot):
         self.bot: CustomBot = bot
+        self.ctx_menu = app_commands.ContextMenu(
+            name='Select Image',
+            callback=self.select_image,
+            allowed_installs=app_commands.AppInstallationType(user=True, guild=True)
+        )
+        self.bot.tree.add_command(self.ctx_menu)
 
     async def cog_load(self):
         for image_command in IMAGE_COMMANDS:
@@ -360,6 +403,45 @@ class Images(commands.Cog, group_name='image'):
                     usage=image_command.get_usage()
                 )
             )
+
+    async def select_image(self, interaction: Interaction[CustomBot], message: Message):
+        image_url = ''
+        response_message = ''
+
+        for i, attachment in enumerate(message.attachments):
+            if attachment.content_type and attachment.content_type.startswith('image'):
+                image_url = attachment.url
+                response_message = f'Selected image from [Attachment #{i+1}]({image_url})'
+                break
+
+        for i, sticker in enumerate(message.stickers):
+            if not image_url and sticker.format != StickerFormatType.lottie:
+                image_url = sticker.url
+                response_message = f'Selected image from [Sticker #{i+1}]({image_url})'
+                break
+
+        for i, embed in enumerate(message.embeds):
+            if embed.image:
+                image_url = embed.image.url
+                response_message = f'Selected image from [Embed #{i+1}\'s image]({image_url})'
+                break
+
+            if embed.thumbnail:
+                image_url = embed.thumbnail.url
+                response_message = f'Selected image from [Embed #{i+1}\'s thumbnail]({image_url})'
+                break
+
+            if embed.footer:
+                image_url = embed.footer.icon_url
+                response_message = f'Selected image from [Embed #{i+1}\'s footer]({image_url})'
+                break
+
+        if not image_url or not response_message:
+            await interaction.response.send_message('Unable to find valid image in this message.', ephemeral=True)
+            return
+
+        interaction.client.user_selected_messages[interaction.user.id] = image_url
+        await interaction.response.send_message(response_message, ephemeral=True)
 
     @commands.hybrid_group()
     async def image(self, _):
