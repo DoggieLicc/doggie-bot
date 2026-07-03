@@ -58,10 +58,10 @@ class DatabaseHelper:
             async with conn.cursor() as cursor:
                 for table in self.base_tables:
                     column_schema = ', '.join(
-                        f'{col.name} {col.datatype}{" " + col.addit_schema if col.addit_schema else ""}'
+                        f'{col.name} {col.datatype}{' ' + col.addit_schema if col.addit_schema else ''}'
                         for col in table.columns
                     )
-                    command = f"CREATE TABLE IF NOT EXISTS {table.name} ({column_schema})"
+                    command = f'CREATE TABLE IF NOT EXISTS {table.name} ({column_schema})'
                     await cursor.execute(command)
 
             await conn.commit()

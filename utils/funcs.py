@@ -59,7 +59,7 @@ def user_friendly_dt(dt: datetime | None) -> str:
     """Format a datetime as "short_date (relative_date)" """
     if not dt:
         return 'Unknown Date'
-    return discord.utils.format_dt(dt, style='f') + f' ({discord.utils.format_dt(dt, style="R")})'
+    return discord.utils.format_dt(dt, style='f') + f' ({discord.utils.format_dt(dt, style='R')})'
 
 
 def format_perms(permissions: Permissions) -> str:
@@ -230,7 +230,7 @@ def solid_color_image(color: tuple[float, ...]):
 def client_has_permissions(**perms: Unpack[discord.permissions._PermissionsKwargs]):
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
     if invalid:
-        raise TypeError(f'Invalid permission(s): {", ".join(invalid)}')
+        raise TypeError(f'Invalid permission(s): {', '.join(invalid)}')
 
     def predicate(interaction: Interaction) -> bool:
         permissions = interaction.app_permissions
@@ -247,7 +247,7 @@ def client_has_permissions(**perms: Unpack[discord.permissions._PermissionsKwarg
 def invoker_has_permissions(**perms: Unpack[discord.permissions._PermissionsKwargs]):
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
     if invalid:
-        raise TypeError(f'Invalid permission(s): {", ".join(invalid)}')
+        raise TypeError(f'Invalid permission(s): {', '.join(invalid)}')
 
     def predicate(interaction: Interaction) -> bool:
         if isinstance(interaction.user, User):

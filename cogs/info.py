@@ -118,7 +118,7 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='General Info:',
-            value=f'Description: {guild.description or "No description"}\n'
+            value=f'Description: {guild.description or 'No description'}\n'
                   f'Owner: {guild.owner} ({guild.owner_id})\n'
                   f'ID: {guild.id}\n'
                   f'Creation date: {utils.user_friendly_dt(guild.created_at)}',
@@ -132,7 +132,7 @@ class Info(commands.Cog, name='Information'):
             value=f'Boost level: {guild.premium_tier} \n'
                   f'Amount of boosters: {guild.premium_subscription_count}\n'
                   f'Booster Role: '
-                  f'{guild.premium_subscriber_role.mention if guild.premium_subscriber_role else "None"}',
+                  f'{guild.premium_subscriber_role.mention if guild.premium_subscriber_role else 'None'}',
             inline=False
         )
 
@@ -149,9 +149,9 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='Security Info:',
-            value=f'2FA required?: {"Yes" if guild.mfa_level else "No"}\n'
-                  f'Verification Level: {str(guild.verification_level).replace("_", " ").title()}\n'
-                  f'NSFW Filter: {str(guild.explicit_content_filter).replace("_", " ").title()}'
+            value=f'2FA required?: {'Yes' if guild.mfa_level else 'No'}\n'
+                  f'Verification Level: {str(guild.verification_level).replace('_', ' ').title()}\n'
+                  f'NSFW Filter: {str(guild.explicit_content_filter).replace('_', ' ').title()}'
         )
 
         await ctx.send(embed=embed)
@@ -200,10 +200,10 @@ class Info(commands.Cog, name='Information'):
 
             embed.add_field(
                 name='Member Info:',
-                value=f'**Nickname:** {user.nick or "No nickname"}\n'
+                value=f'**Nickname:** {user.nick or 'No nickname'}\n'
                       f'**Joined Server At:** {utils.user_friendly_dt(user.joined_at)}\n'
                       f'**Highest Role:** {top_role}\n'
-                      f'**Roles:** {role_mentions or "No roles!"}',
+                      f'**Roles:** {role_mentions or 'No roles!'}',
                 inline=False
             )
 
@@ -252,7 +252,7 @@ class Info(commands.Cog, name='Information'):
         if invite.channel:
             embed.add_field(
                 name='Invite channel:',
-                value=f'**Name:** #{getattr(invite.channel, "name", "Unknown")} {utils.Emotes.channel(invite.channel)}\n'
+                value=f'**Name:** #{getattr(invite.channel, 'name', 'Unknown')} {utils.Emotes.channel(invite.channel)}\n'
                     f'**ID:** {invite.channel.id}\n'
                     f'**Created at:** {utils.user_friendly_dt(invite.channel.created_at)}',
                 inline=True
@@ -311,11 +311,11 @@ class Info(commands.Cog, name='Information'):
                 embed.add_field(
                     name='Thread Info',
                     value=f'{len(await channel.fetch_members())} members\n'
-                          f'Archived?: {"Yes" if channel.archived else "No"}\n'
-                          f'Locked?: {"Yes" if channel.locked else "No"}\n'
+                          f'Archived?: {'Yes' if channel.archived else 'No'}\n'
+                          f'Locked?: {'Yes' if channel.locked else 'No'}\n'
                           f'Archive timestamp: {utils.user_friendly_dt(channel.archive_timestamp)}\n'
                           f'Archive time: {channel.auto_archive_duration} seconds\n'
-                          f'Creator: {channel.owner.mention if channel.owner else "Unknown"}',
+                          f'Creator: {channel.owner.mention if channel.owner else 'Unknown'}',
                     inline=False
                 )
 
@@ -323,9 +323,9 @@ class Info(commands.Cog, name='Information'):
             embed.add_field(
                 name='Voice Channel Info:',
                 value=f'**Bitrate:** {round(channel.bitrate / 1000)}kbps\n'
-                      f'**Region:** {str((channel.rtc_region or "Automatic")).title()}\n'
+                      f'**Region:** {str((channel.rtc_region or 'Automatic')).title()}\n'
                       f'**# Connected:** {len(channel.members)} connected '
-                      f'{f"/ {channel.user_limit} max" if channel.user_limit else ""}',
+                      f'{f'/ {channel.user_limit} max' if channel.user_limit else ''}',
                 inline=False
             )
 
@@ -335,7 +335,7 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='General Channel Info:',
-            value=f'**Type:** {str(channel.type).replace("_", " ").title()} channel\n'
+            value=f'**Type:** {str(channel.type).replace('_', ' ').title()} channel\n'
                   f'**Category:** {channel.category}\n'
                   f'**ID:** {channel.id}\n'
                   f'**Created at:** {utils.user_friendly_dt(channel.created_at)}',
@@ -376,8 +376,8 @@ class Info(commands.Cog, name='Information'):
                   f'**Color:** {role.color}\n'
                   f'**Created at:** {utils.user_friendly_dt(role.created_at)}\n'
                   f'**# members with role:** {len(role.members)}\n'
-                  f'**Mentionable?:** {"Yes" if role.mentionable else "No"}\n'
-                  f'**Hoisted?:** {"Yes" if role.hoist else "No"}\n',
+                  f'**Mentionable?:** {'Yes' if role.mentionable else 'No'}\n'
+                  f'**Hoisted?:** {'Yes' if role.hoist else 'No'}\n',
             inline=False
         )
 
@@ -441,7 +441,7 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='Token Info:',
-            value=f'**Token:** {".".join(tokens)}\n'
+            value=f'**Token:** {'.'.join(tokens)}\n'
                   f'**Creation Date:** {utils.user_friendly_dt(time)}',
             inline=False
         )
@@ -450,7 +450,7 @@ class Info(commands.Cog, name='Information'):
             name='User Info:',
             value=f'**Name:** {user}\n'
                   f'**ID:** {user.id}\n'
-                  f'**Is bot?:** {"Yes" if user.bot else "No"}\n'
+                  f'**Is bot?:** {'Yes' if user.bot else 'No'}\n'
                   f'**Created at:** {utils.user_friendly_dt(user.created_at)}'
         )
 
@@ -491,7 +491,7 @@ class Info(commands.Cog, name='Information'):
                     name='Replied Message:',
                     value=f'ID: {replied.id}\n'
                           f'Author: {replied.author.mention}\n'
-                          f'Content: {replied.content[:100] or "*No content*"}\n'
+                          f'Content: {replied.content[:100] or '*No content*'}\n'
                           f'[Jump to Message]({replied.jump_url})'
                 )
 
@@ -501,7 +501,7 @@ class Info(commands.Cog, name='Information'):
                   f'Channel: <#{message.channel.id}> ({message.channel.id})\n'
                   f'Created at: {utils.user_friendly_dt(message.created_at)}\n'
                   f'{len(message.mentions)} members mentioned\n'
-                  f'Stickers: {(", ".join([f"[{s}]({s.url})" for s in message.stickers]) or "No stickers")}\n'
+                  f'Stickers: {(', '.join([f'[{s}]({s.url})' for s in message.stickers]) or 'No stickers')}\n'
                   f'Embeds: {len(message.embeds)} embeds',
             inline=False
         )

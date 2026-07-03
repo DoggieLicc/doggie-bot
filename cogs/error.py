@@ -183,15 +183,15 @@ class ErrorHandler(commands.Cog):
 
                 owner_embed.add_field(
                     name='Unhandled Error!:',
-                    value=f"{etype.__name__}: {str(error)[:900]}",
+                    value=f'{etype.__name__}: {str(error)[:900]}',
                     inline=False
                 )
                 owner_embed.add_field(name='Command:', value=str(ctx.command)[:1000], inline=False)
 
                 owner_embed.add_field(
                     name='Extra Info:',
-                    value=f'Guild: {ctx.guild}: {getattr(ctx.guild, "id", "None")}\n'
-                          f'Channel: {ctx.channel}:{getattr(ctx.channel, "id", None)}', inline=False
+                    value=f'Guild: {ctx.guild}: {getattr(ctx.guild, 'id', 'None')}\n'
+                          f'Channel: {ctx.channel}:{getattr(ctx.channel, 'id', None)}', inline=False
                 )
 
                 await owner.send(embed=owner_embed, files=[file])
@@ -238,15 +238,15 @@ class ErrorHandler(commands.Cog):
 
                 owner_embed.add_field(
                     name='Unhandled Error!:',
-                    value=f"{etype.__name__}: {str(error)[:900]}",
+                    value=f'{etype.__name__}: {str(error)[:900]}',
                     inline=False
                 )
                 owner_embed.add_field(name='Command:', value=str(interaction.command)[:1000], inline=False)
 
                 owner_embed.add_field(
                     name='Extra Info:',
-                    value=f'Guild: {interaction.guild}: {getattr(interaction.guild, "id", "None")}\n'
-                          f'Channel: {interaction.channel}:{getattr(interaction.channel, "id", None)}', inline=False
+                    value=f'Guild: {interaction.guild}: {getattr(interaction.guild, 'id', 'None')}\n'
+                          f'Channel: {interaction.channel}:{getattr(interaction.channel, 'id', None)}', inline=False
                 )
 
                 await owner.send(embed=owner_embed, files=[file])

@@ -27,14 +27,14 @@ class Misc(commands.Cog, name='Misc'):
         )
 
         embed.add_field(
-            name="Invite this bot!",
-            value=f"[Invite]({invite_url})",
+            name='Invite this bot!',
+            value=f'[Invite]({invite_url})',
             inline=False
         )
 
         embed.add_field(
-            name="Join support server!",
-            value="[Support Server](https://discord.gg/d7dgReCnRR)",
+            name='Join support server!',
+            value='[Support Server](https://discord.gg/d7dgReCnRR)',
             inline=False
         )
 
@@ -126,7 +126,7 @@ class Misc(commands.Cog, name='Misc'):
 
         buffer = StringIO(src_code)
 
-        file = File(fp=buffer, filename=f'{command.replace(" ", "_").lower()}.py')
+        file = File(fp=buffer, filename=f'{command.replace(' ', '_').lower()}.py')
 
         await ctx.send(f'Here you go, {ctx.author.mention}. (You should view this on a PC)', file=file)
 
