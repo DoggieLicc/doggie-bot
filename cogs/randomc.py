@@ -104,7 +104,7 @@ class RandomCog(commands.Cog, name='Random'):
         self.bot: CustomBot = bot
 
         if not bot.config['unsplash_api_key']:
-            del self.unsplash_cmd
+            self.random.remove_command('unsplash')
             self.unsplash = None
             logger.warning('UNSPLASH_API_KEY Environment variable missing. /unsplash command will not be registered')
         else:

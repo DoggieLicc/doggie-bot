@@ -1,3 +1,4 @@
+from datetime import timedelta, datetime, timezone
 import unicodedata
 from functools import partial
 
@@ -66,7 +67,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
     def __init__(self, bot: CustomBot):
         self.bot: CustomBot = bot
 
-    @commands.hybrid_command()
+    @commands.hybrid_command(usage='<users>... [reason]')
     @commands.bot_has_guild_permissions(ban_members=True)
     @commands.has_permissions(ban_members=True)
     @app_commands.describe(users='Mentions or IDs of one or multiple users, space seperated')
@@ -74,8 +75,8 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def ban(
         self,
         ctx: CustomContext,
-        *,
         users: commands.Greedy[utils.IntentionalUser],
+        *,
         reason: str | None = 'No reason specified'
     ):
         """Ban members who broke the rules! You can specify multiple members in one command."""
@@ -96,7 +97,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command()
+    @commands.hybrid_command(usage='<users>... [reason]')
     @commands.bot_has_guild_permissions(ban_members=True)
     @commands.has_permissions(ban_members=True)
     @app_commands.describe(users='Mentions or IDs of one or multiple users, space seperated')
@@ -104,8 +105,8 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def unban(
         self,
         ctx: CustomContext,
-        *,
         users: commands.Greedy[utils.IntentionalUser],
+        *,
         reason: str | None = 'No reason specified'
     ):
         """Unban banned users with their User ID, you can specify multiple people to be unbanned"""
@@ -126,7 +127,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command()
+    @commands.hybrid_command(usage='<users>... [reason]')
     @commands.bot_has_guild_permissions(ban_members=True)
     @commands.has_permissions(ban_members=True)
     @app_commands.describe(users='Mentions or IDs of one or multiple users, space seperated')
@@ -134,8 +135,8 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def softban(
         self,
         ctx: CustomContext,
-        *,
         users: commands.Greedy[utils.IntentionalUser],
+        *,
         reason: str | None = 'No reason specified'
     ):
         """Bans then unbans the specified users, which deletes their recent messages and 'kicks' them"""
@@ -163,7 +164,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command()
+    @commands.hybrid_command(usage='<members>... [reason]')
     @commands.bot_has_guild_permissions(kick_members=True)
     @commands.has_permissions(kick_members=True)
     @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
@@ -171,8 +172,8 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def kick(
         self,
         ctx: CustomContext,
-        *,
         members: commands.Greedy[utils.IntentionalMember],
+        *,
         reason: str | None = 'No reason specified'
     ):
         """Kick members who broke the rules! You can specify multiple members in one command"""
@@ -193,29 +194,41 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(aliases=['timein', 'removetimeout'])
+    @commands.hybrid_command(aliases=['timein', 'removetimeout'], usage='<members>... <duration> [reason]')
     @commands.bot_has_guild_permissions(moderate_members=True)
     @commands.has_permissions(moderate_members=True)
     @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
-    @app_commands.describe(duration='How long to timeout the member for. Can be a Discord-style timestamp, or durations (5h 30min)')
+    @app_commands.describe(duration='How long to timeout the member for. Can be a @time timestamp, or durations (5h 30min)')
     @app_commands.describe(reason='The reason for the timeout. Shown in the audit log')
     async def timeout(
         self,
         ctx: CustomContext,
-        *,
         members: commands.Greedy[utils.IntentionalMember],
-        duration: utils.TimeConverter,
+        duration: commands.Greedy[utils.TimeConverter],
+        *,
         reason: str | None = 'No reason specified'
     ):
         """Puts specified members in timeout! You can specify multiple members in one command"""
 
+        time = timedelta()
+        for d in duration:
+            time += d
+
+        if time == timedelta():
+            raise utils.DoggieBotException('Invalid duration!', 'No duration was set')
+
+        dtime = datetime.now(tz=timezone.utc) + time
+
         await ctx.defer()
+
+        if dtime < dtime-time:
+            raise utils.DoggieBotException('Invalid duration', 'Can\'t timeout someone for a negative amount of time!')
 
         lists = await utils.multi_punish(
             ctx.author,
             members,
             Member.edit,
-            timed_out_until=duration,
+            timed_out_until=dtime,
             reason=f'{str(ctx.author)}: {reason}'
         )
 
@@ -223,7 +236,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command()
+    @commands.hybrid_command(usage='<members>... [reason]')
     @commands.bot_has_guild_permissions(moderate_members=True)
     @commands.has_permissions(moderate_members=True)
     @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
@@ -231,8 +244,8 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def untimeout(
         self,
         ctx: CustomContext,
-        *,
         members: commands.Greedy[utils.IntentionalMember],
+        *,
         reason: str | None = 'No reason specified'
     ):
         """Removes timeout from members!"""
@@ -250,7 +263,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(aliases=['nick', 'nickname'])
+    @commands.hybrid_command(aliases=['nick', 'nickname'], usage='<members>... <nickname>')
     @commands.bot_has_guild_permissions(manage_nicknames=True)
     @commands.has_permissions(manage_nicknames=True)
     @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
@@ -258,8 +271,8 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def rename(
         self,
         ctx: CustomContext,
-        *,
         members: commands.Greedy[utils.IntentionalMember],
+        *,
         nickname: str
     ):
         """Renames members to a specified name"""
@@ -281,7 +294,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(aliases=['silence'])
+    @commands.hybrid_command(aliases=['silence'], usage='<members>... [reason]')
     @commands.bot_has_guild_permissions(manage_roles=True)
     @commands.has_permissions(manage_roles=True)
     @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
@@ -289,8 +302,8 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def mute(
         self,
         ctx: CustomContext,
-        *,
         members: commands.Greedy[utils.IntentionalMember],
+        *,
         reason: str | None = 'No reason specified'
     ):
         """Gives the configured mute role to members!"""
@@ -316,7 +329,7 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         self.bot.dispatch('mute', ctx, lists[0], reason)
 
-    @commands.hybrid_command(aliases=['unsilence'])
+    @commands.hybrid_command(aliases=['unsilence'], usage='<members>... [reason]')
     @commands.bot_has_guild_permissions(manage_roles=True)
     @commands.has_permissions(manage_roles=True)
     @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
@@ -324,8 +337,8 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def unmute(
         self,
         ctx: CustomContext,
-        *,
         members: commands.Greedy[utils.IntentionalMember],
+        *,
         reason: str | None = 'No reason specified'
     ):
         """Removes the configured mute role from members!"""
@@ -359,7 +372,6 @@ class Moderation(commands.GroupCog, group_name='mod'):
     async def purge(
         self,
         ctx: CustomContext,
-        *,
         users: commands.Greedy[utils.IntentionalUser],
         amount: commands.Range[int, 1, 200] | None = 200
     ):
@@ -385,14 +397,13 @@ class Moderation(commands.GroupCog, group_name='mod'):
 
         self.bot.dispatch('purge', ctx, users_s, len(messages_deleted))
 
-    @commands.hybrid_command(aliases=['ascii'])
+    @commands.hybrid_command(aliases=['ascii'], usage='<members>...')
     @commands.bot_has_guild_permissions(manage_nicknames=True)
     @commands.has_permissions(manage_nicknames=True)
     @app_commands.describe(members='Mentions or IDs of one or multiple server members, space seperated')
     async def asciify(
         self,
         ctx: CustomContext,
-        *,
         members: commands.Greedy[utils.IntentionalMember],
     ):
         """Replace weird unicode letters in nicknames with normal ASCII text!"""

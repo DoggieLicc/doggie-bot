@@ -76,7 +76,7 @@ class HelpPageView(EntryMenu):
 
         embed = await self.help.get_cog_embed(
             entry,
-            title=f'Showing {entry.qualified_name.lower()} commands ({self.current_index}/{self.max_page}):'
+            title=f'Showing {entry.qualified_name.lower()} commands ({self.current_index-1}/{self.max_page-1}):'
         )
 
         return {'embed': embed}

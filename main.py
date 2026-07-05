@@ -40,6 +40,7 @@ intents = discord.Intents(
     bans=True
 )
 
+D_BOT_TOKEN = '=PLACEHOLDER='
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
@@ -56,7 +57,8 @@ class InterceptHandler(logging.Handler):
             frame = frame.f_back
             depth += 1
 
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        message = record.getMessage().replace(D_BOT_TOKEN, 'BOT_TOKEN')
+        logger.opt(depth=depth, exception=record.exc_info).log(level, message)
 
 
 async def startup():
@@ -74,6 +76,9 @@ async def startup():
         allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=True),
         allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=True)
     )
+
+    global D_BOT_TOKEN  # pylint: disable=global-statement
+    D_BOT_TOKEN = bot.config['bot_token']
 
     if bot.config['enable_prometheus']:
         port = int(bot.config.get('prometheus_port', 8000))
