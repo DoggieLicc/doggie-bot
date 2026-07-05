@@ -1,15 +1,16 @@
 import asyncio
-import time
+from datetime import datetime, timedelta, timezone
 import itertools
 
-from discord import InteractionMessage, app_commands, Interaction, Attachment, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden, Emoji, Message
+from discord import AllowedMentions, ButtonStyle, User, app_commands, Interaction, Attachment, Member, Embed, Color, DiscordException, HTTPException, NotFound, Forbidden, Emoji, ui
 
 from discord.ext import commands
-from discord.ui import Select
+from discord.utils import format_dt
 from loguru import logger
 
 import utils
 from utils import CustomBot, CustomContext
+from utils.menus import CustomView
 
 
 def get_hoisters(members: list[Member]):
@@ -117,15 +118,34 @@ class SauceMenu(utils.EntryMenu[dict[str, dict]]):
         return {'embed': embed}
 
 
-class PollSelect(Select):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.selected_options: dict[int, str] = {}
+class SelfbotView(CustomView):
+    def __init__(self, owner: User):
+        super().__init__(owner)
+        self.seen_users: list[User] = []
+        self.start_time = datetime.now(timezone.utc)
 
-    async def callback(self, interaction: Interaction):
-        self.selected_options[interaction.user.id] = self.values[0]
-        await interaction.response.defer()
+    async def interaction_check(self, interaction: Interaction, /) -> bool:
+        self.message = interaction.message
+        return True
 
+    @ui.button(label='Enter Giveaway', emoji='\N{PARTY POPPER}', style=ButtonStyle.blurple)
+    async def fake_giveaway(self, interaction: Interaction, _):
+        if interaction.user in self.seen_users:
+            return await interaction.response.defer()
+
+        td = interaction.created_at - self.start_time
+        self.seen_users.append(interaction.user)
+
+        if interaction.user == self.owner:
+            return await interaction.response.send_message(
+                f'{interaction.user.mention}: You have reacted to your own test in {td.total_seconds():.3f} seconds.',
+                allowed_mentions=AllowedMentions.none()
+            )
+
+        await interaction.response.send_message(
+            f'User {interaction.user.mention} (ID: {interaction.user.id}) joined fake giveaway in {td.total_seconds():.3f} seconds.',
+            allowed_mentions=AllowedMentions.none()
+        )
 
 class UtilityCog(commands.Cog, name='Utility'):
     """Utility commands that may be useful to you!"""
@@ -164,85 +184,34 @@ class UtilityCog(commands.Cog, name='Utility'):
         if not ctx.guild or not ctx.guild.owner:
             return
 
-        selfbot_embed = Embed(
-            color=Color.green(),
-            title='Giveaway',
-            description=f'**Prize:** Discord Nitro\n'
-                        f'**Time left:** Infinity\n'
-                        f'**Hosted by:** {ctx.guild.owner.mention}\n'
-                        f'**React with :tada: to participate!**'
+        embed = Embed(
+            color=Color.blurple(),
+            title='Discord Nitro Giveaway',
+            description='Click the button below to join the giveaway!'
         )
 
-        selfbot_embed.set_author(name='Discord Nitro')
+        embed.set_author(name='Discord Nitro')
 
-        message: InteractionMessage | Message = await ctx.send(
+        embed.add_field(
+            name='Ends',
+            value=format_dt(datetime.now(timezone.utc) + timedelta(hours=2))
+        )
+
+        embed.add_field(name='Hosts', value=ctx.guild.owner.mention)
+
+        embed.add_field(name='Winners', value='3')
+
+        view = SelfbotView(ctx.author)
+
+        await ctx.send(
             ':tada: **GIVEAWAY** :tada: :yay:',
-            embed=selfbot_embed
+            ephemeral=False,
+            embed=embed,
+            view=view
         )
 
-        try:
-            await message.add_reaction('\N{PARTY POPPER}')
-        except DiscordException:
-            pass
+        await asyncio.sleep(view.timeout)  # For max_concurrency to work
 
-        t = time.perf_counter()
-        seen_users = set()
-
-        def check(_reaction, _user):
-            if _reaction.message == message and str(_reaction.emoji) == '\N{PARTY POPPER}' \
-                    and not _user.bot and _user not in seen_users:
-                seen_users.add(_user)
-                return True
-
-            return False
-
-        while True:
-            try:
-                reaction, user = await self.bot.wait_for('reaction_add', timeout=600, check=check)
-            except asyncio.TimeoutError:
-                if not seen_users:
-                    embed = utils.create_embed(
-                        ctx.author,
-                        title='Test timed out!',
-                        description='No one reacted within 10 minutes!',
-                        color=Color.red()
-                    )
-
-                    await ctx.send(embeds=[selfbot_embed, embed])
-
-                return
-
-            if user == ctx.author:
-                embed = utils.create_embed(
-                    ctx.author,
-                    title='Test canceled!',
-                    description=f'You reacted to your own test, so it was canceled.\nAnyways, '
-                                f'your time is {round(time.perf_counter() - t, 2)} seconds.',
-                    color=Color.red()
-                )
-
-                return await ctx.send(embeds=[selfbot_embed, embed])
-
-            if not len(message.embeds) > 1:
-                embed = utils.create_embed(
-                    ctx.author,
-                    title='Reaction found!',
-                    description=f'{user} (ID: {user.id})\nreacted with {reaction} in '
-                                f'{round(time.perf_counter() - t, 2)} seconds'
-                )
-
-                message = await ctx.send(embeds=[selfbot_embed, embed])
-            else:
-                new_msg = f'\n\n{user} (ID: {user.id})\nreacted with {reaction} in ' \
-                            f'{round(time.perf_counter() - t, 2)} seconds'
-
-                embed = utils.create_embed(
-                    ctx.author,
-                    title='Reactions found!',
-                    description=message.embeds[0].description or '' + new_msg
-                )
-
-                message = await ctx.send(embeds=[selfbot_embed, embed])
 
     @commands.hybrid_command(aliases=['hoist'])
     @app_commands.allowed_installs(users=False)
