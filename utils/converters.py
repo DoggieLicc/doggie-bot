@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord import Color, Member, User
 from discord.ext import commands
-from discord.ext.commands import BadArgument, BadTimestampArgument, Context, RoleNotFound, Timestamp, MemberNotFound
+from discord.ext.commands import BadTimestampArgument, CommandError, RoleNotFound, MemberNotFound
 from discord.ext.commands import MemberConverter, RoleConverter, Converter
 
 from utils.classes import CustomContext
@@ -20,58 +20,66 @@ __all__ = [
     'IntentionalUser'
 ]
 
+
 if TYPE_CHECKING:
-    TimeConverter = datetime
+    TimeConverter = timedelta
     ColorConverter = Color
     MultiplePartialEmoteConverter = list[discord.PartialEmoji]
     PartialEmoteConverter = discord.PartialEmoji
     IntentionalMember = Member
     IntentionalUser = User
 else:
-    class TimeConverter(Converter):
-        # pylint: disable=abstract-method
+    class TimeConverter(commands.Converter):
         @staticmethod
-        def get_seconds(text: str) -> int:
+        def get_unit(text: str) -> timedelta:
             text = text.lower()
 
             if text in ['s', 'sec', 'secs', 'second', 'seconds']:
-                return 1
+                return timedelta(seconds=1)
             if text in ['m', 'min', 'mins', 'minute', 'minutes']:
-                return 60
+                return timedelta(minutes=1)
             if text in ['h', 'hr', 'hrs', 'hour', 'hours']:
-                return 3_600
+                return timedelta(hours=1)
             if text in ['d', 'day', 'days']:
-                return 86_400
+                return timedelta(days=1)
             if text in ['w', 'wk', 'wks', 'week', 'weeks']:
-                return 604_800
+                return timedelta(weeks=1)
             if text in ['mo', 'mos', 'month', 'months']:
-                return 2_592_000
+                return timedelta(days=30)
             if text in ['y', 'yr', 'yrs', 'year', 'years']:
-                return 31_536_000
-            return 0
+                return timedelta(days=365)
+            return timedelta()
 
-        async def convert(self, ctx: Context, value: str, /) -> datetime:
+        async def convert(self, ctx, argument: str) -> timedelta | None:
+            argument = argument.replace(',', '')
+
+            if argument.lower() in ['in', 'me', 'at']:
+                return timedelta()
+
             try:
                 # pylint: disable=no-value-for-parameter
-                return await Timestamp().convert(ctx, value)  # type: ignore
+                conv: Converter = commands.Timestamp()  # type: ignore
+                dt = await conv.convert(ctx, argument)
+                td = dt - datetime.now(tz=timezone.utc)
+                return td
             except BadTimestampArgument:
                 pass
 
-            seconds = 0
-            values = value.split()
-            for argument in values:
-                argument = argument.replace(',', '')
+            try:
                 amount, unit = [re.findall(r'(\d+)(\w+)', argument)[0]][0]
+                if amount == 0:
+                    raise commands.CommandError('Amount can\'t be zero')
 
-                if int(amount) <= 0:
-                    raise BadArgument(f'Argument {argument} has a duration of 0 or less!')
+                amount = int(amount)
+                td = self.get_unit(unit)
+                if td == timedelta():
+                    raise commands.CommandError('Invalid unit')
+            except CommandError:
+                raise
+            except Exception as e:
+                raise commands.CommandError() from e
 
-                seconds += self.get_seconds(unit) * int(amount)
-
-            if seconds <= 0:
-                raise BadArgument(f'Duration for {value} is 0 or less!')
-
-            return datetime.now(tz=timezone.utc) + timedelta(seconds=seconds)
+            return td * amount
 
     class ColorConverter(Converter):
         # pylint: disable=abstract-method

@@ -112,6 +112,8 @@ class SauceMenu(utils.EntryMenu[dict[str, dict]]):
 
         embed.add_field(name='Potentially explicit?', value='Yes' if result['header']['hidden'] else 'No', inline=False)
 
+        embed.color = Color.orange() if result['header']['hidden'] else embed.color
+
         return {'embed': embed}
 
 
@@ -130,9 +132,9 @@ class UtilityCog(commands.Cog, name='Utility'):
 
     def __init__(self, bot: CustomBot):
         self.bot: CustomBot = bot
-
         if not self.bot.config['saucenao_api_key']:
-            del self.saucenao
+            # pylint: disable=comparison-with-callable
+            self.__cog_commands__ = tuple(c for c in self.__cog_commands__ if c != self.saucenao)  # type: ignore
             logger.warning('SAUCENAO_API_KEY Environment variable missing. /saucenao will not be registered')
 
     @commands.hybrid_command(aliases=['recentusers', 'recent', 'newjoins', 'newusers', 'rj', 'joins'])

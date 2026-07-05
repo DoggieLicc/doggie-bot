@@ -67,7 +67,7 @@ class Games(commands.GroupCog, group_name='game', name='Games'):
                 client_secret=bot.config['osu_client_secret']
             )
         else:
-            del self.osu
+            self.osu.recursively_remove_all_commands()
             self.osu_api = None
             logger.warning('OSU_CLIENT_ID or OSU_CLIENT_SECRET environment variables missing. /game osu commands will not be registered.')
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from discord import app_commands, TextChannel
 from discord.ext import commands
@@ -35,21 +35,30 @@ class ReminderCog(commands.GroupCog, name='Reminder', group_name='reminder'):
     def __init__(self, bot: CustomBot):
         self.bot: CustomBot = bot
 
-    @commands.hybrid_command(aliases=['r', 'remindme', 'reminder'])
+    @commands.hybrid_command(aliases=['r', 'remindme', 'reminder', 'remind'], usage='<duration> [channel] <reminder>')
     @app_commands.describe(reminder='For what you want to be reminded for')
-    @app_commands.describe(time='When you want to be reminded. Can be a Discord-style timestamp, or durations (5h 30min)')
+    @app_commands.describe(duration='When you want to be reminded. Can be a @time timestamp, or durations (5h 30min)')
     @app_commands.describe(channel='A channel to send the reminder to. If not specified, it will be sent to your DMs')
     async def add(
         self,
         ctx: CustomContext,
-        reminder: str,
-        time: utils.TimeConverter,
-        channel: TextChannel | None
+        duration: commands.Greedy[utils.TimeConverter],
+        channel: TextChannel | None,
+        *,
+        reminder: str
     ):
         """Add a reminder to be sent to you or a channel after a specified duration!"""
 
-        if time < datetime.now(tz=timezone.utc):
-            raise utils.DoggieBotException('Invalid time!', 'Can\'t set a reminder in the past!')
+        time = timedelta()
+        for d in duration:
+            time += d
+        if time == timedelta():
+            raise utils.DoggieBotException('Invalid duration!', 'No duration was set!')
+
+        dtime = datetime.now(tz=timezone.utc) + time
+
+        if dtime < datetime.now(tz=timezone.utc):
+            raise utils.DoggieBotException('Invalid duration!', 'Can\'t set a reminder in the past!')
 
         if channel and ctx.interaction and (not ctx.guild or not ctx.guild.owner_id):
             raise utils.DoggieBotException('Invalid option:', 'Can\'t specify a channel to send to when bot is installed as only an user app')
@@ -63,12 +72,12 @@ class ReminderCog(commands.GroupCog, name='Reminder', group_name='reminder'):
 
         destination = channel or ctx.author
 
-        rem = utils.Reminder(ctx.message.id, ctx.author, reminder, destination, time, self.bot)
+        rem = utils.Reminder(ctx.message.id, ctx.author, reminder, destination, dtime, self.bot)
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Reminder added! (**ID**: {rem.id})',
-            description=f'Reminder "{reminder}" has been added for {utils.user_friendly_dt(time)} to be sent to ' + (channel.mention if channel else 'you') + '!'
+            description=f'Reminder "{reminder}" has been added for {utils.user_friendly_dt(dtime)} to be sent to ' + (channel.mention if channel else 'you') + '!'
         )
 
         await ctx.send(embed=embed, ephemeral=True)
