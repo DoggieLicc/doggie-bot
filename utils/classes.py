@@ -1,54 +1,145 @@
-import discord
 import asyncio
-import yaml
-import asqlite
 import os
-import shutil
-
-from discord import TextChannel, ChannelType, Message, User
-from discord.ext import commands, menus
-from loguru import logger
-
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Union, Optional, Dict, List
+from typing import TYPE_CHECKING, Any
 
-from utils.funcs import guess_user_nitro_status, user_friendly_dt, create_embed, fix_url
+from aiohttp import ClientSession
+import yaml
+import discord
+from discord import TextChannel, ChannelType, Message, User, Guild, Role, app_commands, Thread, ui
+from discord.ext import commands
+from discord.abc import GuildChannel, PrivateChannel
+from loguru import logger
+
+from utils.funcs import guess_user_nitro_status, create_embed, fix_url
+from utils.db_helper import *
 
 __all__ = [
-    'CustomContext',
     'CustomBot',
-    'CustomMenu',
     'Emotes',
-    'ReminderList',
     'Reminder',
     'BasicConfig',
     'LoggingConfig',
-    'MissingAPIKey'
+    'MissingAPIKey',
+    'DoggieBotException',
+    'CustomContext'
 ]
-
 
 dirname = os.getcwd()
 config_file = os.path.join(dirname, 'config.yaml')
+
+
+BasicConfigTable = BaseTable(
+    name='basic_config',
+    columns=[
+        BaseColumn(
+            name='guild_id',
+            datatype='integer',
+            addit_schema='PRIMARY KEY'
+        ),
+        BaseColumn(
+            name='prefix',
+            datatype='text'
+        ),
+        BaseColumn(
+            name='snipe',
+            datatype='integer'
+        ),
+        BaseColumn(
+            name='mute_role',
+            datatype='integer'
+        )
+    ]
+)
+
+LoggingConfigTable = BaseTable(
+    name='logging_config',
+    columns=[
+        BaseColumn(
+            name='guild_id',
+            datatype='integer',
+            addit_schema='PRIMARY KEY'
+        ),
+        BaseColumn(
+            name='kick_channel',
+            datatype='integer'
+        ),
+        BaseColumn(
+            name='ban_channel',
+            datatype='integer'
+        ),
+        BaseColumn(
+            name='purge_channel',
+            datatype='integer'
+        ),
+        BaseColumn(
+            name='delete_channel',
+            datatype='integer'
+        ),
+        BaseColumn(
+            name='mute_channel',
+            datatype='integer'
+        )
+    ]
+)
+
+RemindersTable = BaseTable(
+    name='reminders',
+    columns=[
+        BaseColumn(
+            name='id',
+            datatype='integer',
+            addit_schema='PRIMARY KEY'
+        ),
+        BaseColumn(
+            name='user_id',
+            datatype='integer'
+        ),
+        BaseColumn(
+            name='reminder',
+            datatype='text'
+        ),
+        BaseColumn(
+            name='end_time',
+            datatype='integer'
+        ),
+        BaseColumn(
+            name='destination',
+            datatype='integer'
+        )
+    ]
+)
+
+ALL_DB_TABLES = [BasicConfigTable, LoggingConfigTable, RemindersTable]
+
 
 class CustomContext(commands.Context):
     def __init__(self, **attrs):
         super().__init__(**attrs)
         self.bot: CustomBot = self.bot
-        self.uncaught_error = False
+        self.error_handled = False
 
-    async def send(self, *args, **kwargs) -> Message:
-        kwargs['reference'] = kwargs.get('reference', self.message.reference)
+    if not TYPE_CHECKING:
+        async def defer(self, *args, **kwargs):
+            if 'ephemeral' not in kwargs and self.interaction and self.channel.type != ChannelType.private:
+                if not self.guild or not self.guild.owner_id:
+                    kwargs['ephemeral'] = True
 
-        return await super().send(*args, **kwargs)
+                if self.guild and (not self.interaction.permissions.send_messages or not self.interaction.app_permissions.send_messages):
+                    kwargs['ephemeral'] = True
 
-    @property
-    def basic_config(self):
-        return self.bot.basic_configs.get(self.guild.id, BasicConfig(self.guild))
+            return await super().defer(*args, **kwargs)
 
-    @property
-    def logging_config(self):
-        return self.bot.logging_configs.get(self.guild.id, LoggingConfig(self.guild))
+        async def send(self, *args, **kwargs):
+            if 'ephemeral' not in kwargs and self.interaction and self.channel.type != ChannelType.private:
+                if not self.guild or not self.guild.owner_id:
+                    kwargs['ephemeral'] = True
+
+                if self.guild and (not self.interaction.permissions.send_messages or not self.interaction.app_permissions.send_messages):
+                    kwargs['ephemeral'] = True
+
+            return await super().send(*args, **kwargs)
 
 
 class CustomBot(commands.Bot):
@@ -56,12 +147,12 @@ class CustomBot(commands.Bot):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        yaml_config = dict()
+        yaml_config = {}
         if os.path.exists(config_file):
-            with open(config_file, 'r') as file:
+            with open(config_file, 'r', encoding='UTF-8') as file:
                 yaml_config = yaml.safe_load(file)
 
-        self.config = dict()
+        self.config = {}
 
         self.config['bot_token'] = yaml_config.get('bot_token') or os.getenv('BOT_TOKEN')
         self.config['osu_client_secret'] = yaml_config.get('osu_client_secret') or os.getenv('OSU_CLIENT_SECRET')
@@ -80,31 +171,39 @@ class CustomBot(commands.Bot):
 
         self.db_file = os.path.join(self.config['data_dir'], 'data.db')
 
-        if not os.path.exists(self.db_file):
-            empty_db_file = os.path.join(dirname, f'assets/empty_data.db')
-            shutil.copy(empty_db_file, self.db_file)
-            logger.info('Created empty database')
+        self.db = DatabaseHelper(
+            ALL_DB_TABLES,
+            1,
+            self.db_file,
+            check_same_thread=False
+        )
 
-        self.reminders: Dict[int, Reminder] = {}
-        self.basic_configs: Dict[int, BasicConfig] = {}
-        self.logging_configs: Dict[int, LoggingConfig] = {}
-        self.sniped: List[Message] = []
-        self.cogs_list: List[str] = []
+        self.user_selected_messages: dict[int, str] = {}
+        self.reminders: dict[int, Reminder | None] = {}
+        self.basic_configs: dict[int, BasicConfig] = {}
+        self.logging_configs: dict[int, LoggingConfig] = {}
+        self.sniped: list[Message] = []
+        self.cogs_list: list[str] = []
 
         self.fully_ready = False
         self.start_time: datetime = None  # type: ignore
-        self.db: asqlite.Connection = None  # type: ignore
-        self.session = None
+        self.session: ClientSession | None = None
 
     async def setup_hook(self):
         self.loop.create_task(self.startup())
 
     async def get_context(self, message: Message, *, cls=CustomContext) -> CustomContext:
+        # pylint: disable=arguments-differ
         return await super().get_context(message, cls=cls)
 
     async def on_message(self, message):
+        # pylint: disable=arguments-differ
+
         if not self.fully_ready:
             await self.wait_for('fully_ready')
+
+        if not self.user:
+            return
 
         if message.content in [f'<@!{self.user.id}>', f'<@{self.user.id}>']:
             embed = create_embed(
@@ -118,108 +217,113 @@ class CustomBot(commands.Bot):
         await self.process_commands(message)
 
     async def startup(self):
+        await self.db.startup()
         await self.wait_until_ready()
 
         self.start_time: datetime = datetime.now(timezone.utc)
-
-        self.db: asqlite.Connection = await asqlite.connect(self.db_file, check_same_thread=False)
 
         await self.load_reminders()
         await self.load_basic_config()
         await self.load_logging_config()
 
+        logger.info('All configurations loaded!')
         self.fully_ready = True
         self.dispatch('fully_ready')
-
-    async def close(self):
-        await self.db.close()
-        await super().close()
 
     async def get_owner(self) -> User:
         if not self.owner_id and not self.owner_ids:
             info = await self.application_info()
             self.owner_id = info.owner.id
 
-        return await self.fetch_user(self.owner_id or list(self.owner_ids)[0])
+        return await self.fetch_user(self.owner_id or list(self.owner_ids if self.owner_ids else [])[0])
 
     async def load_reminders(self):
-        async with self.db.cursor() as cursor:
-            for row in await cursor.execute('SELECT * FROM reminders'):
-                message_id: int = row['id']
-                try:
-                    user: User = await self.fetch_user(row['user_id'])
-                except discord.NotFound:
-                    user: None = None
-                reminder: str = row['reminder']
-                end_time: int = row['end_time']
-                destination: Union[User, TextChannel] = self.get_channel(row['destination']) or user
+        async with self.db.conn() as conn:
+            async with conn.cursor() as cursor:
+                for row in await cursor.execute('SELECT * FROM reminders'):
+                    message_id: int = row['id']
+                    try:
+                        user: User | None = await self.fetch_user(row['user_id'])
+                    except discord.NotFound:
+                        user = None
+                    reminder: str = row['reminder']
+                    end_time: int = row['end_time']
+                    destination = self.get_channel(row['destination']) or user
 
-                if destination is None or user is None:
-                    continue
+                    if destination is None or user is None:
+                        continue
 
-                _reminder = Reminder(
-                    message_id=message_id,
-                    user=user,
-                    reminder=reminder,
-                    destination=destination,
-                    end_time=datetime.fromtimestamp(end_time, timezone.utc),
-                    bot=self
-                )
+                    _reminder = Reminder(
+                        message_id=message_id,
+                        user=user,
+                        reminder=reminder,
+                        destination=destination,
+                        end_time=datetime.fromtimestamp(end_time, timezone.utc),
+                        bot=self
+                    )
 
-                self.reminders[_reminder.id] = _reminder
+                    self.reminders[_reminder.id] = _reminder
 
     async def load_basic_config(self):
-        async with self.db.cursor() as cursor:
-            for row in await cursor.execute('SELECT * FROM basic_config'):
-                guild = self.get_guild(row['guild_id'])
-                prefix = row['prefix']
-                snipe = bool(row['snipe'])
-                mute_role = guild.get_role(row['mute_role']) if guild else None
+        async with self.db.conn() as conn:
+            async with conn.cursor() as cursor:
+                for row in await cursor.execute('SELECT * FROM basic_config'):
+                    guild = self.get_guild(row['guild_id'])
+                    prefix = row['prefix'] or None
+                    snipe = bool(row['snipe'])
+                    mute_role = guild.get_role(row['mute_role']) if guild else None
 
-                if not guild:
-                    continue
+                    if not guild:
+                        continue
 
-                config = BasicConfig(
-                    guild=guild,
-                    prefix=prefix,
-                    snipe=snipe,
-                    mute_role=mute_role
-                )
+                    config = BasicConfig(
+                        guild=guild,
+                        prefix=prefix,
+                        snipe=snipe,
+                        mute_role=mute_role
+                    )
 
-                if row['mute_role'] and not mute_role:
-                    await cursor.execute('UPDATE basic_config SET mute_role = ? WHERE guild_id = ?', (None, guild.id))
-                    await self.db.commit()
-                    continue
+                    if row['mute_role'] and not mute_role:
+                        await cursor.execute('UPDATE basic_config SET mute_role = ? WHERE guild_id = ?', (None, guild.id))
+                        await conn.commit()
+                        continue
 
-                self.basic_configs[config.guild.id] = config
+                    self.basic_configs[config.guild.id] = config
 
     async def load_logging_config(self):
-        async with self.db.cursor() as cursor:
-            for row in await cursor.execute('SELECT * FROM logging_config'):
-                guild: discord.Guild = self.get_guild(row['guild_id'])
+        async with self.db.conn() as conn:
+            async with conn.cursor() as cursor:
+                for row in await cursor.execute('SELECT * FROM logging_config'):
+                    guild = self.get_guild(row['guild_id'])
 
-                if not guild:
-                    continue
+                    if not guild:
+                        continue
 
-                kick_channel = guild.get_channel(row['kick_channel'])
-                ban_channel = guild.get_channel(row['ban_channel'])
-                purge_channel = guild.get_channel(row['purge_channel'])
-                delete_channel = guild.get_channel(row['delete_channel'])
-                mute_channel = guild.get_channel(row['mute_channel'])
+                    kick_channel = guild.get_channel(row['kick_channel'])
+                    ban_channel = guild.get_channel(row['ban_channel'])
+                    purge_channel = guild.get_channel(row['purge_channel'])
+                    delete_channel = guild.get_channel(row['delete_channel'])
+                    mute_channel = guild.get_channel(row['mute_channel'])
 
-                config = LoggingConfig(
-                    guild=guild,
-                    kick_channel=kick_channel,
-                    ban_channel=ban_channel,
-                    purge_channel=purge_channel,
-                    delete_channel=delete_channel,
-                    mute_channel=mute_channel
-                )
+                    config = LoggingConfig(
+                        guild=guild,
+                        kick_channel=kick_channel,
+                        ban_channel=ban_channel,
+                        purge_channel=purge_channel,
+                        delete_channel=delete_channel,
+                        mute_channel=mute_channel
+                    )
 
-                self.logging_configs[config.guild.id] = config
+                    self.logging_configs[config.guild.id] = config
+
+    def get_basic_config(self, guild: Guild) -> 'BasicConfig':
+        return self.basic_configs.get(guild.id, BasicConfig(guild))
+
+    def get_logging_config(self, guild: Guild) -> 'LoggingConfig':
+        return self.logging_configs.get(guild.id, LoggingConfig(guild))
 
     @staticmethod
-    def get_custom_prefix(_bot: 'CustomBot', message: discord.Message):
+    def get_custom_prefix(_bot: 'CustomBot', message: Message):
         default_prefixes = ['doggie.', 'Doggie.', 'dog.', 'Dog.']
 
         if not message.guild:
@@ -230,26 +334,27 @@ class CustomBot(commands.Bot):
         if not config or not config.prefix:
             return commands.when_mentioned_or(*default_prefixes)(_bot, message)
 
-        else:
-            return commands.when_mentioned_or(config.prefix)(_bot, message)
+        return commands.when_mentioned_or(config.prefix)(_bot, message)
 
+    def check_commands(self, cmds: list[app_commands.Command[Any, ..., Any] | app_commands.Group]):
+        for command in cmds:
+            if isinstance(command, app_commands.Group):
+                self.check_commands(command.commands)
+                continue
 
-class CustomMenu(menus.MenuPages):
-    @menus.button('\N{WASTEBASKET}\ufe0f', position=menus.Last(3))
-    async def do_trash(self, _):
-        self.stop()
-        await self.message.delete()
+            if isinstance(command, app_commands.ContextMenu):
+                continue
 
-    def stop(self):
-        self.call_end_event()
-        super().stop()
+            if command.description == '…':
+                logger.warning('App command "{}" missing description!', command.qualified_name)
 
-    async def finalize(self, timed_out):
-        self.call_end_event()
+            for parameter in command.parameters:
+                if parameter.description == '…':
+                    logger.warning('Parameter "{}" of App command "{}" missing description!', parameter.name, command.qualified_name)
 
-    def call_end_event(self):
-        self.bot.dispatch('finalize_menu', self.ctx)
-
+    def check_all_commands(self):
+        cmds = list(c for c in self.tree.walk_commands())
+        self.check_commands(cmds)
 
 class Emotes:
     # Emotes available in https://discord.gg/Uk6fg39cWn
@@ -297,9 +402,10 @@ class Emotes:
     member_leave = '<:memberleave:941816365772341298>'
     message_delete = '<:messagedelete:941816371401064490>'
     emote_create = '<:emotecreate:941816361561243700>'
+    timeout = '<:timeout:1519145193335427185>'
 
     @staticmethod
-    def channel(chann):
+    def channel(chann: discord.abc.GuildChannel | discord.PartialInviteChannel | discord.Thread | discord.Object):
         if chann.type == ChannelType.text:
             if isinstance(chann, TextChannel):
                 if chann.is_nsfw():
@@ -310,11 +416,12 @@ class Emotes:
         if chann.type == ChannelType.voice:
             return Emotes.voice
         if chann.type == ChannelType.category:
-            return ""
+            return ''
         if str(chann.type).endswith('thread'):
             return Emotes.thread
         if chann.type == ChannelType.stage_voice:
             return Emotes.stage
+        return ''
 
     @staticmethod
     def badges(user):
@@ -323,50 +430,33 @@ class Emotes:
 
         if user.bot:
             badges.append(Emotes.bot_tag)
-        if "staff" in flags:
+        if 'staff' in flags:
             badges.append(Emotes.staff)
-        if "partner" in flags:
+        if 'partner' in flags:
             badges.append(Emotes.partner)
-        if "hypesquad" in flags:
+        if 'hypesquad' in flags:
             badges.append(Emotes.hypesquad)
-        if "bug_hunter" in flags:
+        if 'bug_hunter' in flags:
             badges.append(Emotes.bughunter)
-        if "early_supporter" in flags:
+        if 'early_supporter' in flags:
             badges.append(Emotes.supporter)
-        if "hypesquad_briliance" in flags:
+        if 'hypesquad_briliance' in flags:
             badges.append(Emotes.brilliance)
-        if "hypesquad_bravery" in flags:
+        if 'hypesquad_bravery' in flags:
             badges.append(Emotes.bravery)
-        if "hypesquad_balance" in flags:
+        if 'hypesquad_balance' in flags:
             badges.append(Emotes.balance)
-        if "hypesquad_brilliance" in flags:
+        if 'hypesquad_brilliance' in flags:
             badges.append(Emotes.brilliance)
-        if "verified_bot" in flags:
+        if 'verified_bot' in flags:
             badges.append(Emotes.verified)
-        if "verified_bot_developer" in flags:
+        if 'verified_bot_developer' in flags:
             badges.append(Emotes.verified)
 
         if guess_user_nitro_status(user):
             badges.append(Emotes.nitro)
 
-        return " ".join(badges)
-
-
-class ReminderList(menus.ListPageSource):
-    async def format_page(self, menu, entries):
-        index = menu.current_page + 1
-        embed = create_embed(menu.ctx.author, title=f'Showing active reminders for {menu.ctx.author} '
-                                                    f'({index}/{self._max_pages}):')
-
-        for reminder in entries:
-            channel = reminder.destination if isinstance(reminder.destination, TextChannel) else None
-
-            embed.add_field(name=f'ID: {reminder.id}',
-                            value=f'**Reminder:** {str(reminder)[:1100]}\n'
-                                  f'**Ends at:** {user_friendly_dt(reminder.end_time)}\n'
-                                  f'**Destination:** {channel.mention if channel else "Your DMS!"}\n',
-                            inline=False)
-        return embed
+        return ' '.join(badges)
 
 
 @dataclass
@@ -374,7 +464,7 @@ class Reminder:
     message_id: int
     user: User
     reminder: str
-    destination: Union[User, TextChannel]
+    destination: GuildChannel | User | Thread | PrivateChannel
     end_time: datetime
     bot: CustomBot
     id: int = field(init=False)
@@ -386,17 +476,17 @@ class Reminder:
         self.bot.reminders[self.id] = self
 
     async def send_reminder(self):
-        async with self.bot.db.cursor() as cursor:
-            await cursor.execute(
-                'INSERT OR IGNORE INTO reminders VALUES (?, ?, ?, ?, ?)',
-                (self.message_id,
-                 self.user.id,
-                 self.reminder,
-                 int(self.end_time.timestamp()),
-                 self.destination.id)
+        await self.bot.db.execute(
+            'INSERT OR IGNORE INTO reminders VALUES (?, ?, ?, ?, ?)',
+            (
+                self.message_id,
+                self.user.id,
+                self.reminder,
+                int(self.end_time.timestamp()),
+                self.destination.id
             )
+        )
 
-        await self.bot.db.commit()
         await discord.utils.sleep_until(self.end_time)
 
         embed = discord.Embed(
@@ -414,12 +504,12 @@ class Reminder:
         else:
             embed.set_footer(
                 icon_url=fix_url(self.user.display_avatar),
-                text=f'This reminder is sent by you!'
+                text='This reminder is sent by you!'
             )
 
         try:
-            await self.destination.send(
-                f"**Hey {self.user.mention},**" if isinstance(self.destination, TextChannel) else None,
+            await self.destination.send(  # pyright: ignore[reportAttributeAccessIssue]
+                f'**Hey {self.user.mention},**' if isinstance(self.destination, TextChannel) else None,
                 embed=embed
             )
 
@@ -429,9 +519,7 @@ class Reminder:
         await self.remove()
 
     async def remove(self):
-        async with self.bot.db.cursor() as cursor:
-            await cursor.execute('DELETE FROM reminders WHERE id = (?)', (self.message_id,))
-        await self.bot.db.commit()
+        await self.bot.db.execute('DELETE FROM reminders WHERE id = (?)', (self.message_id,))
 
         self.bot.reminders[self.id] = None
         self.task.cancel()
@@ -443,62 +531,60 @@ class Reminder:
 @dataclass(frozen=True)
 class BasicConfig:
     guild: discord.Guild
-    prefix: Optional[str] = None
-    snipe: Optional[bool] = None
-    mute_role: Optional[discord.Role] = None
+    prefix: str | None = None
+    snipe: bool | None = None
+    mute_role: Role | None = None
 
     async def set_config(self, bot: CustomBot, **kwargs) -> 'BasicConfig':
         config = replace(self, **kwargs)
 
-        async with bot.db.cursor() as cursor:
-            await cursor.execute(
-                'REPLACE INTO basic_config VALUES(?, ?, ?, ?)',
-                (
-                    config.guild.id,
-                    config.prefix,
-                    config.snipe,
-                    config.mute_role.id if config.mute_role else None
-                )
+        await bot.db.execute(
+            'REPLACE INTO basic_config VALUES(?, ?, ?, ?)',
+            (
+                config.guild.id,
+                config.prefix,
+                config.snipe,
+                config.mute_role.id if config.mute_role else None
             )
-
-        await bot.db.commit()
+        )
 
         bot.basic_configs[config.guild.id] = config
-
         return config
 
 
 @dataclass(frozen=True)
 class LoggingConfig:
     guild: discord.Guild
-    kick_channel: Optional[TextChannel] = None
-    ban_channel: Optional[TextChannel] = None
-    purge_channel: Optional[TextChannel] = None
-    delete_channel: Optional[TextChannel] = None
-    mute_channel: Optional[TextChannel] = None
+    kick_channel: TextChannel | None = None
+    ban_channel: TextChannel | None = None
+    purge_channel: TextChannel | None = None
+    delete_channel: TextChannel | None = None
+    mute_channel: TextChannel | None = None
 
     async def set_config(self, bot: CustomBot, **kwargs) -> 'LoggingConfig':
         config = replace(self, **kwargs)
 
-        async with bot.db.cursor() as cursor:
-            await cursor.execute(
-                'REPLACE INTO logging_config VALUES(?, ?, ?, ?, ?, ?)',
-                (
-                    config.guild.id,
-                    config.kick_channel.id if config.kick_channel else None,
-                    config.ban_channel.id if config.ban_channel else None,
-                    config.purge_channel.id if config.purge_channel else None,
-                    config.delete_channel.id if config.delete_channel else None,
-                    config.mute_channel.id if config.mute_channel else None
-                )
+        await bot.db.execute(
+            'REPLACE INTO logging_config VALUES(?, ?, ?, ?, ?, ?)',
+            (
+                config.guild.id,
+                config.kick_channel.id if config.kick_channel else None,
+                config.ban_channel.id if config.ban_channel else None,
+                config.purge_channel.id if config.purge_channel else None,
+                config.delete_channel.id if config.delete_channel else None,
+                config.mute_channel.id if config.mute_channel else None
             )
-
-        await bot.db.commit()
+        )
 
         bot.logging_configs[config.guild.id] = config
-
         return config
 
 
-class MissingAPIKey(commands.CommandError):
+class DoggieBotException(Exception):
+    def __init__(self, title, description, view: ui.View | None = None):
+        self.title = str(title)
+        self.description = str(description)
+        self.view = view
+
+class MissingAPIKey(DoggieBotException):
     pass

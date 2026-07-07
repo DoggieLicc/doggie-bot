@@ -1,14 +1,13 @@
-import discord
 import asyncio
-import aiohttp
 import logging
 import inspect
 
-import utils
-
-from loguru import logger
+import discord
+import aiohttp
 from discord.ext.prometheus import PrometheusCog, PrometheusLoggingHandler
+from loguru import logger
 
+import utils
 
 cogs = [
     'cogs.info',
@@ -41,6 +40,7 @@ intents = discord.Intents(
     bans=True
 )
 
+D_BOT_TOKEN = '=PLACEHOLDER='
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
@@ -57,26 +57,32 @@ class InterceptHandler(logging.Handler):
             frame = frame.f_back
             depth += 1
 
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        message = record.getMessage().replace(D_BOT_TOKEN, 'BOT_TOKEN')
+        logger.opt(depth=depth, exception=record.exc_info).log(level, message)
 
 
 async def startup():
     discord.utils.setup_logging(handler=InterceptHandler())
 
     bot = utils.CustomBot(
-        activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie."'),
-        allowed_mentions=discord.AllowedMentions(replied_user=False),
+        activity=discord.Game(name='SLASH COMMANDS UPDATE!: /changelog - Default prefixes: "@Doggie Bot" or "dog."'),
+        allowed_mentions=discord.AllowedMentions.none(),
         command_prefix=utils.CustomBot.get_custom_prefix,
         help_command=utils.CustomHelp(),
         strip_after_prefix=True,
         case_insensitive=True,
         max_messages=20000,
         intents=intents,
+        allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=True),
+        allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=True)
     )
+
+    global D_BOT_TOKEN  # pylint: disable=global-statement
+    D_BOT_TOKEN = bot.config['bot_token']
 
     if bot.config['enable_prometheus']:
         port = int(bot.config.get('prometheus_port', 8000))
-        logger.info('Prometheus enabled on port %d', port)
+        logger.info('Prometheus enabled on port {}', port)
         logger.add(PrometheusLoggingHandler())
         await bot.add_cog(PrometheusCog(bot, port=port))
 
@@ -84,6 +90,8 @@ async def startup():
     for cog in cogs:
         await bot.load_extension(cog)
         logger.debug('Loaded cog: {}', cog)
+
+    bot.check_all_commands()
 
     async with aiohttp.ClientSession(headers=headers) as session:
         bot.session = session

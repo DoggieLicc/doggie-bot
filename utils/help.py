@@ -1,7 +1,8 @@
 import discord
-import utils
+from discord.ext import commands
 
-from discord.ext import commands, menus
+import utils
+from utils.menus import EntryMenu
 
 
 def format_first_message(ctx):
@@ -22,51 +23,101 @@ def format_first_message(ctx):
               f'[user] - User is an optional argument\n'
               f'<users...> - You can specify more than one user\n'
               f'[amount=100] - Amount is optional, and 100 is the default\n'
-              f'̶c̶o̶m̶m̶a̶n̶d - You can\'t run this command\n'
-              f'```'
+              f'̶c̶o̶m̶m̶a̶n̶d - You can\'t run this command here\n'
+              f'```\n'
+              f'**This bot also supports slash commands, type `/` to view available commands**'
     )
 
     for cog in ctx.bot.cogs.values():
-        if not any([command.hidden for command in cog.get_commands()]) and cog.get_commands():
+        if not any(command.hidden for command in cog.get_commands()) and cog.get_commands():
             embed.add_field(name=cog.qualified_name, value=cog.description or 'No description', inline=False)
 
     return embed
 
 
-class HelpPageSource(menus.ListPageSource):
-    def __init__(self, source, help_instance):
+class HelpPageView(EntryMenu):
+    def __init__(self, owner, items: list[commands.Cog | discord.Embed], help_instance: 'CustomHelp'):
         self.help: CustomHelp = help_instance
-        super().__init__(source, per_page=1)
+        super().__init__(owner, items, 1)
+        self.cogs: list[commands.Cog] = [c for c in items if not isinstance(c, discord.Embed)]
+        options = []
+        category_counts = help_instance.category_counts
+        for cog in self.cogs:
+            options.append(
+                discord.SelectOption(
+                    label=f'{cog.qualified_name} - {category_counts[cog]} commands',
+                    value=cog.qualified_name
+                )
+            )
 
-    async def format_page(self, menu, cog: commands.Cog):
-        if isinstance(cog, discord.Embed):
-            return cog
+        select = discord.ui.Select(
+            custom_id=f'{help_instance.context.message.id}:help',
+            placeholder='Select Category: ',
+            options=options,
+            row=-1
+        )
+        select.interaction_check = self.interaction_check
+        select.callback = self.category_select_callback
+        self.add_item(select)
 
-        index = menu.current_page
+    async def category_select_callback(self, interaction: discord.Interaction):
+        select = [c for c in self.children if isinstance(c, discord.ui.Select)][0]
+        option = select.values[0]
+        selected_category: commands.Cog = [c for c in self.cogs if c.qualified_name == option][0]
+        category_index = [i for i, val in enumerate(self.cogs) if val == selected_category][0]
+
+        self.current_index = category_index + 2
+        await self.update_page(interaction)
+
+    async def get_page_contents(self):
+        entry = self.get_page_items()[0]
+        if isinstance(entry, discord.Embed):
+            return {'embed': entry}
 
         embed = await self.help.get_cog_embed(
-            cog,
-            title=f'Showing {cog.qualified_name.lower()} commands ({index}/{self._max_pages - 1}):'
+            entry,
+            title=f'Showing {entry.qualified_name.lower()} commands ({self.current_index-1}/{self.max_page-1}):'
         )
 
-        return embed
+        return {'embed': embed}
 
 
 class CustomHelp(commands.HelpCommand):
+    cached_category_counts: dict[commands.Cog, int] = {}
+
+    # pylint: disable=arguments-differ,invalid-overridden-method
     async def strikethrough_if_invalid(self, command: commands.Command):
         try:
-            if await command.can_run(self.context):
-                return self.get_command_signature(command)
-        except commands.CommandError:
-            pass
+            for parent in command.parents:
+                if not await parent.can_run(self.context):
+                    return f'~~{self.get_command_signature(command)}~~'
 
-        return f'~~{self.get_command_signature(command)}~~'
+            if not await command.can_run(self.context):
+                return f'~~{self.get_command_signature(command)}~~'
+        except commands.CommandError:
+            return f'~~{self.get_command_signature(command)}~~'
+
+        return self.get_command_signature(command)
 
     def get_command_signature(self, command):
         if not command.signature:
             return command.qualified_name
 
         return f'{command.qualified_name} - {command.signature}'
+
+    async def send(self, *args, **kwargs):
+        if not self.context.interaction:
+            await self.get_destination().send(*args, **kwargs)
+            return
+
+        try:
+            await self.context.send(*args, **kwargs, ephemeral=True)
+        except discord.InteractionResponded:
+            await self.context.interaction.edit_original_response(*args, **kwargs)
+        except discord.NotFound:
+            if self.context.interaction.app_permissions.send_messages:
+                await self.get_destination().send(*args, **kwargs)
+
 
     async def prepare_help_command(self, ctx, command=None):
         if not self.cog:
@@ -84,7 +135,7 @@ class CustomHelp(commands.HelpCommand):
         if command.aliases:
             embed.add_field(name='Aliases:', value=', '.join(command.aliases))
 
-        await self.get_destination().send(embed=embed)
+        await self.send(embed=embed)
 
     async def send_group_help(self, group):
         embed = utils.create_embed(
@@ -100,19 +151,19 @@ class CustomHelp(commands.HelpCommand):
                 inline=False
             )
 
-        await self.get_destination().send(embed=embed)
+        await self.send(embed=embed)
 
     async def send_bot_help(self, mapping):
         source = list(self.context.bot.cogs.values())
-        source = [c for c in source if not any([command.hidden for command in c.get_commands()]) if c.get_commands()]
+        source = [c for c in source if not any(command.hidden for command in c.get_commands()) if c.get_commands()]
         source[:0] = [format_first_message(self.context)]
 
-        pages = utils.CustomMenu(source=HelpPageSource(source, self), clear_reactions_after=True)
-        await pages.start(self.context)
+        view = HelpPageView(self.context.author, source, self)
+        await self.send(view=view, embed=format_first_message(self.context))
 
     async def send_cog_help(self, cog):
         embed = await self.get_cog_embed(cog)
-        await self.get_destination().send(embed=embed)
+        await self.send(embed=embed)
 
     async def command_not_found(self, string):
         embed = utils.create_embed(
@@ -122,7 +173,7 @@ class CustomHelp(commands.HelpCommand):
             color=discord.Color.red()
         )
 
-        await self.get_destination().send(embed=embed)
+        await self.send(embed=embed)
 
     async def subcommand_not_found(self, command, string):
         embed = utils.create_embed(
@@ -133,10 +184,23 @@ class CustomHelp(commands.HelpCommand):
             color=discord.Color.red()
         )
 
-        await self.get_destination().send(embed=embed)
+        await self.send(embed=embed)
 
     async def send_error_message(self, error):
         pass
+
+    @property
+    def category_counts(self) -> dict[commands.Cog, int]:
+        if CustomHelp.cached_category_counts:
+            return CustomHelp.cached_category_counts
+
+        category_count = {}
+        for cog in self.context.bot.cogs.values():
+            cog_count = sum(1 for c in cog.walk_commands() if isinstance(c, (commands.Command, commands.HybridCommand)))
+            category_count[cog] = cog_count
+
+        CustomHelp.cached_category_counts = category_count
+        return category_count
 
     async def get_cog_embed(self, cog: commands.Cog, title=None) -> discord.Embed:
         embed = utils.create_embed(
@@ -145,21 +209,32 @@ class CustomHelp(commands.HelpCommand):
             description=cog.description
         )
 
-        for command in cog.get_commands():
+        def command_sorter(command: commands.Command | commands.Group) -> int:
+            if isinstance(command, commands.Group):
+                return 200 + ord(command.name[0])
+            return ord(command.name[0])
 
-            if command.short_doc:
+        for command in sorted(cog.get_commands(), key=command_sorter):
+            if isinstance(command, (commands.Group, commands.HybridGroup)):
+                for subcommand in sorted(command.commands, key=command_sorter):
+                    if isinstance(subcommand, (commands.Group, commands.HybridGroup)):
+                        for subsubcommand in sorted(subcommand.commands, key=command_sorter):
+                            embed.add_field(
+                                name=await self.strikethrough_if_invalid(subsubcommand),
+                                value=subsubcommand.short_doc,
+                                inline=False
+                        )
+                    elif subcommand.short_doc:
+                        embed.add_field(
+                            name=await self.strikethrough_if_invalid(subcommand),
+                            value=subcommand.short_doc,
+                            inline=False
+                        )
+            elif command.short_doc:
                 embed.add_field(
                     name=await self.strikethrough_if_invalid(command),
                     value=command.short_doc,
                     inline=False
                 )
-
-            if isinstance(command, commands.Group):
-                for subcommand in command.commands:
-                    embed.add_field(
-                        name=await self.strikethrough_if_invalid(subcommand),
-                        value=subcommand.short_doc,
-                        inline=False
-                    )
 
         return embed

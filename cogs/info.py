@@ -1,53 +1,28 @@
-import discord
 import base64
 import datetime
-import utils
 
-from typing import Optional, Union
+from discord import Emoji, Member, Role, User, app_commands, File, Thread, Invite, Message, TextChannel, VoiceChannel, StageChannel, NotFound, Forbidden, HTTPException
+from discord.ext import commands
+from discord.abc import GuildChannel
+from discord.utils import oauth_url, snowflake_time
 
 import whoisdomain as whois
-from wikipya import Wikipya
+import utils
+from utils import CustomBot, CustomContext
+from utils.menus import PaginatedMenu
 
-from discord import Color, Member, Role, User
-from discord.ext import commands
-
-
-def sync_whois(ctx: utils.CustomContext, domain: str):
-    if not isinstance(domain, str):
-        return utils.create_embed(
-            ctx.author,
-            title='Error!',
-            description='It seems that you confused this command with ``user``, '
-                        'this command is for [WHOIS](https://www.whois.net) lookup only.',
-            color=discord.Color.red()
-        )
-
+def sync_whois(ctx: CustomContext, domain: str):
     try:
-        query = whois.query(domain)
+        query = whois.query(domain, ignore_returncode=True)
 
-    except whois.exceptions.FailedParsingWhoisOutput:
-        return utils.create_embed(
-            ctx.author,
-            title='Error!',
-            description='Can\'t get WHOIS lookup! (Server down?)',
-            color=discord.Color.red()
-        )
+    except whois.exceptions.FailedParsingWhoisOutput as e:
+        raise utils.DoggieBotException('Lookup failed!', 'Can\'t get WHOIS lookup! (Server down?)') from e
 
-    except whois.exceptions.UnknownTld:
-        return utils.create_embed(
-            ctx.author,
-            title='Error!',
-            description='Sorry, can\'t get domains from that TLD!',
-            color=discord.Color.red()
-        )
+    except whois.exceptions.UnknownTld as e:
+        raise utils.DoggieBotException('Unsupported TLD', 'Sorry, can\'t get domains from that TLD!') from e
 
     if not query:
-        return utils.create_embed(
-            ctx.author,
-            title='Error!',
-            description='Domain not found! (This command is for website domains, not discord users)',
-            color=discord.Color.red()
-        )
+        raise utils.DoggieBotException('Domain not found!', 'That domain wasn\'t found.')
 
     embed = utils.create_embed(ctx.author, title=f'WHOIS Lookup for {domain}')
 
@@ -75,19 +50,50 @@ def sync_whois(ctx: utils.CustomContext, domain: str):
     return embed
 
 
+class EmotesView(PaginatedMenu[Emoji]):
+    def format_line(self, item) -> str:
+        return (f'**Emote:** {item}\n'
+                f'**Name:** {item.name}\n'
+                f'**ID:** {item.id}\n')
+
+    async def get_page_contents(self) -> dict:
+        embed = utils.create_embed(
+            self.owner,
+            title=f'Listing emotes: ({self.current_index}/{self.max_page})',
+            description=self.current_page
+        )
+        return {'embed': embed}
+
+class ChannelsView(PaginatedMenu[GuildChannel]):
+    def format_line(self, item) -> str:
+        return (f'**Channel:** {item.mention}\n'
+                f'**Category:** {item.type.name.title()}\n'
+                f'**ID:** {item.id}\n')
+
+    async def get_page_contents(self) -> dict:
+        embed = utils.create_embed(
+            self.owner,
+            title=f'Listing channels: ({self.current_index}/{self.max_page})',
+            description=self.current_page
+        )
+        return {'embed': embed}
+
+
 class Info(commands.Cog, name='Information'):
     """Get info for Discord objects, domains, and more"""
 
-    def __init__(self, bot: utils.CustomBot):
-        self.wiki = Wikipya(lang="en")
-        self.bot: utils.CustomBot = bot
+    def __init__(self, bot: CustomBot):
+        self.bot: CustomBot = bot
 
-    @commands.command(aliases=['guild'])
+    @commands.hybrid_command(aliases=['guild'])
     @commands.guild_only()
-    async def server(self, ctx: utils.CustomContext):
-        """Lists info for the current guild"""
+    @app_commands.allowed_installs(users=False)
+    async def server(self, ctx: CustomContext):
+        """Shows info for this server"""
+        if not ctx.guild:
+            return
 
-        guild: discord.Guild = ctx.guild
+        guild = ctx.guild
 
         bot_count = sum(member.bot for member in guild.members)
 
@@ -112,7 +118,7 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='General Info:',
-            value=f'Description: {guild.description or "No description"}\n'
+            value=f'Description: {guild.description or 'No description'}\n'
                   f'Owner: {guild.owner} ({guild.owner_id})\n'
                   f'ID: {guild.id}\n'
                   f'Creation date: {utils.user_friendly_dt(guild.created_at)}',
@@ -126,38 +132,36 @@ class Info(commands.Cog, name='Information'):
             value=f'Boost level: {guild.premium_tier} \n'
                   f'Amount of boosters: {guild.premium_subscription_count}\n'
                   f'Booster Role: '
-                  f'{guild.premium_subscriber_role.mention if guild.premium_subscriber_role else "None"}',
+                  f'{guild.premium_subscriber_role.mention if guild.premium_subscriber_role else 'None'}',
             inline=False
         )
 
         embed.add_field(
             name='Counts:',
             value=f'Members: {guild.member_count} total members\n'
-                  f'{guild.member_count - bot_count} humans; {bot_count} bots\n'
+                  f'{(guild.member_count or 0) - bot_count} humans; {bot_count} bots\n'
                   f'Roles: {len(guild.roles)} roles\n'
                   f'Text channels: {len(guild.text_channels)} channels\n'
                   f'Voice Channels: {len(guild.voice_channels)} channels\n'
-                  f'Emotes: {len(ctx.guild.emojis)} emotes',
+                  f'Emotes: {len(guild.emojis)} emotes',
             inline=False
         )
 
         embed.add_field(
             name='Security Info:',
-            value=f'2FA required?: {"Yes" if guild.mfa_level else "No"}\n'
-                  f'Verification Level: {str(guild.verification_level).replace("_", " ").title()}\n'
-                  f'NSFW Filter: {str(guild.explicit_content_filter).replace("_", " ").title()}'
+            value=f'2FA required?: {'Yes' if guild.mfa_level else 'No'}\n'
+                  f'Verification Level: {str(guild.verification_level).replace('_', ' ').title()}\n'
+                  f'NSFW Filter: {str(guild.explicit_content_filter).replace('_', ' ').title()}'
         )
 
         await ctx.send(embed=embed)
 
-    @commands.command(aliases=['member', 'ui'])
-    async def user(self, ctx: utils.CustomContext, *, user: Optional[Union[discord.Member, discord.User, str]]):
-        """Shows information about the user specified, if no user specified then it returns info for invoker"""
+    @commands.hybrid_command(aliases=['member', 'ui'])
+    @app_commands.describe(user='The user to get info about.')
+    async def user(self, ctx: CustomContext, user: Member | User | None):
+        """Shows information about the user specified, if no user specified then it returns info for you"""
 
-        user: Union[discord.Member, discord.User, str] = user or ctx.author
-
-        if isinstance(user, str):
-            raise commands.UserNotFound(user)
+        user = user or ctx.author
 
         fetched = user if user.banner else await self.bot.fetch_user(user.id)
 
@@ -174,7 +178,7 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(
             name=f'Is bot? {utils.Emotes.bot_tag}',
             value=f'Yes\n'
-                  f'[Invite This Bot]({discord.utils.oauth_url(user.id)})' if user.bot else 'No',
+                  f'[Invite This Bot]({oauth_url(user.id)})' if user.bot else 'No',
             inline=False
         )
 
@@ -186,7 +190,7 @@ class Info(commands.Cog, name='Information'):
             inline=False
         )
 
-        if isinstance(user, discord.Member) and user.guild == ctx.guild:
+        if isinstance(user, Member) and user.guild == ctx.guild and ctx.guild and user:
             role_mentions = utils.shorten_below_number(
                 [role.mention for role in reversed(user.roles)][:-1],
                 separator=' ',
@@ -196,10 +200,10 @@ class Info(commands.Cog, name='Information'):
 
             embed.add_field(
                 name='Member Info:',
-                value=f'**Nickname:** {user.nick or "No nickname"}\n'
+                value=f'**Nickname:** {user.nick or 'No nickname'}\n'
                       f'**Joined Server At:** {utils.user_friendly_dt(user.joined_at)}\n'
                       f'**Highest Role:** {top_role}\n'
-                      f'**Roles:** {role_mentions or "No roles!"}',
+                      f'**Roles:** {role_mentions or 'No roles!'}',
                 inline=False
             )
 
@@ -211,38 +215,48 @@ class Info(commands.Cog, name='Information'):
 
         await ctx.send(embed=embed)
 
-    @commands.command(aliases=['pfp'])
-    async def avatar(self, ctx: utils.CustomContext, *, user: Optional[discord.User]):
-        """Shows user's avatar using their ID or name"""
+    @commands.hybrid_command(aliases=['pfp'])
+    @app_commands.describe(user='The user to get info about.')
+    async def avatar(self, ctx: CustomContext, user: Member | User | None):
+        """Shows the avatar of the specified user, if no user specified then it returns info for you"""
 
-        user: discord.User = user or ctx.author
+        user = user or ctx.author
+
+        avatar = user.display_avatar
+
+        addit_anim_links = ''
+        if avatar.is_animated():
+            addit_anim_links = f' | [GIF]({avatar.with_format('gif')})'
 
         embed = utils.create_embed(
             ctx.author,
+            description=f'[JPG]({avatar.with_format('jpg')}) | [WEBP]({avatar.with_format('webp')}) | [PNG]({avatar.with_format('png')})' + addit_anim_links,
             title=f'Avatar of {user}:',
-            image=user.display_avatar
+            image=avatar
         )
 
         await ctx.send(embed=embed)
 
-    @commands.command(aliases=['inv'])
-    async def invite(self, ctx: utils.CustomContext, invite: discord.Invite):
+    @commands.hybrid_command(aliases=['inv'])
+    @app_commands.describe(invite='The Discord invite to get info for')
+    async def invite(self, ctx: CustomContext, invite: Invite):
         """Shows info for an invite using a invite URL or its code"""
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Invite Info: {utils.Emotes.invite}',
-            thumbnail=invite.guild.icon,
-            image=invite.guild.banner
+            thumbnail=getattr(invite.guild, 'icon', None),
+            image=getattr(invite.guild, 'banner', None)
         )
 
-        embed.add_field(
-            name='Invite channel:',
-            value=f'**Name:** #{invite.channel.name} {utils.Emotes.channel(invite.channel)}\n'
-                  f'**ID:** {invite.channel.id}\n'
-                  f'**Created at:** {utils.user_friendly_dt(invite.channel.created_at)}',
-            inline=True
-        )
+        if invite.channel:
+            embed.add_field(
+                name='Invite channel:',
+                value=f'**Name:** #{getattr(invite.channel, 'name', 'Unknown')} {utils.Emotes.channel(invite.channel)}\n'
+                    f'**ID:** {invite.channel.id}\n'
+                    f'**Created at:** {utils.user_friendly_dt(invite.channel.created_at)}',
+                inline=True
+            )
 
         embed.add_field(
             name='Active members: Total members',
@@ -258,20 +272,26 @@ class Info(commands.Cog, name='Information'):
             inline=False
         )
 
-        embed.add_field(
-            name='Server Info:',
-            value=f'**Name:** {invite.guild}\n'
-                  f'**Description:** {invite.guild.description or "None"}\n'
-                  f'**ID:** {invite.guild.id}\n'
-                  f'**Created at:** {utils.user_friendly_dt(invite.guild.created_at)}'
-        )
+        if invite.guild:
+            embed.add_field(
+                name='Server Info:',
+                value=f'**Name:** {invite.guild}\n'
+                    f'**Description:** {getattr(invite.guild, 'description', 'None')}\n'
+                    f'**ID:** {invite.guild.id}\n'
+                    f'**Created at:** {utils.user_friendly_dt(invite.guild.created_at)}'
+            )
 
         await ctx.send(embed=embed)
 
-    @commands.command(aliases=['chann', 'chan'])
+    @commands.hybrid_command(aliases=['chann', 'chan'])
     @commands.guild_only()
-    async def channel(self, ctx: utils.CustomContext, *, channel: Union[discord.abc.GuildChannel, discord.Thread]):
-        """Shows info for the channel specified using channel mention or ID"""
+    @app_commands.allowed_installs(users=False)
+    @app_commands.describe(channel='The channel to get info for')
+    async def channel(self, ctx: CustomContext, channel: GuildChannel | Thread):
+        """Shows info for the channel specified"""
+
+        if not ctx.guild or not ctx.channel:
+            return
 
         embed = utils.create_embed(
             ctx.author,
@@ -279,43 +299,43 @@ class Info(commands.Cog, name='Information'):
             thumbnail=ctx.guild.icon
         )
 
-        if isinstance(channel, (discord.TextChannel, discord.Thread)):
+        if isinstance(channel, (TextChannel, Thread)):
             slowmode = 'Disabled' if not channel.slowmode_delay else f'{channel.slowmode_delay} seconds'
             embed.add_field(name=f'Slowmode: {utils.Emotes.slowmode}', value=slowmode, inline=False)
             embed.add_field(name='NSFW?:', value=('Yes' if channel.is_nsfw() else 'No'), inline=False)
 
-            if not isinstance(channel, discord.Thread):
+            if not isinstance(channel, Thread):
                 embed.add_field(name='Topic:', value=(channel.topic or 'No topic set'), inline=False)
 
             else:
                 embed.add_field(
                     name='Thread Info',
                     value=f'{len(await channel.fetch_members())} members\n'
-                          f'Archived?: {"Yes" if channel.archived else "No"}\n'
-                          f'Locked?: {"Yes" if channel.locked else "No"}\n'
+                          f'Archived?: {'Yes' if channel.archived else 'No'}\n'
+                          f'Locked?: {'Yes' if channel.locked else 'No'}\n'
                           f'Archive timestamp: {utils.user_friendly_dt(channel.archive_timestamp)}\n'
                           f'Archive time: {channel.auto_archive_duration} seconds\n'
-                          f'Creator: {channel.owner.mention}',
+                          f'Creator: {channel.owner.mention if channel.owner else 'Unknown'}',
                     inline=False
                 )
 
-        if isinstance(channel, discord.VoiceChannel):
+        if isinstance(channel, VoiceChannel):
             embed.add_field(
                 name='Voice Channel Info:',
                 value=f'**Bitrate:** {round(channel.bitrate / 1000)}kbps\n'
-                      f'**Region:** {str((channel.rtc_region or "Automatic")).title()}\n'
+                      f'**Region:** {str((channel.rtc_region or 'Automatic')).title()}\n'
                       f'**# Connected:** {len(channel.members)} connected '
-                      f'{f"/ {channel.user_limit} max" if channel.user_limit else ""}',
+                      f'{f'/ {channel.user_limit} max' if channel.user_limit else ''}',
                 inline=False
             )
 
-        if isinstance(channel, discord.StageChannel):
+        if isinstance(channel, StageChannel):
             embed.add_field(name='Connected:', value=f'{len(channel.members)} connected')
             embed.add_field(name='Region:', value=str((channel.rtc_region or 'Automatic')).title())
 
         embed.add_field(
             name='General Channel Info:',
-            value=f'**Type:** {str(channel.type).replace("_", " ").title()} channel\n'
+            value=f'**Type:** {str(channel.type).replace('_', ' ').title()} channel\n'
                   f'**Category:** {channel.category}\n'
                   f'**ID:** {channel.id}\n'
                   f'**Created at:** {utils.user_friendly_dt(channel.created_at)}',
@@ -324,10 +344,15 @@ class Info(commands.Cog, name='Information'):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
-    async def role(self, ctx: utils.CustomContext, *, role: discord.Role):
-        """Shows info for the role specified using role mention or ID"""
+    @app_commands.allowed_installs(users=False)
+    @app_commands.describe(role='The role to get info for')
+    async def role(self, ctx: CustomContext, role: Role):
+        """Shows info for the role specified"""
+
+        if not ctx.guild:
+            return
 
         embed = utils.create_embed(
             ctx.author,
@@ -335,12 +360,12 @@ class Info(commands.Cog, name='Information'):
             thumbnail=role.icon
         )
 
-        if role.is_bot_managed():
+        if role.is_bot_managed() and role.tags and role.tags.bot_id:
             bot = ctx.guild.get_member(role.tags.bot_id)
             embed.add_field(name='Bot manager name:', value=str(bot), inline=False)
             embed.add_field(name='Bot manager ID:', value=role.tags.bot_id, inline=False)
 
-        elif role.is_integration():
+        elif role.is_integration() and role.tags and role.tags.integration_id:
             embed.add_field(name='Integration ID:', value=role.tags.integration_id, inline=False)
 
         embed.add_field(
@@ -351,8 +376,8 @@ class Info(commands.Cog, name='Information'):
                   f'**Color:** {role.color}\n'
                   f'**Created at:** {utils.user_friendly_dt(role.created_at)}\n'
                   f'**# members with role:** {len(role.members)}\n'
-                  f'**Mentionable?:** {"Yes" if role.mentionable else "No"}\n'
-                  f'**Hoisted?:** {"Yes" if role.hoist else "No"}\n',
+                  f'**Mentionable?:** {'Yes' if role.mentionable else 'No'}\n'
+                  f'**Hoisted?:** {'Yes' if role.hoist else 'No'}\n',
             inline=False
         )
 
@@ -364,56 +389,43 @@ class Info(commands.Cog, name='Information'):
 
         await ctx.send(embed=embed)
 
-    @commands.command(aliases=['emoji'])
-    async def emote(
-            self,
-            ctx: utils.CustomContext,
-            emoji: Union[discord.Emoji, discord.PartialEmoji, utils.NitrolessEmoteConverter]):
-        """Shows info of emote using the emote ID or emote itself"""
+    @commands.hybrid_command(aliases=['emoji'])
+    @app_commands.describe(emote='The emote to get info for')
+    async def emote(self, ctx: CustomContext, emote: utils.PartialEmoteConverter):
+        """Shows info of a custom Discord emote"""
+
+        if not emote.id:
+            raise utils.DoggieBotException('Invalid Emote!', 'This doesn\'t seem like a valid emote...')
 
         embed = utils.create_embed(
             ctx.author,
             title=f'Info for custom emote: {utils.Emotes.emoji}',
-            thumbnail=emoji.url
+            thumbnail=emote.url
         )
 
-        embed.add_field(name='Emote name:', value=emoji.name, inline=False)
-        embed.add_field(name='Emote ID:', value=emoji.id, inline=False)
-        embed.add_field(name='Animated?:', value='Yes' if emoji.animated else 'No')
-        embed.add_field(name='Created at:', value=utils.user_friendly_dt(emoji.created_at), inline=False)
+        embed.add_field(name='Emote name:', value=emote.name, inline=False)
+        embed.add_field(name='Emote ID:', value=emote.id, inline=False)
+        embed.add_field(name='Animated?:', value='Yes' if emote.animated else 'No')
+        embed.add_field(name='Created at:', value=utils.user_friendly_dt(emote.created_at), inline=False)
 
         await ctx.send(embed=embed)
 
-    @commands.command()
-    async def token(self, ctx: utils.CustomContext, token: str):
-        """Shows info of an account/bot token! (Don't use valid tokens in public servers!)"""
+    @commands.hybrid_command()
+    @app_commands.describe(token='The Discord account token to get info for')
+    async def token(self, ctx: CustomContext, token: str):
+        """Shows info of an account/bot token!"""
 
-        token = token.split('.', 2)
-        if len(token) != 3:
-            embed = utils.create_embed(
-                ctx.author,
-                title='Error!',
-                description='Invalid token!',
-                color=discord.Color.red()
-            )
+        tokens = token.split('.', 2)
+        if len(tokens) != 3:
+            raise utils.DoggieBotException('Invalid token!', 'The specified token is not a valid Discord token')
 
-            return await ctx.send(embed=embed)
-
-        # noinspection PyBroadException
+        # pylint: disable=broad-exception-caught
         try:
-            user = await self.bot.fetch_user(int(base64.b64decode(token[0])))
-            bytes_int = base64.urlsafe_b64decode(token[1] + '==')
+            user = await self.bot.fetch_user(int(base64.b64decode(tokens[0])))
+            bytes_int = base64.urlsafe_b64decode(tokens[1] + '==')
             bytes_decoded = int.from_bytes(bytes_int, 'big')
-
-        except Exception:
-            embed = utils.create_embed(
-                ctx.author,
-                title='Error!',
-                description='Invalid token!',
-                color=discord.Color.red()
-            )
-
-            return await ctx.send(embed=embed)
+        except Exception as e:
+            raise utils.DoggieBotException('Invalid token!', 'The specified token is not a valid Discord token') from e
 
         time = datetime.datetime.utcfromtimestamp(bytes_decoded)
 
@@ -429,7 +441,7 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(
             name='Token Info:',
-            value=f'**Token:** {".".join(token)}\n'
+            value=f'**Token:** {'.'.join(tokens)}\n'
                   f'**Creation Date:** {utils.user_friendly_dt(time)}',
             inline=False
         )
@@ -438,19 +450,20 @@ class Info(commands.Cog, name='Information'):
             name='User Info:',
             value=f'**Name:** {user}\n'
                   f'**ID:** {user.id}\n'
-                  f'**Is bot?:** {"Yes" if user.bot else "No"}\n'
+                  f'**Is bot?:** {'Yes' if user.bot else 'No'}\n'
                   f'**Created at:** {utils.user_friendly_dt(user.created_at)}'
         )
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, ephemeral=True)
 
-    @commands.command(aliases=['msg'])
-    async def message(self, ctx: utils.CustomContext, message: discord.Message):
-        """Gets information for a Discord Message!
-        You can specify the message using the message's link"""
+    @commands.hybrid_command(aliases=['msg'])
+    @app_commands.allowed_installs(users=False)
+    @app_commands.describe(message='The message to get info for, best to use the message link')
+    async def message(self, ctx: CustomContext, message: Message):
+        """Gets information for a Discord Message"""
 
-        if message.guild != ctx.guild:
-            raise commands.MessageNotFound(message)
+        if message.guild != ctx.guild or (message.guild is None and (message.channel != ctx.channel)):
+            raise utils.DoggieBotException('Invalid message!', 'Can\'t get a message from a different server!')
 
         embed = utils.create_embed(
             ctx.author,
@@ -459,7 +472,7 @@ class Info(commands.Cog, name='Information'):
             url=message.jump_url,
         )
 
-        images = [a.url for a in message.attachments if a.content_type.startswith('image')]
+        images = [a.url for a in message.attachments if a.content_type and a.content_type.startswith('image')]
 
         embed.set_author(name=message.author, icon_url=utils.fix_url(message.author.display_avatar))
 
@@ -467,10 +480,10 @@ class Info(commands.Cog, name='Information'):
 
         embed.add_field(name='Attachments:', value=attachments, inline=False)
 
-        if message.reference:
+        if message.reference and message.reference.message_id:
             try:
                 replied = await message.channel.fetch_message(message.reference.message_id)
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            except (NotFound, Forbidden, HTTPException):
                 replied = None
 
             if replied:
@@ -478,17 +491,17 @@ class Info(commands.Cog, name='Information'):
                     name='Replied Message:',
                     value=f'ID: {replied.id}\n'
                           f'Author: {replied.author.mention}\n'
-                          f'Content: {replied.content[:100] or "*No content*"}\n'
+                          f'Content: {replied.content[:100] or '*No content*'}\n'
                           f'[Jump to Message]({replied.jump_url})'
                 )
 
         embed.add_field(
             name='Info:',
             value=f'ID: {message.id}\n'
-                  f'Channel: {message.channel.mention} ({message.channel.id})\n'
+                  f'Channel: <#{message.channel.id}> ({message.channel.id})\n'
                   f'Created at: {utils.user_friendly_dt(message.created_at)}\n'
                   f'{len(message.mentions)} members mentioned\n'
-                  f'Stickers: {(", ".join([f"[{s}]({s.url})" for s in message.stickers]) or "No stickers")}\n'
+                  f'Stickers: {(', '.join([f'[{s}]({s.url})' for s in message.stickers]) or 'No stickers')}\n'
                   f'Embeds: {len(message.embeds)} embeds',
             inline=False
         )
@@ -497,175 +510,88 @@ class Info(commands.Cog, name='Information'):
 
         await ctx.send(embeds=[embed] + image_embeds)
 
-    @commands.guild_only()
-    @commands.cooldown(1, 60, commands.BucketType.guild)
-    @commands.command(aliases=['listchannel'])
-    async def channels(self, ctx: utils.CustomContext):
-        """Lists all the channels in the server! They will be sent to your DMs!"""
+    @commands.hybrid_command(aliases=['colour'])
+    @app_commands.describe(colors='The color name or a member/role to get colors of')
+    async def color(self, ctx: CustomContext, colors: utils.ColorConverter):
+        """Gets info for a color! You can specify a member, role, or color"""
 
-        paginator = commands.Paginator(prefix='', suffix='', max_size=4000)
-        for channel in ctx.guild.channels:
-            paginator.add_line(
-                f'**Channel:** {channel.mention}\n'
-                f'**Category:** {channel.type.name.title()}\n'
-                f'**ID:** {channel.id}\n'
-            )
+        embeds = []
+        files = []
 
-        try:
-            for i, page in enumerate(paginator.pages):
-                dmembed = utils.create_embed(
-                    ctx.author,
-                    title=f'Listing channels: ({i+1}/{len(paginator.pages)+1})',
-                    description=page
-                )
+        for i, color in enumerate(colors):
+            buffer = await self.bot.loop.run_in_executor(None, utils.solid_color_image, color.to_rgb())
+            files.append(File(filename=f'color{i+1}.png', fp=buffer))
 
-                await ctx.author.send(embed=dmembed)
-
-        except (discord.Forbidden, discord.HTTPException):
             embed = utils.create_embed(
                 ctx.author,
-                color=discord.Color.red(),
-                title='Error!',
-                description='The bot can\'t DM you! Make sure that your DMs are open!'
-            )
-            await ctx.send(embed=embed)
-            return ctx.command.reset_cooldown(ctx)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title='Done!',
-            description='All channels have been sent to your DMs!'
-        )
-
-        await ctx.send(embed=embed)
-
-    @commands.guild_only()
-    @commands.cooldown(1, 60, commands.BucketType.guild)
-    @commands.command(aliases=['listemote', 'listemojis', 'listemoji'])
-    async def emotes(self, ctx: utils.CustomContext):
-        """Lists all the emotes in the server! They will be sent to your DMs!"""
-
-        paginator = commands.Paginator(prefix='', suffix='', max_size=4000)
-        for emoji in ctx.guild.emojis:
-            paginator.add_line(
-                f'**Emote:** {emoji}\n'
-                f'**Name:** {emoji.name}\n'
-                f'**ID:** {emoji.id}\n'
+                title=f'Info for color #{i+1}:',
+                color=color,
+                thumbnail=f'attachment://color{i+1}.png'
             )
 
-        try:
-            for i, page in enumerate(paginator.pages):
-                embed = utils.create_embed(
-                    ctx.author,
-                    title=f'Listing emotes: ({i+1}/{len(paginator.pages)+1})',
-                    description=page
-                )
+            embed.add_field(name='Hex:', value=f'`{color}`')
+            embed.add_field(name='Int:', value=f'`{str(color.value).zfill(8)}`')
+            embed.add_field(name='RGB:', value=f'`{color.to_rgb()}`')
+            embeds.append(embed)
 
-                await ctx.author.send(embed=embed)
+        await ctx.send(files=files, embeds=embeds)
 
-        except (discord.Forbidden, discord.HTTPException):
-            embed = utils.create_embed(
-                ctx.author,
-                color=discord.Color.red(),
-                title='Error!',
-                description='The bot can\'t DM you! Make sure that your DMs are open!'
-            )
-            await ctx.send(embed=embed)
-            return ctx.command.reset_cooldown(ctx)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title='Done!',
-            description='All emotes have been sent to your DMs!'
-        )
-
-        await ctx.send(embed=embed)
-
-    @commands.command(aliases=['colour'])
-    async def color(self, ctx: utils.CustomContext, *, color: Union[Color, Role, Member]):
-        """Gets info for a color! You can specify a member, role, or color.
-        Use the formats: `0x<hex>`, `#<hex>`, `0x#<hex>`, or `rgb(<num>, <num>, <num>)`"""
-
-        alias = ctx.invoked_with.lower()
-
-        color = color if isinstance(color, Color) else color.color
-
-        buffer = await self.bot.loop.run_in_executor(None, utils.solid_color_image, color.to_rgb())
-        file = discord.File(filename="color.png", fp=buffer)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Info for {alias}:',
-            color=color,
-            thumbnail="attachment://color.png"
-        )
-
-        embed.add_field(name='Hex:', value=f'`{color}`')
-        embed.add_field(name='Int:', value=f'`{str(color.value).zfill(8)}`')
-        embed.add_field(name='RGB:', value=f'`{color.to_rgb()}`')
-
-        await ctx.send(file=file, embed=embed)
-
+    @commands.hybrid_command(aliases=['domain'])
     @commands.cooldown(1, 10, commands.BucketType.user)
-    @commands.command(aliases=['domain'])
-    async def whois(self, ctx: utils.CustomContext, domain: Union[Member, User, str]):
+    @app_commands.describe(domain='The domain to get a WHOIS lookup for')
+    async def whois(self, ctx: CustomContext, domain: str):
         """Does a WHOIS lookup on a domain!"""
 
-        async with ctx.channel.typing():
-            embed = await self.bot.loop.run_in_executor(None, sync_whois, ctx, domain)
+        embed = await self.bot.loop.run_in_executor(None, sync_whois, ctx, domain)
         await ctx.send(embed=embed)
 
+    @commands.hybrid_command(aliases=['emotes', 'listemojis'], guild_only=True)
+    @app_commands.allowed_installs(users=False)
     @commands.cooldown(1, 10, commands.BucketType.user)
-    @commands.command(aliases=['wiki'])
-    async def wikipedia(self, ctx: utils.CustomContext, *, search):
-        """Looks up Wikipedia articles by their title!"""
+    async def listemotes(self, ctx: CustomContext):
+        """List all custom emotes in this server!"""
+        if not ctx.guild:
+            return
 
-        try:
-            page = await self.wiki.page(search)
-            summary = await self.wiki.summary(page.title)
-        except Exception:
-            embed = utils.create_embed(
-                ctx.author,
-                title=f'No results found for "{search}"!',
-                description='Try to search something else!',
-                color=discord.Color.red()
-            )
-            return await ctx.send(embed=embed)
+        if not ctx.guild.emojis:
+            raise utils.DoggieBotException('No emotes!', 'This server has no custom emotes to show.')
 
-        image = await self.wiki.image(page.title)
-        extract = (summary.extract[:3900] + '...') if len(summary.extract) > 3900 else summary.extract
+        view = EmotesView(ctx.author, ctx.guild.emojis)
 
-        embed = utils.create_embed(
-                ctx.author,
-                title=summary.title,
-                description=extract
-            )
+        await ctx.send(view=view, ephemeral=True, **await view.get_page_contents())
 
-        if summary.thumbnail:
-            embed.set_thumbnail(url=summary.thumbnail.source)
+    @commands.hybrid_command(aliases=['channels'], guild_only=True)
+    @app_commands.allowed_installs(users=False)
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def listchannels(self, ctx: CustomContext):
+        """List all channels in this server!"""
+        if not ctx.guild:
+            return
 
-        await ctx.send(embed=embed)
+        if not ctx.guild.channels:
+            raise utils.DoggieBotException('No channels!', 'This server has no channels to show... somehow?')
 
-    @commands.command(aliases=['id'])
-    async def snowflake(self, ctx: utils.CustomContext, id: int):
+        view = ChannelsView(ctx.author, ctx.guild.channels)
+
+        await ctx.send(view=view, ephemeral=True, **await view.get_page_contents())
+
+    @commands.hybrid_command(aliases=['id'])
+    @app_commands.describe(_id='The Discord ID to get info of')
+    @app_commands.rename(_id='id')
+    async def snowflake(self, ctx: CustomContext, _id: str = commands.parameter(displayed_name='id')):
         """Gets creation date for a Discord snowflake"""
 
         try:
-            time = discord.utils.snowflake_time(id)
+            time = snowflake_time(int(_id))
             embed = utils.create_embed(
                 ctx.author,
                 title='Snowflake info:',
-                description=f'**ID:** {id}\n'
+                description=f'**ID:** {_id}\n'
                             f'**Creation Date:** {utils.user_friendly_dt(time)}'
             )
 
-        except OSError:
-            embed = utils.create_embed(
-                ctx.author,
-                title='Invalid ID!',
-                description='The snowflake ID was invalid.',
-                color=discord.Color.red()
-            )
+        except OSError as e:
+            raise utils.DoggieBotException('Invalid ID!', 'The snowflake ID was invalid.') from e
 
         await ctx.send(embed=embed)
 

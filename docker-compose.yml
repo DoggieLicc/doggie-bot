@@ -1,9 +1,7 @@
 services:
   doggie-bot:
-    image: git.doggieli.cc/doggie/doggie-bot:latest
+    build: .
     container_name: doggie-bot
-    restart: unless-stopped
-
     volumes:
       - ./data:/data
 
