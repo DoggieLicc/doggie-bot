@@ -23,7 +23,7 @@ def format_first_message(ctx):
               f'[user] - User is an optional argument\n'
               f'<users...> - You can specify more than one user\n'
               f'[amount=100] - Amount is optional, and 100 is the default\n'
-              f'̶c̶o̶m̶m̶a̶n̶d - You can\'t run this command\n'
+              f'̶c̶o̶m̶m̶a̶n̶d - You can\'t run this command here\n'
               f'```\n'
               f'**This bot also supports slash commands, type `/` to view available commands**'
     )
@@ -209,11 +209,16 @@ class CustomHelp(commands.HelpCommand):
             description=cog.description
         )
 
-        for command in cog.get_commands():
+        def command_sorter(command: commands.Command | commands.Group) -> int:
+            if isinstance(command, commands.Group):
+                return 200 + ord(command.name[0])
+            return ord(command.name[0])
+
+        for command in sorted(cog.get_commands(), key=command_sorter):
             if isinstance(command, (commands.Group, commands.HybridGroup)):
-                for subcommand in command.commands:
+                for subcommand in sorted(command.commands, key=command_sorter):
                     if isinstance(subcommand, (commands.Group, commands.HybridGroup)):
-                        for subsubcommand in subcommand.commands:
+                        for subsubcommand in sorted(subcommand.commands, key=command_sorter):
                             embed.add_field(
                                 name=await self.strikethrough_if_invalid(subsubcommand),
                                 value=subsubcommand.short_doc,
