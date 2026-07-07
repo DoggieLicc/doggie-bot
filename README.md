@@ -1,9 +1,9 @@
 [![Discord](https://discord.com/api/guilds/1298552274896949339/widget.png?style=shield)](https://discord.gg/d7dgReCnRR)
 
 # doggie-bot
-A multipurpose bot that combines Info Bot, Mini Mod, and Reminder Friend's commands, and more.
+A multipurpose bot with moderation, utility, reminder, image commands, and more.
 
-This bot runs on the master branch of [discord.py](https://github.com/Rapptz/discord.py)
+This bot runs on [discord.py](https://github.com/Rapptz/discord.py)
 
 ## Invite this bot:
 [Invite Link](https://discord.com/oauth2/authorize?client_id=930596365426360421), it's recommended to not remove any permissions, as some or all commands may stop working
@@ -19,7 +19,7 @@ This bot runs on the master branch of [discord.py](https://github.com/Rapptz/dis
 4. Use the `docker-compose.yml` file as a template, and fill in the `BOT_TOKEN` variable with your bot token (or in a `.env` file)
     - You must also set `OSU_CLIENT_ID`, `OSU_CLIENT_SECRET`, `UNSPLASH_API_KEY`, and `SAUCENAO_API_KEY` if you want those commands to work
 
-5. Use `docker compose up -d` to start the bot, and have fun!
+5. Use `docker compose up -d --build` to start the bot, and have fun!
 
 ## Hosting guide:
 
@@ -27,7 +27,7 @@ This bot runs on the master branch of [discord.py](https://github.com/Rapptz/dis
 
 2. Make sure to enable member intents too. - [Example](https://discordpy.readthedocs.io/en/latest/intents.html#privileged-intents)
 
-3. Install python 3.8 or higher if you don't have it already. - [Download](https://www.python.org/downloads/)
+3. Install python 3.14 or higher if you don't have it already. - [Download](https://www.python.org/downloads/)
 
 4. Install dependencies in `requirements.txt`
     - You should probably make a venv first
@@ -43,6 +43,7 @@ This bot runs on the master branch of [discord.py](https://github.com/Rapptz/dis
 
 ## How to use this bot:
 Use `doggie.command` to use a command.
+You can also use slash commands.
 
 Most commands also need you to put an argument after the command, such as `doggie.user @Doggie`
 You will know which arguments to put in a command by looking at its command signature!
@@ -54,173 +55,3 @@ You will know which arguments to put in a command by looking at its command sign
 [amount=100] - Amount is optional, and 100 is the default
 ̶c̶o̶m̶m̶a̶n̶d - You can't run this command
 ```
-
-## Information commands:
-
-**server**: Lists info for the current guild
-
-**user - [user]**: Shows information about the user specified, if no user specified then it returns info for invoker
-
-**avatar - [user]**: Shows user's avatar using their ID or name
-
-**invite - \<invite>**: Shows info for an invite using a invite URL or its code
-
-**channel - \<channel>**: Shows info for the channel specified using channel mention or ID
-
-**role - \<role>**: Shows info for the role specified using role mention or ID
-
-**emote - \<emoji>**: Shows info of emote using the emote ID or emote itself
-
-**token - \<token>**: Shows info of an account/bot token! (Don't use valid tokens in public servers!)
-
-**message - \<message>**: Gets information for a Discord Message!
-
-**channels**: Lists all the channels in the server! They will be sent to your DMs!
-
-**emotes**: Lists all the emotes in the server! They will be sent to your DMs!
-
-**color - \<color>**: Gets info for a color! You can specify a member, role, or color.
-
-**whois - \<domain>**: Does a WHOIS lookup on a domain!
-
-**wikipedia - \<search>**: Looks up Wikipedia articles by their title!
-
-**snowflake - \<id>**: Gets creation date for a Discord snowflake
-
-## Moderation commands:
-
-**ban - \<users>... [reason]**: Ban members who broke the rules! You can specify multiple members in one command.
-
-**unban - \<users>... [reason]**: Unban banned users with their User ID, you can specify multiple people to be unbanned.
-
-**softban - \<members>... [reason]**: Bans then unbans the specified users, which deletes their recent messages and 'kicks' them.
-
-**kick - \<members>... [reason]**: Kick members who broke the rules! You can specify multiple members in one command.
-
-**timeout - [members]... [duration]... [reason=No reason specified]**: Puts specified members in timeout! You can specify multiple members in one command.
-
-**untimeout - [members]... [reason=No reason specified]**: Removes timeout from members!
-
-**rename - [members]... \<nickname>**: Renames users to a specified name
-
-**mute - [members]... [reason=No reason specified]**: Gives the configured mute role to members!
-
-**unmute - [members]... [reason=No reason specified]**: Removes the configured mute role from members!
-
-**purge - [users]... [amount=20]**: Deletes multiple messages from the current channel, you can specify users that it will delete messages from.
-
-**asciify - [members]...**: Replace weird unicode letters in nicknames with normal ASCII text!
-
-**snipe - [channel] [user]**: Shows recent deleted messages! You can specify an user to get deleted messages from.
-
-## Reminder commands:
-
-**remind - \<duration> [channel] \<reminder>**: Add a reminder to be sent to you or a channel after a specified duration!
-
-**reminders**: Shows your active reminders that you made!
-
-**cancel - \<reminder_id>**: Cancels and deletes a reminder using its ID!
-
-## Misc commands:
-
-**info**: Shows information for the bot!
-
-**suggest - \<suggestion>**: Send a suggestion or bug report to the bot owner!
-
-**source - [command]**: Look at the code of this bot!
-
-## Games commands:
-
-**minecraft - \<account>**: Gets info of minecraft accounts using current username or their UUID
-
-**osu account - \<account> [gamemode=osu]**: Gets info of an osu! account by its name. Can also specify a gamemode to get stats for
-
-**osu beatmap - \<beatmap>**: Gets a beatmap from a beatmap ID! (Not a beatmap set, an individual beatmap)
-
-## Utility commands:
-
-**recentjoins**: Shows the most recent joins in the current server
-
-**selfbot**: Creates a fake Nitro giveaway to catch a selfbot (Automated user accounts which auto-react to giveaways)
-
-**hoisters - \<subcommand>**: Shows a list of members who have names made to 'hoist' themselves to the top of the member list!
-
-**send - \<channel> \<flags>**: Send a custom webhook message to specified channel, you and this bot need permissions to manage webhooks in that channel
-
-**steal - [emotes]...**: Adds the specified emotes to your server!
-
-**newacc**: Shows the newest accounts in this server!
-
-**saucenao - [image]**: Gets the source of an image using SauceNAO, usually for art. Most anime databases are disabled. :3
-
-## Images commands:
-
-**invert - [image]**: Inverts the colors of a specified image!
-
-**greyscale - [image]**: Greyscale the specified image!
-
-**deepfry - [image]**: Deepfry the specified image!
-
-**blur - [image] [strength=5]**: Blurs the specified image!
-
-**noise - [image] [strength=50]**: Adds noise to specified image! Strength should be in between 0 and 100
-
-**brighten - [image] [strength=1.25]**: Brightens specified image! Passing in an strength less than 1 will darken it instead
-
-**contrast - [image] [strength=1.25]**: Adds contrast to specified image! Passing in an strength less than 1 will lower it instead
-
-**impact - [image] \<top_text> [bottom_text]**: Adds text with impact font to specified image!
-
-**rotate - [image] [angle=90]**: Rotates an image! Positive number for clockwise, negative for counter-clockwise
-
-**pride - [image] [transparency=50]**: Adds the pride rainbow to image!
-
-**gay - [image] [transparency=50]**: Adds the gay flag to image!
-
-**transgender - [image] [transparency=50]**: Adds the transgender flag to image!
-
-**bisexual - [image] [transparency=50]**: Adds the bisexual flag to image!
-
-**lesbian - [image] [transparency=50]**: Adds the lesbian flag to image!
-
-**asexual - [image] [transparency=50]**: Adds the asexual flag to image!
-
-**pansexual - [image] [transparency=50]**: Adds the pansexual flag to image!
-
-**nonbinary - [image] [transparency=50]**: Adds the non-binary flag to image!
-
-**gnc - [image] [transparency=50]**: Adds the gender nonconforming flag to image!
-
-**aromantic - [image] [transparency=50]**: Adds the aromantic flag to image!
-
-**genderqueer - [image] [transparency=50]**: Adds the genderqueer flag to image!
-
-## Configuration commands:
-
-**config - \<subcommand>**: Shows the current configuration for this server!
-
-**logging - \<flags>...**: Sets the log channels for this server! `help logging` for help with flags format
-
-## Random commands:
-
-**random color**: Shows a random color!
-
-**random member - [include_bots=False]**: Shows a random member from this server!
-
-**unsplash random**: Gets a random photo from the Unsplash API!
-
-**fox**: Gets a random fox from randomfox.ca
-
-**duck**: Gets a random duck from random-d.uk
-
-**dog**: Gets a random dog from random.dog
-
-**hug - [user]**: Get picture of furries hugging, because why not?
-
-**boop - [user]**: Get picture of furries booping eachother, because why not?
-
-**hold - [user]**: Get picture of furries holding eachother, because why not?
-
-**kiss - [user]**: Get picture of furries kissing, because why not?
-
-**lick - [user]**: Get picture of furries licking eachother, because why not?

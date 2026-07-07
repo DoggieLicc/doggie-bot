@@ -65,7 +65,7 @@ async def startup():
     discord.utils.setup_logging(handler=InterceptHandler())
 
     bot = utils.CustomBot(
-        activity=discord.Game(name='Default prefixes: "@Doggie Bot" or "doggie." (Or use slash commands!)'),
+        activity=discord.Game(name='SLASH COMMANDS UPDATE!: /changelog - Default prefixes: "@Doggie Bot" or "dog."'),
         allowed_mentions=discord.AllowedMentions.none(),
         command_prefix=utils.CustomBot.get_custom_prefix,
         help_command=utils.CustomHelp(),

@@ -2,9 +2,8 @@ services:
   doggie-bot:
     build: .
     container_name: doggie-bot
-
     volumes:
-      - ./data2:/data
+      - ./data:/data
 
     env_file: .env
 
