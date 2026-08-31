@@ -159,6 +159,8 @@ class CustomBot(commands.Bot):
         self.config['osu_client_id'] = yaml_config.get('osu_client_id') or os.getenv('OSU_CLIENT_ID') or 0
         self.config['unsplash_api_key'] = yaml_config.get('unsplash_api_key') or os.getenv('UNSPLASH_API_KEY')
         self.config['saucenao_api_key'] = yaml_config.get('saucenao_api_key') or os.getenv('SAUCENAO_API_KEY')
+        self.config['e621_username'] = yaml_config.get('e621_username') or os.getenv('E621_USERNAME')
+        self.config['e621_api_key'] = yaml_config.get('e621_api_key') or os.getenv('E621_API_KEY')
         self.config['data_dir'] = yaml_config.get('data_dir') or os.getenv('DATA_DIR') or '/data'
         self.config['prometheus_port'] = yaml_config.get('prometheus_port') or os.getenv('PROMETHEUS_PORT') or 8000
         self.config['enable_prometheus'] = yaml_config.get('enable_prometheus') or os.getenv('ENABLE_PROMETHEUS') or False

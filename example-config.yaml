@@ -3,5 +3,7 @@ osu_client_id: # osu client id here
 osu_client_secret: # osu client secret here
 unsplash_api_key: # Unsplash api key here
 saucenao_api_key: # Saucenao api key here
+e621_username: # e621 username here
+e621_api_key: # e621 api key here
 
 data_dir: /data

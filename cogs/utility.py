@@ -170,7 +170,7 @@ class UtilityCog(commands.Cog, name='Utility'):
         await ctx.defer(ephemeral=True)
 
         members = sorted(ctx.guild.members, key=lambda m: m.joined_at, reverse=True)[:100]
-        view = RecentJoinsMenu(ctx.author, members, 10)
+        view = RecentJoinsMenu(ctx.author, members, 5)
 
         await ctx.send(view=view, **await view.get_page_contents())
 
@@ -227,7 +227,7 @@ class UtilityCog(commands.Cog, name='Utility'):
         if not hoisters:
             raise utils.DoggieBotException('No hoisters found!', 'There weren\'t any members with odd starting characters found!')
 
-        view = HoistersMenu(ctx.author, hoisters, 10)
+        view = HoistersMenu(ctx.author, hoisters, 5)
 
         await ctx.send(view=view, **await view.get_page_contents(), ephemeral=True)
 
@@ -314,7 +314,7 @@ class UtilityCog(commands.Cog, name='Utility'):
             return None
 
         members = sorted(ctx.guild.members, key=lambda m: m.created_at, reverse=True)[:200]
-        view = RecentAccounts(ctx.author, members, 10)
+        view = RecentAccounts(ctx.author, members, 5)
         await ctx.send(view=view, **await view.get_page_contents(), ephemeral=True)
 
     @commands.hybrid_command(aliases=['sauce', 'saucenow'])
