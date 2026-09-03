@@ -291,6 +291,8 @@ class Misc(commands.Cog, name='Misc'):
         """e621 related commands"""
 
     @e621.command()
+    @commands.is_nsfw()
+    @commands.cooldown(2, 1, commands.BucketType.default)
     @app_commands.describe(username='The e621 username of who you want to check')
     async def favoritetags(self, ctx: CustomContext, username: str):
         """Get the most common tags in an e621 user's favorites"""
@@ -308,6 +310,8 @@ class Misc(commands.Cog, name='Misc'):
         await ctx.send(view=view, **await view.get_page_contents())
 
     @e621.command()
+    @commands.is_nsfw()
+    @commands.cooldown(2, 1, commands.BucketType.default)
     @app_commands.describe(username='The e621 username of who you want to check')
     async def favoriteartists(self, ctx: CustomContext, username: str):
         """Get the most common artists in an e621 user's favorites"""
