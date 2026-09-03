@@ -85,7 +85,7 @@ class Games(commands.GroupCog, group_name='game', name='Games'):
 
     @commands.hybrid_group()
     async def osu(self, _):
-        return
+        """Get information on osu! accounts and beatmaps"""
 
     @osu.command(aliases=['user'])
     @commands.cooldown(15, 60, commands.BucketType.user)

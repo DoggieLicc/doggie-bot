@@ -445,11 +445,11 @@ class Images(commands.Cog, group_name='image'):
 
     @commands.hybrid_group()
     async def image(self, _):
-        return
+        """Commands to modify images"""
 
     @image.group()
     async def pride(self, _):
-        return
+        """Add specific pride color overlays on images!"""
 
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
         if isinstance(error, UnidentifiedImageError):

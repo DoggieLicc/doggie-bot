@@ -222,7 +222,7 @@ class RandomCog(commands.Cog, name='Random'):
 
     @random.group()
     async def furry(self, _):
-        pass
+        """Commands to get random images of furries doing things! (SFW)"""
 
 async def setup(bot: utils.CustomBot):
     await bot.add_cog(RandomCog(bot))
