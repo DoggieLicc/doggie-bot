@@ -1,6 +1,3 @@
-import base64
-import datetime
-
 from discord import Emoji, Member, Role, User, app_commands, File, Thread, Invite, Message, TextChannel, VoiceChannel, StageChannel, NotFound, Forbidden, HTTPException
 from discord.ext import commands
 from discord.abc import GuildChannel
@@ -409,52 +406,6 @@ class Info(commands.Cog, name='Information'):
         embed.add_field(name='Created at:', value=utils.user_friendly_dt(emote.created_at), inline=False)
 
         await ctx.send(embed=embed)
-
-    @commands.hybrid_command()
-    @app_commands.describe(token='The Discord account token to get info for')
-    async def token(self, ctx: CustomContext, token: str):
-        """Shows info of an account/bot token!"""
-
-        tokens = token.split('.', 2)
-        if len(tokens) != 3:
-            raise utils.DoggieBotException('Invalid token!', 'The specified token is not a valid Discord token')
-
-        # pylint: disable=broad-exception-caught
-        try:
-            user = await self.bot.fetch_user(int(base64.b64decode(tokens[0])))
-            bytes_int = base64.urlsafe_b64decode(tokens[1] + '==')
-            bytes_decoded = int.from_bytes(bytes_int, 'big')
-        except Exception as e:
-            raise utils.DoggieBotException('Invalid token!', 'The specified token is not a valid Discord token') from e
-
-        time = datetime.datetime.utcfromtimestamp(bytes_decoded)
-
-        if time.year < 2015:
-            time = datetime.datetime.utcfromtimestamp(bytes_decoded + 1293840000)
-
-        embed = utils.create_embed(
-            ctx.author,
-            title=f'Info for {user.name}\'s token!',
-            thumbnail=user.display_avatar,
-            image=user.banner
-        )
-
-        embed.add_field(
-            name='Token Info:',
-            value=f'**Token:** {'.'.join(tokens)}\n'
-                  f'**Creation Date:** {utils.user_friendly_dt(time)}',
-            inline=False
-        )
-
-        embed.add_field(
-            name='User Info:',
-            value=f'**Name:** {user}\n'
-                  f'**ID:** {user.id}\n'
-                  f'**Is bot?:** {'Yes' if user.bot else 'No'}\n'
-                  f'**Created at:** {utils.user_friendly_dt(user.created_at)}'
-        )
-
-        await ctx.send(embed=embed, ephemeral=True)
 
     @commands.hybrid_command(aliases=['msg'])
     @app_commands.allowed_installs(users=False)
