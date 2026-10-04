@@ -11,7 +11,7 @@ import discord
 from discord.ext import commands
 from discord.utils import escape_markdown
 from discord import app_commands
-from mojang import API as Mojang
+from mojang import API as Mojang, NotFound
 from loguru import logger
 
 from osu import OsuApi, OsuApiException
@@ -71,8 +71,10 @@ def sync_minecraft(ctx, account):
 
         profile = mojang_api.get_profile(str(uuid))
         if not profile:
-            raise utils.DoggieBotException('Account not found!', 'Couldn\'t find a Minecraft account with this name.')
+            raise utils.DoggieBotException('Account not found!', 'Unable to find a Java Minecraft account with that name/uuid')
 
+    except NotFound as e:
+        raise utils.DoggieBotException('Account not found!', 'Unable to find a Java Minecraft account with that name/uuid') from e
     # pylint: disable=broad-exception-caught
     except Exception as e:
         raise utils.DoggieBotException('Lookup error!', 'Lookup failed. (Mojang API down?)') from e
