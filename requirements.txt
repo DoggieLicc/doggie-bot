@@ -1,9 +1,10 @@
 PyYAML==6.0.3
-pillow==12.2.0
-whoisdomain==1.20260326.1
+pillow~=12.3.0
+whoisdomain==2.20260806.3
 mojang==1.1.0
-aiohttp==3.14.1
+aiohttp~=3.14.3
 discord.py==2.7.1
 loguru~=0.7.3
-
+pandas~=3.0.6
+matplotlib~=3.11.2
 git+https://github.com/DoggieLicc/discord.py-ext-prometheus@main#egg=discord-ext-prometheus

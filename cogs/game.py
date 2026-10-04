@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 
 import discord
 from discord.ext import commands
-from discord import app_commands, Embed
+from discord.utils import escape_markdown
+from discord import app_commands
 from mojang import API as Mojang
 from loguru import logger
 
@@ -214,7 +215,7 @@ class Games(commands.GroupCog, group_name='game', name='Games'):
             image=beatmap_set.covers['cover'] or None,
             url=beatmap.url,
             thumbnail='attachment://' + plot_img.filename,
-            title=f'Showing info for osu! beatmap set!:',
+            title='Showing info for osu! beatmap set!:',
             description=f'**Title:** {beatmap_set.title}\n'
                         f'**Description:** {beatmap_set.description or 'No description'}\n'
                         f'**Beatmap set ID:** {beatmap_set.id}\n'
