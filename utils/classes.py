@@ -237,6 +237,9 @@ class CustomBot(commands.Bot):
             info = await self.application_info()
             self.owner_id = info.owner.id
 
+            if info.team:
+                self.owner_id = info.team.owner_id
+
         return await self.fetch_user(self.owner_id or list(self.owner_ids if self.owner_ids else [])[0])
 
     async def load_reminders(self):
