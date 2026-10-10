@@ -10,6 +10,7 @@ from loguru import logger
 
 import utils
 from utils import CustomBot, CustomContext
+from utils.classes import DoggieBotException
 from utils.menus import CustomView
 
 
@@ -355,8 +356,15 @@ class UtilityCog(commands.Cog, name='Utility'):
         }
 
         async with self.bot.session.get(BASE_URL, params=params) as resp:
-            data = await resp.json()
-            results = data['results']
+            data: dict = await resp.json()
+            results = data.get('results', None)
+
+
+        if results is None:
+            raise DoggieBotException('Invalid image!', 'The attachment or url given is not a valid image (hint: Discord CDN links expire, copying it will get a fresh one)')
+
+        if not results:
+            raise DoggieBotException('No results found!', 'No results were found for this image')
 
         view = SauceMenu(ctx.author, results, 1)
 
